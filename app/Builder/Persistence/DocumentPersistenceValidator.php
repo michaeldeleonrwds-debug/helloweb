@@ -46,6 +46,39 @@ final readonly class DocumentPersistenceValidator
     {
         $children = array_map(fn (array $child): array => $this->normalizeNode($child), $node['children'] ?? []);
 
+        if (($node['type'] ?? null) === 'layout.root') {
+            $node['children'] = array_map(function (array $child, int $index): array {
+                if (($child['type'] ?? null) === 'layout.section') {
+                    return $child;
+                }
+
+                return [
+                    'id' => $child['id'].'-migration-section-'.$index,
+                    'type' => 'layout.section',
+                    'props' => [],
+                    'styles' => [],
+                    'children' => [[
+                        'id' => $child['id'].'-migration-row-'.$index,
+                        'type' => 'layout.row',
+                        'props' => [],
+                        'styles' => [],
+                        'children' => [[
+                            'id' => $child['id'].'-migration-column-'.$index,
+                            'type' => 'layout.column',
+                            'props' => [],
+                            'styles' => [],
+                            'children' => [$child],
+                            'metadata' => [],
+                        ]],
+                        'metadata' => [],
+                    ]],
+                    'metadata' => [],
+                ];
+            }, $children, array_keys($children));
+
+            return $node;
+        }
+
         if (($node['type'] ?? null) !== 'layout.section') {
             $node['children'] = $children;
 
@@ -53,7 +86,7 @@ final readonly class DocumentPersistenceValidator
         }
 
         $node['children'] = array_map(function (array $child, int $index): array {
-            if (($child['type'] ?? null) === 'layout.row') {
+            if (in_array($child['type'] ?? null, ['layout.row', 'layout.container'], true)) {
                 return $child;
             }
 

@@ -11,6 +11,8 @@ The page-first Builder composition correction is complete: PAGE -> SECTION -> RO
 
 ## Completed
 
+- Corrected Builder workspace presentation: stable side panels, a shrinkable center scroll container, webpage-as-canvas rendering, viewport-independent zoom, measured fit-to-workspace behavior, natural page minimum height, and independent vertical/horizontal workspace scrolling.
+
 - Audited project structure, dependency versions, routes, models, migrations, React pages/components, tests, and ContextOS.
 - Created `AGENTS.md` with permanent framework-development rules.
 - Updated ContextOS baseline: `PRD.md`, `ARCHITECTURE.md`, `PLAN.md`, `CONSTRAINTS.md`, `DECISIONS.md`, `STATUS.md`, `HANDOFF.md`.
@@ -81,7 +83,7 @@ The page-first Builder composition correction is complete: PAGE -> SECTION -> RO
 
 ## In Progress
 
-- None.
+- Browser and PHP validation are pending local environment access.
 
 ## Blocked
 
@@ -93,18 +95,18 @@ Start PHASE 10 — PREVIEW AND PUBLISHING. Do not implement deployment, domains,
 
 ## Validation
 
-Focused editor tests: pass - `npm run test:builder-editor`
+Focused editor tests: failed - bundle runs, but `scripts/builder-editor-tests.ts:40` reports expected 2 children and received 1; this assertion is in document-operation coverage outside the canvas presentation change.
 Focused Phase 9 tests: pass - `vendor\bin\phpunit.bat --filter "TemplateMediaReusableTest|BuilderPersistenceTest"` - 16 tests, 57 assertions
 Full PHPUnit suite: pass - `vendor\bin\phpunit.bat` passed with 115 tests and 288 assertions
 Typecheck: pass - `npx tsc --noEmit`
-Frontend builder formatting: pass - `npx prettier --check resources/js/builder`
+Frontend builder formatting: pass for touched files - `npx prettier --check resources/js/builder/editor/BuilderBottomBar.tsx resources/js/builder/editor/BuilderCanvas.tsx resources/js/builder/editor/BuilderEditor.tsx`
 Formatting: fail only on pre-existing `resources/js/components/app-header.tsx` and `resources/js/ssr.jsx` - `npm run format:check`
 PHP style: pass for Phase 9 files; the requested broad check reports only pre-existing starter auth files and `tests/Pest.php`
 Unit: pass - focused Phase 9 tests and `npm run test:builder-editor`
 Integration: not-run
 E2E: not-run
-Build: pass - `npm run build` (persisted template/media/reusable builder route included)
-Browser: limited - `/dashboard` and `/builder` checked through the local HTTP stack; interactive browser automation is unavailable in the current tool environment
+Build: pass - `npm run build` with broader filesystem access.
+Browser: not-run - no browser surface is exposed in the current tool environment.
 Production: n/a
 
 ## Git

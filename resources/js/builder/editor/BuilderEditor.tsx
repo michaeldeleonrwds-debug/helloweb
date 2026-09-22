@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useReducer, useState } from 'react';
+import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 
 import type { BuilderBreakpoint, BuilderPageDocument } from '../document';
 import { ComponentTreeEngine } from '../engine/component-tree-engine';
@@ -53,12 +53,40 @@ export function BuilderEditor({
     const [state, dispatch] = useReducer(editorReducer, document, createEditorState);
     const [error, setError] = useState<string | null>(null);
     const [activeBreakpoint, setActiveBreakpoint] = useState<BuilderBreakpoint>(breakpoint);
-    const [zoom, setZoom] = useState(85);
-    const [viewportWidth, setViewportWidth] = useState(1200);
+    const [zoom, setZoom] = useState(100);
+    const [viewportWidth, setViewportWidth] = useState(() => viewportWidthForBreakpoint(breakpoint));
+    const [workspaceWidth, setWorkspaceWidth] = useState(0);
     const [elementPickerParentId, setElementPickerParentId] = useState<string | null>(null);
     const [elementsOpen, setElementsOpen] = useState(true);
     const [inspectorOpen, setInspectorOpen] = useState(true);
+    const undoStack = useRef<BuilderPageDocument[]>([]);
+    const redoStack = useRef<BuilderPageDocument[]>([]);
     const save = useBuilderAutosave(state.document, pageId, initialVersion);
+    const fitToWorkspace = () => {
+        if (!workspaceWidth || !viewportWidth) return;
+        setZoom(Math.min(100, Math.max(10, Math.floor(((workspaceWidth - 24) / viewportWidth) * 100))));
+    };
+    const handleBreakpointChange = (nextBreakpoint: BuilderBreakpoint) => {
+        setActiveBreakpoint(nextBreakpoint);
+        setViewportWidth(viewportWidthForBreakpoint(nextBreakpoint));
+    };
+    const commitDocument = (nextState: ReturnType<typeof createEditorState>) => {
+        undoStack.current.push(state.document);
+        redoStack.current = [];
+        dispatch({ type: 'replaceState', state: nextState });
+    };
+    const undo = () => {
+        const previous = undoStack.current.pop();
+        if (!previous) return;
+        redoStack.current.push(state.document);
+        dispatch({ type: 'setDocument', document: previous });
+    };
+    const redo = () => {
+        const next = redoStack.current.pop();
+        if (!next) return;
+        undoStack.current.push(state.document);
+        dispatch({ type: 'setDocument', document: next });
+    };
 
     useEffect(() => {
         dispatch({ type: 'setDocument', document });
@@ -66,12 +94,14 @@ export function BuilderEditor({
 
     const selectedNode = getSelectedNode(state);
     const selectedDefinition = selectedNode ? registry.get(selectedNode.type) : null;
-    const registeredDefinitions = registry.all().filter((definition) => !['layout.root', 'reusable.instance'].includes(definition.type));
+    const registeredDefinitions = registry
+        .all()
+        .filter((definition) => !['layout.root', 'layout.container', 'reusable.instance'].includes(definition.type));
     const insertionParentIdFor = (type: `${string}.${string}`) => findInsertionParentId(type, selectedNode?.id ?? state.document.root.id);
 
     const run = (operation: () => ReturnType<typeof createEditorState>) => {
         try {
-            dispatch({ type: 'replaceState', state: operation() });
+            commitDocument(operation());
             setError(null);
         } catch (caught) {
             setError(caught instanceof Error ? caught.message : 'The builder operation was rejected.');
@@ -142,12 +172,17 @@ export function BuilderEditor({
                 websiteName={websiteName}
                 pageName={pageName}
                 breakpoint={activeBreakpoint}
-                onBreakpointChange={setActiveBreakpoint}
+                onBreakpointChange={handleBreakpointChange}
                 saveStatus={save.status}
                 saveError={save.error}
                 onRetry={save.retry}
                 onToggleElements={() => setElementsOpen((value) => !value)}
                 onToggleInspector={() => setInspectorOpen((value) => !value)}
+                canUndo={undoStack.current.length > 0}
+                canRedo={redoStack.current.length > 0}
+                onUndo={undo}
+                onRedo={redo}
+                onSave={save.saveNow}
             />
             <div className="flex min-h-0 flex-1">
                 {elementsOpen ? (
@@ -170,7 +205,7 @@ export function BuilderEditor({
                         />
                     </div>
                 ) : null}
-                <main className="flex min-w-0 flex-1 flex-col">
+                <main className="flex min-h-0 min-w-0 flex-1 flex-col">
                     {error ? (
                         <div className="border-destructive/20 bg-destructive/10 text-destructive border-b px-4 py-2 text-xs" role="alert">
                             {error}
@@ -209,12 +244,17 @@ export function BuilderEditor({
                         reusableDefinitions={reusableDefinitions}
                         zoom={zoom}
                         viewportWidth={viewportWidth}
-                        onInlineTextChange={(nodeId, text) => { run(() => updateEditorProps(state, engine, nodeId, { text })); dispatch({ type: 'endInlineEdit' }); }}
+                        onWorkspaceWidthChange={setWorkspaceWidth}
+                        onInlineTextChange={(nodeId, text) => {
+                            run(() => updateEditorProps(state, engine, nodeId, { text }));
+                            dispatch({ type: 'endInlineEdit' });
+                        }}
                         editingNodeId={state.editingNodeId}
                         onStartInlineEdit={(nodeId) => dispatch({ type: 'startInlineEdit', nodeId })}
                         onEndInlineEdit={() => dispatch({ type: 'endInlineEdit' })}
-                        onInsertContextual={(parentId, type) => run(() => insertEditorComponent(state, engine, parentId, type))}
                         onOpenElementPicker={setElementPickerParentId}
+                        onDuplicateNode={(nodeId) => run(() => duplicateEditorNode(state, engine, nodeId))}
+                        onRemoveNode={(nodeId) => run(() => removeEditorNode(state, engine, nodeId))}
                     />
                 </main>
                 {inspectorOpen ? (
@@ -223,7 +263,7 @@ export function BuilderEditor({
                         definition={selectedDefinition}
                         onChange={(patch) => run(() => updateEditorProps(state, engine, selectedNode?.id ?? '', patch))}
                         breakpoint={activeBreakpoint}
-                        onBreakpointChange={setActiveBreakpoint}
+                        onBreakpointChange={handleBreakpointChange}
                         onStyleChange={(key, value) =>
                             selectedNode && run(() => updateEditorStyles(state, engine, selectedNode.id, activeBreakpoint, { [key]: value }))
                         }
@@ -241,22 +281,48 @@ export function BuilderEditor({
                 zoom={zoom}
                 viewportWidth={viewportWidth}
                 onZoomChange={setZoom}
+                onFitToWorkspace={fitToWorkspace}
                 onViewportWidthChange={setViewportWidth}
-                onBreakpointChange={setActiveBreakpoint}
+                onBreakpointChange={handleBreakpointChange}
             />
             {elementPickerParentId ? (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-6" role="dialog" aria-modal="true" aria-label="Choose an element">
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-6"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label="Choose an element"
+                >
                     <div className="border-border bg-card w-full max-w-md rounded-lg border p-4 shadow-2xl">
                         <div className="mb-3 flex items-center justify-between">
                             <h2 className="text-sm font-semibold">Add element</h2>
-                            <button type="button" className="text-muted-foreground hover:text-foreground text-xs" onClick={() => setElementPickerParentId(null)}>Close</button>
+                            <button
+                                type="button"
+                                className="text-muted-foreground hover:text-foreground text-xs"
+                                onClick={() => setElementPickerParentId(null)}
+                            >
+                                Close
+                            </button>
                         </div>
                         <div className="grid grid-cols-2 gap-2">
-                            {registeredDefinitions.filter((definition) => definition.category !== 'layout' && engine.canAcceptChild(state.document, elementPickerParentId, definition.type)).map((definition) => (
-                                <button key={definition.type} type="button" className="border-border hover:bg-muted rounded-md border px-3 py-2 text-left text-xs" onClick={() => { run(() => insertEditorComponent(state, engine, elementPickerParentId, definition.type)); setElementPickerParentId(null); }}>
-                                    {definition.name}
-                                </button>
-                            ))}
+                            {registeredDefinitions
+                                .filter(
+                                    (definition) =>
+                                        definition.category !== 'layout' &&
+                                        engine.canAcceptChild(state.document, elementPickerParentId, definition.type),
+                                )
+                                .map((definition) => (
+                                    <button
+                                        key={definition.type}
+                                        type="button"
+                                        className="border-border hover:bg-muted rounded-md border px-3 py-2 text-left text-xs"
+                                        onClick={() => {
+                                            run(() => insertEditorComponent(state, engine, elementPickerParentId, definition.type));
+                                            setElementPickerParentId(null);
+                                        }}
+                                    >
+                                        {definition.name}
+                                    </button>
+                                ))}
                         </div>
                     </div>
                 </div>
@@ -274,7 +340,7 @@ export function BuilderEditor({
             return fallback;
         }
 
-        return state.document.root.id;
+        throw new Error(`No valid insertion target is available for ${type}. Add a Section first.`);
     }
 
     function findFirstAcceptingParent(node: BuilderPageDocument['root'], type: `${string}.${string}`): string | null {
@@ -289,6 +355,10 @@ export function BuilderEditor({
 
         return null;
     }
+}
+
+function viewportWidthForBreakpoint(breakpoint: BuilderBreakpoint): number {
+    return breakpoint === 'desktop' ? 1200 : breakpoint === 'tablet' ? 768 : 390;
 }
 
 function containsNode(node: BuilderPageDocument['root'], nodeId: string): boolean {

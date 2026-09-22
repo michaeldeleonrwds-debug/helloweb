@@ -1,4 +1,4 @@
-import { ArrowLeft, ChevronDown, LayoutPanelLeft, Monitor, PanelRight, Smartphone, Tablet } from 'lucide-react';
+import { ArrowLeft, Check, ChevronDown, LayoutPanelLeft, Monitor, PanelRight, Redo2, Smartphone, Tablet, Undo2 } from 'lucide-react';
 
 import type { BuilderBreakpoint } from '../document';
 import type { BuilderSaveStatus } from './use-builder-autosave';
@@ -13,6 +13,11 @@ interface BuilderToolbarProps {
     onRetry: () => void;
     onToggleElements: () => void;
     onToggleInspector: () => void;
+    canUndo: boolean;
+    canRedo: boolean;
+    onUndo: () => void;
+    onRedo: () => void;
+    onSave: () => void;
 }
 
 const devices: { id: BuilderBreakpoint; label: string; icon: typeof Monitor }[] = [
@@ -31,6 +36,11 @@ export function BuilderToolbar({
     onRetry,
     onToggleElements,
     onToggleInspector,
+    canUndo,
+    canRedo,
+    onUndo,
+    onRedo,
+    onSave,
 }: BuilderToolbarProps) {
     return (
         <header className="border-border bg-card text-card-foreground relative z-20 flex h-14 shrink-0 items-center justify-between border-b px-3 shadow-sm">
@@ -71,7 +81,36 @@ export function BuilderToolbar({
             </div>
 
             <div className="flex items-center gap-1.5">
+                <button
+                    type="button"
+                    className="text-muted-foreground hover:bg-muted hover:text-foreground inline-flex size-8 items-center justify-center rounded-md disabled:opacity-40"
+                    aria-label="Undo"
+                    title="Undo"
+                    disabled={!canUndo}
+                    onClick={onUndo}
+                >
+                    <Undo2 className="size-4" />
+                </button>
+                <button
+                    type="button"
+                    className="text-muted-foreground hover:bg-muted hover:text-foreground inline-flex size-8 items-center justify-center rounded-md disabled:opacity-40"
+                    aria-label="Redo"
+                    title="Redo"
+                    disabled={!canRedo}
+                    onClick={onRedo}
+                >
+                    <Redo2 className="size-4" />
+                </button>
                 <SaveIndicator status={saveStatus} error={saveError} onRetry={onRetry} />
+                <button
+                    type="button"
+                    className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-50"
+                    disabled={saveStatus === 'saved' || saveStatus === 'saving'}
+                    onClick={onSave}
+                >
+                    <Check className="size-3.5" />
+                    Save
+                </button>
                 <button
                     type="button"
                     className="text-muted-foreground hover:bg-muted hover:text-foreground hidden size-8 items-center justify-center rounded-md transition lg:inline-flex"

@@ -7,13 +7,22 @@ interface BuilderBottomBarProps {
     zoom: number;
     viewportWidth: number;
     onZoomChange: (zoom: number) => void;
+    onFitToWorkspace: () => void;
     onViewportWidthChange: (width: number) => void;
     onBreakpointChange: (breakpoint: BuilderBreakpoint) => void;
 }
 
 const VIEWPORT_PRESETS = [1920, 1440, 1366, 1280, 1200, 1024, 768, 430, 390, 375, 360] as const;
 
-export function BuilderBottomBar({ breakpoint, zoom, viewportWidth, onZoomChange, onViewportWidthChange, onBreakpointChange }: BuilderBottomBarProps) {
+export function BuilderBottomBar({
+    breakpoint,
+    zoom,
+    viewportWidth,
+    onZoomChange,
+    onFitToWorkspace,
+    onViewportWidthChange,
+    onBreakpointChange,
+}: BuilderBottomBarProps) {
     return (
         <footer className="border-border bg-card text-muted-foreground flex h-11 shrink-0 items-center justify-between border-t px-3 text-xs">
             <div className="flex items-center gap-1">
@@ -43,8 +52,9 @@ export function BuilderBottomBar({ breakpoint, zoom, viewportWidth, onZoomChange
                 <button
                     type="button"
                     className="hover:bg-muted hover:text-foreground ml-1 hidden size-7 items-center justify-center rounded-md transition sm:inline-flex"
-                    aria-label="Fit canvas"
-                    onClick={() => onZoomChange(85)}
+                    aria-label="Fit to workspace"
+                    title="Fit to workspace"
+                    onClick={onFitToWorkspace}
                 >
                     <Scan className="size-3.5" />
                 </button>

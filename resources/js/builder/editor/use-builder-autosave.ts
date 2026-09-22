@@ -9,6 +9,7 @@ interface AutosaveResult {
     error: string | null;
     version: number;
     retry: () => void;
+    saveNow: () => void;
     sync: (document: BuilderPageDocument, version: number) => void;
 }
 
@@ -45,8 +46,17 @@ export function useBuilderAutosave(builderDocument: BuilderPageDocument, pageId:
                 },
                 body: JSON.stringify({ document: snapshot, expected_version: versionRef.current }),
             });
-            const payload = (await response.json()) as { message?: string; save?: { status?: string; version?: number } };
-            if (!response.ok) throw new Error(payload.message ?? 'Unable to save the document.');
+            const payload = (await response.json()) as {
+                message?: string;
+                errors?: Record<string, string[]>;
+                save?: { status?: string; version?: number };
+            };
+            if (!response.ok) {
+                const validationMessage = Object.values(payload.errors ?? {})
+                    .flat()
+                    .join(' ');
+                throw new Error(validationMessage || payload.message || 'Unable to save the document.');
+            }
 
             const nextVersion = payload.save?.version ?? versionRef.current + 1;
             versionRef.current = nextVersion;
@@ -67,7 +77,6 @@ export function useBuilderAutosave(builderDocument: BuilderPageDocument, pageId:
         pendingRef.current = builderDocument;
         if (!pageId || JSON.stringify(builderDocument) === lastSavedRef.current) return;
         setStatus('unsaved');
-        schedule();
 
         return () => {
             if (timerRef.current) clearTimeout(timerRef.current);
@@ -80,6 +89,11 @@ export function useBuilderAutosave(builderDocument: BuilderPageDocument, pageId:
         schedule(0);
     }, [pageId, schedule]);
 
+    const saveNow = useCallback(() => {
+        if (!pageId) return;
+        schedule(0);
+    }, [pageId, schedule]);
+
     const sync = useCallback((nextDocument: BuilderPageDocument, nextVersion: number) => {
         pendingRef.current = nextDocument;
         lastSavedRef.current = JSON.stringify(nextDocument);
@@ -89,5 +103,5 @@ export function useBuilderAutosave(builderDocument: BuilderPageDocument, pageId:
         setError(null);
     }, []);
 
-    return { status, error, version, retry, sync };
+    return { status, error, version, retry, saveNow, sync };
 }

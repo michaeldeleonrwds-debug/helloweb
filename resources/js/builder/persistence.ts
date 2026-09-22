@@ -19,6 +19,7 @@ export interface MediaAsset {
     height?: number | null;
     altText?: string | null;
     status: 'active' | 'archived';
+    url?: string;
 }
 
 export interface MediaReference {

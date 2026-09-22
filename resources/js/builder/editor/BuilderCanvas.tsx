@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useReducer } from 'react';
+import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 
 import type { BuilderBreakpoint, BuilderPageDocument } from '../document';
 import { createBuiltInComponentRegistry } from '../registry/built-ins';
@@ -8,7 +8,7 @@ import { registerBuiltInRenderers } from '../renderer/built-ins';
 import type { RenderContext } from '../renderer/render-context';
 import { ComponentRendererRegistry } from '../renderer/renderer-registry';
 import { resolveReusableReferences, type ReusableComponentDefinition } from '../reusable';
-import { CanvasNode } from './CanvasNode';
+import CanvasNode from './CanvasNode';
 import type { BuilderEditorAction } from './editor-reducer';
 import { editorReducer } from './editor-reducer';
 import { createEditorState, getHoveredNode, getSelectedNode, type BuilderEditorState } from './editor-state';
@@ -52,8 +52,10 @@ interface BuilderCanvasViewProps {
     editingNodeId?: string | null;
     onStartInlineEdit?: (nodeId: string) => void;
     onEndInlineEdit?: () => void;
-    onInsertContextual?: (parentId: string, type: `${string}.${string}`) => void;
     onOpenElementPicker?: (parentId: string) => void;
+    onDuplicateNode?: (nodeId: string) => void;
+    onRemoveNode?: (nodeId: string) => void;
+    onWorkspaceWidthChange?: (width: number) => void;
 }
 
 export function BuilderCanvasView({
@@ -74,9 +76,29 @@ export function BuilderCanvasView({
     editingNodeId,
     onStartInlineEdit,
     onEndInlineEdit,
-    onInsertContextual,
     onOpenElementPicker,
+    onDuplicateNode,
+    onRemoveNode,
+    onWorkspaceWidthChange,
 }: BuilderCanvasViewProps) {
+    const workspaceRef = useRef<HTMLDivElement>(null);
+    const [workspaceWidth, setWorkspaceWidth] = useState(0);
+
+    useEffect(() => {
+        const workspace = workspaceRef.current;
+        if (!workspace) return;
+
+        const updateWidth = () => {
+            const width = workspace.clientWidth;
+            setWorkspaceWidth(width);
+            onWorkspaceWidthChange?.(width);
+        };
+
+        updateWidth();
+        const observer = new ResizeObserver(updateWidth);
+        observer.observe(workspace);
+        return () => observer.disconnect();
+    }, [onWorkspaceWidthChange]);
     const renderedDocument = useMemo(() => {
         const context: RenderContext = {
             breakpoint,
@@ -94,49 +116,52 @@ export function BuilderCanvasView({
 
     const pageIsEmpty = state.document.root.children.length === 0;
 
+    const scale = zoom / 100;
+    const visualPageWidth = resolvedViewportWidth * scale;
+    const fitsWorkspace = workspaceWidth === 0 || visualPageWidth <= workspaceWidth;
+
     return (
-        <div className="builder-canvas bg-muted/60 flex min-h-0 flex-1 items-start justify-start overflow-auto p-0" data-builder-canvas="true">
+        <div ref={workspaceRef} className="builder-canvas bg-muted/60 min-h-0 min-w-0 flex-1 overflow-auto" data-builder-canvas="true">
             <div
-                className="shrink-0 transition-transform duration-200"
-                style={{ width: resolvedViewportWidth, transform: `scale(${zoom / 100})`, transformOrigin: 'top center' }}
+                className={`min-w-full items-start p-3 ${pageIsEmpty ? 'flex min-h-full' : 'flex'} ${fitsWorkspace ? 'justify-center' : 'justify-start'}`}
             >
-                <div className="bg-background min-h-full w-full ring-0">
-                    {pageIsEmpty && onInsertContextual ? (
-                        <div className="p-8">
-                            <button
-                                type="button"
-                                className="border-border text-muted-foreground hover:border-primary hover:text-foreground flex min-h-40 w-full items-center justify-center rounded-md border border-dashed text-sm font-medium transition"
-                                onClick={() => onInsertContextual(state.document.root.id, 'layout.section')}
-                            >
-                                + Add Section
-                            </button>
+                <div className="shrink-0 transition-[width] duration-200" style={{ width: visualPageWidth }} data-builder-page-shell="true">
+                    <div
+                        className="origin-top-left transition-transform duration-200"
+                        style={{ width: resolvedViewportWidth, transform: `scale(${scale})` }}
+                    >
+                        <div
+                            className={`bg-background w-full ring-0 ${pageIsEmpty ? 'min-h-[min(720px,calc(100vh-170px))]' : ''}`}
+                            data-builder-page="true"
+                        >
+                            <CanvasNode
+                                result={renderedDocument}
+                                selectedNodeId={selectedNode?.id ?? null}
+                                hoveredNodeId={hoveredNode?.id ?? null}
+                                onSelectNode={(nodeId) => dispatch({ type: 'selectNode', nodeId })}
+                                onHoverNode={(nodeId) => dispatch({ type: 'hoverNode', nodeId })}
+                                onClearHover={(nodeId) => {
+                                    if (state.hoveredNodeId === nodeId) {
+                                        dispatch({ type: 'clearHover' });
+                                    }
+                                }}
+                                onStartDrag={onStartDrag}
+                                onDropNode={onDropNode}
+                                onDragOverNode={onDragOverNode}
+                                canDropOnNode={canDropOnNode}
+                                onEndDrag={onEndDrag}
+                                dropTargetId={dropTargetId}
+                                componentRegistry={componentRegistry}
+                                onInlineTextChange={onInlineTextChange}
+                                editingNodeId={editingNodeId}
+                                onStartInlineEdit={onStartInlineEdit}
+                                onEndInlineEdit={onEndInlineEdit}
+                                onOpenElementPicker={onOpenElementPicker}
+                                onDuplicateNode={onDuplicateNode}
+                                onRemoveNode={onRemoveNode}
+                            />
                         </div>
-                    ) : null}
-                    <CanvasNode
-                        result={renderedDocument}
-                        selectedNodeId={selectedNode?.id ?? null}
-                        hoveredNodeId={hoveredNode?.id ?? null}
-                        onSelectNode={(nodeId) => dispatch({ type: 'selectNode', nodeId })}
-                        onHoverNode={(nodeId) => dispatch({ type: 'hoverNode', nodeId })}
-                        onClearHover={(nodeId) => {
-                            if (state.hoveredNodeId === nodeId) {
-                                dispatch({ type: 'clearHover' });
-                            }
-                        }}
-                        onStartDrag={onStartDrag}
-                        onDropNode={onDropNode}
-                        onDragOverNode={onDragOverNode}
-                        canDropOnNode={canDropOnNode}
-                        onEndDrag={onEndDrag}
-                        dropTargetId={dropTargetId}
-                        componentRegistry={componentRegistry}
-                        onInlineTextChange={onInlineTextChange}
-                        editingNodeId={editingNodeId}
-                        onStartInlineEdit={onStartInlineEdit}
-                        onEndInlineEdit={onEndInlineEdit}
-                        onInsertContextual={onInsertContextual}
-                        onOpenElementPicker={onOpenElementPicker}
-                    />
+                    </div>
                 </div>
             </div>
         </div>

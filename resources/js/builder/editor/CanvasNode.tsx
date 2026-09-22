@@ -2,9 +2,11 @@ import { createElement, type DragEvent, type FocusEvent, type MouseEvent, type R
 
 import type { ComponentRegistry } from '../registry/component-registry';
 import type { RenderResult } from '../renderer/render-result';
+import { DropTargetOverlay } from './DropTargetOverlay';
 import { HoverOverlay } from './HoverOverlay';
-import { SelectionOverlay } from './SelectionOverlay';
+import { NodeActionsOverlay } from './NodeActionsOverlay';
 import { getRenderResultNodeId, renderStyleToReactStyle } from './render-result-utils';
+import { SelectionOverlay } from './SelectionOverlay';
 
 interface CanvasNodeProps {
     result: RenderResult;
@@ -24,8 +26,9 @@ interface CanvasNodeProps {
     editingNodeId?: string | null;
     onStartInlineEdit?: (nodeId: string) => void;
     onEndInlineEdit?: () => void;
-    onInsertContextual?: (parentId: string, type: `${string}.${string}`) => void;
     onOpenElementPicker?: (parentId: string) => void;
+    onDuplicateNode?: (nodeId: string) => void;
+    onRemoveNode?: (nodeId: string) => void;
 }
 
 export function CanvasNode({
@@ -46,8 +49,9 @@ export function CanvasNode({
     editingNodeId,
     onStartInlineEdit,
     onEndInlineEdit,
-    onInsertContextual,
     onOpenElementPicker,
+    onDuplicateNode,
+    onRemoveNode,
 }: CanvasNodeProps) {
     if (result.tag === null) {
         return <>{result.children.map((child, index) => renderChild(child, index))}</>;
@@ -96,7 +100,6 @@ export function CanvasNode({
     };
 
     const overlays: ReactNode[] = [];
-    const insertionZone = nodeId && onInsertContextual ? insertionZoneFor(componentType) : null;
 
     if (nodeId && hoveredNodeId === nodeId && selectedNodeId !== nodeId) {
         overlays.push(<HoverOverlay key="hover" nodeId={nodeId} />);
@@ -104,6 +107,16 @@ export function CanvasNode({
 
     if (nodeId && selectedNodeId === nodeId) {
         overlays.push(<SelectionOverlay key="selection" nodeId={nodeId} label={componentName} />);
+    }
+
+    if (nodeId && dropTargetId === nodeId) {
+        overlays.push(<DropTargetOverlay key="drop-target" nodeId={nodeId} label={componentName} />);
+    }
+
+    if (nodeId && (hoveredNodeId === nodeId || selectedNodeId === nodeId)) {
+        overlays.push(
+            <NodeActionsOverlay key="actions" nodeId={nodeId} label={componentName} onDuplicate={onDuplicateNode} onRemove={onRemoveNode} />,
+        );
     }
 
     return createElement(
@@ -130,18 +143,21 @@ export function CanvasNode({
                   }
                 : undefined,
             draggable: Boolean(nodeId && onStartDrag),
-             contentEditable: Boolean(nodeId && editingNodeId === nodeId && onInlineTextChange && result.text !== undefined),
-             suppressContentEditableWarning: true,
-             onDoubleClick: nodeId && onStartInlineEdit && result.text !== undefined ? (event: MouseEvent<HTMLElement>) => {
-                 event.stopPropagation();
-                 onStartInlineEdit(nodeId);
-             } : undefined,
-             onBlur:
-                 nodeId && editingNodeId === nodeId && onInlineTextChange && result.text !== undefined
+            contentEditable: Boolean(nodeId && editingNodeId === nodeId && onInlineTextChange && result.text !== undefined),
+            suppressContentEditableWarning: true,
+            onDoubleClick:
+                nodeId && onStartInlineEdit && result.text !== undefined
+                    ? (event: MouseEvent<HTMLElement>) => {
+                          event.stopPropagation();
+                          onStartInlineEdit(nodeId);
+                      }
+                    : undefined,
+            onBlur:
+                nodeId && editingNodeId === nodeId && onInlineTextChange && result.text !== undefined
                     ? (event: FocusEvent<HTMLElement>) => {
-                           const text = event.currentTarget.textContent ?? '';
-                           if (text !== result.text) onInlineTextChange(nodeId, text);
-                           onEndInlineEdit?.();
+                          const text = event.currentTarget.textContent ?? '';
+                          if (text !== result.text) onInlineTextChange(nodeId, text);
+                          onEndInlineEdit?.();
                       }
                     : undefined,
             onDragStart: nodeId && onStartDrag ? () => onStartDrag(nodeId) : undefined,
@@ -151,21 +167,6 @@ export function CanvasNode({
         },
         result.text,
         ...children,
-        insertionZone && nodeId ? (
-            <button
-                key="insert-zone"
-                type="button"
-                className="border-border text-muted-foreground hover:border-primary hover:text-foreground my-2 flex min-h-20 w-full items-center justify-center rounded-md border border-dashed bg-transparent text-sm font-medium transition"
-                data-builder-insertion-zone={nodeId}
-                onClick={(event: MouseEvent<HTMLElement>) => {
-                    event.stopPropagation();
-                    if (insertionZone.type === 'content.heading') onOpenElementPicker?.(nodeId);
-                    else onInsertContextual?.(nodeId, insertionZone.type);
-                }}
-            >
-                {insertionZone.label}
-            </button>
-        ) : null,
         ...overlays,
     );
 
@@ -190,16 +191,12 @@ export function CanvasNode({
                 editingNodeId={editingNodeId}
                 onStartInlineEdit={onStartInlineEdit}
                 onEndInlineEdit={onEndInlineEdit}
-                onInsertContextual={onInsertContextual}
                 onOpenElementPicker={onOpenElementPicker}
+                onDuplicateNode={onDuplicateNode}
+                onRemoveNode={onRemoveNode}
             />
         );
     }
 }
 
-function insertionZoneFor(componentType: string | undefined): { label: string; type: `${string}.${string}` } | null {
-    if (componentType === 'layout.section') return { label: '+ Add Row', type: 'layout.row' };
-    if (componentType === 'layout.row') return { label: '+ Add Column', type: 'layout.column' };
-    if (componentType === 'layout.column') return { label: '+ Add Element', type: 'content.heading' };
-    return null;
-}
+export default CanvasNode;

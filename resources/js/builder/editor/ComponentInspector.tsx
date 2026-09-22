@@ -1,10 +1,17 @@
 import { ChevronDown, Copy, MoreHorizontal, Trash2 } from 'lucide-react';
 
 import type { ComponentDefinition } from '../component/definition';
-import { CssValueEditor } from './CssValueEditor';
 import { HELLOWEB_DESIGN_TOKENS } from '../design-tokens';
 import type { BuilderBreakpoint, BuilderComponentNode, BuilderRecord, JsonValue } from '../document';
-import { getStyleDefinitions, inheritedStyleValue, type LengthValue, type StyleDefinition, type StylePropertyKey, type StyleValue } from '../style/style';
+import {
+    getStyleDefinitions,
+    inheritedStyleValue,
+    type LengthValue,
+    type StyleDefinition,
+    type StylePropertyKey,
+    type StyleValue,
+} from '../style/style';
+import { CssValueEditor } from './CssValueEditor';
 
 interface ComponentInspectorProps {
     node: BuilderComponentNode | null;
@@ -50,6 +57,9 @@ export function ComponentInspector({
 
     const styles = getStyleDefinitions(definition);
     const schema = definition.propSchema ?? {};
+    const supportsWidthMode = ['layout.row', 'layout.column', 'layout.container'].includes(node.type);
+    const maxWidth = inheritedStyleValue(node, definition, breakpoint, 'maxWidth').value;
+    const isFullWidth = maxWidth === '100%';
     const groups = [
         { id: 'content', label: 'Content', properties: [] as StyleDefinition[] },
         { id: 'layout', label: 'Layout', properties: styles.filter((property) => ['layout', 'flex', 'position'].includes(property.group)) },
@@ -68,6 +78,24 @@ export function ComponentInspector({
                     <h2 className="mt-1 truncate text-sm font-semibold">{definition.name}</h2>
                     <p className="text-muted-foreground mt-1 truncate font-mono text-[10px]">{node.id}</p>
                 </div>
+                {supportsWidthMode ? (
+                    <div className="border-border flex items-center justify-between border-b px-4 py-3">
+                        <div>
+                            <p className="text-xs font-semibold">Width mode</p>
+                            <p className="text-muted-foreground mt-0.5 text-[10px]">{isFullWidth ? 'Full viewport width' : '900px content width'}</p>
+                        </div>
+                        <button
+                            type="button"
+                            className="border-border hover:bg-muted rounded-md border px-2 py-1 text-xs font-medium transition"
+                            onClick={() => {
+                                onStyleChange('maxWidth', isFullWidth ? '900px' : '100%');
+                                onStyleChange('margin', isFullWidth ? '0 auto' : '0px');
+                            }}
+                        >
+                            {isFullWidth ? 'Constrain' : 'Full width'}
+                        </button>
+                    </div>
+                ) : null}
                 <button
                     type="button"
                     className="text-muted-foreground hover:bg-muted hover:text-foreground inline-flex size-7 items-center justify-center rounded-md"
@@ -246,7 +274,11 @@ function StyleControl({
                     ))}
                 </select>
             ) : property.type === 'length' ? (
-                <CssValueEditor property={property.key} value={current.value as string | number | LengthValue | undefined} onChange={(value) => onChange(property.key, value as StyleValue)} />
+                <CssValueEditor
+                    property={property.key}
+                    value={current.value as string | number | LengthValue | undefined}
+                    onChange={(value) => onChange(property.key, value as StyleValue)}
+                />
             ) : property.type === 'color' ? (
                 <div className="mt-1.5 flex gap-1.5">
                     <input

@@ -1,4 +1,5 @@
 import type { ComponentRenderer } from './component-renderer';
+import type { RenderResult } from './render-result';
 import { fragment } from './render-result';
 import type { ComponentRendererRegistry } from './renderer-registry';
 import { RendererError } from './renderer-registry';
@@ -69,12 +70,13 @@ export const reusableInstanceRenderer: ComponentRenderer = {
 function blockRenderer(tag: string): ComponentRenderer {
     return {
         render(node, definition, context, children) {
-            return {
+            const emptyImage: RenderResult = {
                 tag,
                 attributes: { 'data-builder-id': node.id, 'data-builder-type': node.type },
                 styles: resolveStyles(node, definition, context.breakpoint),
                 children,
             };
+            return emptyImage;
         },
     };
 }
@@ -110,9 +112,27 @@ const linkRenderer: ComponentRenderer = {
 const imageRenderer: ComponentRenderer = {
     render(node, definition, context, children) {
         const props = { ...(definition.defaultProps ?? {}), ...node.props };
+        const src = String(props.src ?? '');
+        const alt = String(props.alt ?? '');
+        if (!src) {
+            const emptyImage: RenderResult = {
+                tag: 'div',
+                attributes: { 'data-builder-id': node.id, 'data-builder-type': node.type, 'data-builder-empty-image': 'true' },
+                styles: {
+                    ...resolveStyles(node, definition, context.breakpoint),
+                    minHeight: '180px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                },
+                text: 'Upload an image',
+                children,
+            };
+            return emptyImage;
+        }
         return {
             tag: 'img',
-            attributes: { 'data-builder-id': node.id, 'data-builder-type': node.type, src: String(props.src ?? ''), alt: String(props.alt ?? '') },
+            attributes: { 'data-builder-id': node.id, 'data-builder-type': node.type, src, alt },
             styles: resolveStyles(node, definition, context.breakpoint),
             children,
         };

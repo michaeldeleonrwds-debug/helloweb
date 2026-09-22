@@ -277,6 +277,16 @@ Each component must provide real defaults, props, child rules, style capabilitie
 
 `+ Add Element` opens a type picker and never inserts an implicit default. The Elements panel supports both click insertion and drag insertion, using the same registry capability query and TreeEngine commit path.
 
+# D-021: The webpage is the editor canvas
+
+The Builder center workspace is a flex-constrained scroll container between stable side panels. The rendered webpage itself is the editing surface; viewport width is a presentation setting, while zoom and fit-to-workspace only scale that surface visually.
+
+Reason:
+The editor must use the available center space without introducing a separate fixed-width artboard or mutating BuilderDocument when the viewport or zoom changes.
+
+Implication:
+The canvas may center the page only when its scaled visual width fits. Wider viewports remain at their logical CSS width and scroll horizontally. Full-width sections continue to span the webpage, with inner rows/containers responsible for content constraints.
+
 # D-017: Page-first composition hierarchy
 
 The authoritative page composition model is `layout.root -> layout.section -> layout.row -> layout.column -> content`. The root accepts only Sections; Sections accept Rows; Rows accept Columns; Columns accept registered content and internal layout primitives.
