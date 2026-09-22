@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "context-os": {
+      "source": "pokhrelboss/context-os",
+      "sourceType": "github",
+      "skillPath": "skills/context-os/SKILL.md",
+      "computedHash": "f0c5d488ec66f5fab8897f8c892680e67d21c970bfba9acad1d76e369fb043da"
+    }
+  }
+}
