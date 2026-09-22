@@ -78,6 +78,24 @@ class BuilderPersistenceTest extends TestCase
         (new BuilderPagePersistenceService)->loadDocument($page->fresh());
     }
 
+    public function test_legacy_section_container_documents_are_normalized_on_load(): void
+    {
+        [$page] = $this->page();
+        $legacy = $page->draft_document;
+        $section = &$legacy['root']['children'][0];
+        $section['children'][0]['type'] = 'layout.container';
+        $section['children'][0]['id'] = 'legacy-container';
+
+        $page->forceFill(['draft_document' => $legacy])->save();
+        $document = (new BuilderPagePersistenceService)->loadDocument($page->fresh())->toArray();
+        $row = $document['root']['children'][0]['children'][0];
+        $column = $row['children'][0];
+
+        $this->assertSame('layout.row', $row['type']);
+        $this->assertSame('layout.column', $column['type']);
+        $this->assertSame('layout.container', $column['children'][0]['type']);
+    }
+
     public function test_stale_draft_save_is_rejected_without_overwriting_newer_document(): void
     {
         [$page] = $this->page();

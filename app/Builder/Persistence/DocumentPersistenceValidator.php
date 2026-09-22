@@ -16,10 +16,65 @@ final readonly class DocumentPersistenceValidator
     /** @param array<string, mixed> $data */
     public function validate(array $data): BuilderDocument
     {
-        $document = BuilderDocument::fromArray($data);
+        $document = BuilderDocument::fromArray($this->normalizeLegacyComposition($data));
         $this->validateNode($document->toArray()['root']);
 
         return $document;
+    }
+
+    /**
+     * Legacy pages used Section -> Container (or direct content). Preserve their
+     * content while upgrading the persisted shape to Section -> Row -> Column.
+     *
+     * @param array<string, mixed> $data
+     * @return array<string, mixed>
+     */
+    private function normalizeLegacyComposition(array $data): array
+    {
+        $root = $data['root'] ?? null;
+        if (! is_array($root)) {
+            return $data;
+        }
+
+        $data['root'] = $this->normalizeNode($root);
+
+        return $data;
+    }
+
+    /** @param array<string, mixed> $node */
+    private function normalizeNode(array $node): array
+    {
+        $children = array_map(fn (array $child): array => $this->normalizeNode($child), $node['children'] ?? []);
+
+        if (($node['type'] ?? null) !== 'layout.section') {
+            $node['children'] = $children;
+
+            return $node;
+        }
+
+        $node['children'] = array_map(function (array $child, int $index): array {
+            if (($child['type'] ?? null) === 'layout.row') {
+                return $child;
+            }
+
+            return [
+                'id' => $child['id'].'-migration-row-'.$index,
+                'type' => 'layout.row',
+                'props' => [],
+                'styles' => [],
+                'children' => [[
+                    'id' => $child['id'].'-migration-column-'.$index,
+                    'type' => 'layout.column',
+                    'props' => [],
+                    'styles' => [],
+                    'children' => [$child],
+                    'metadata' => [],
+                ]],
+                'metadata' => [],
+            ];
+        }, $children, array_keys($children));
+
+        return $node;
     }
 
     /** @param array<string, mixed> $node */
