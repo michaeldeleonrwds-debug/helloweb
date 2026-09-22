@@ -126,11 +126,11 @@ final readonly class RenderResult
         $serialized = [];
 
         foreach ($styles as $name => $value) {
-            if (! is_scalar($value)) {
+            if (! is_scalar($value) && ! $this->isStructuredLength($value)) {
                 continue;
             }
 
-            $serialized[] = $this->kebabCase($name).': '.$value;
+            $serialized[] = $this->kebabCase($name).': '.$this->serializeStyleValue($value);
         }
 
         return implode('; ', $serialized);
@@ -139,5 +139,22 @@ final readonly class RenderResult
     private function kebabCase(string $value): string
     {
         return strtolower((string) preg_replace('/(?<!^)[A-Z]/', '-$0', $value));
+    }
+
+    private function serializeStyleValue(mixed $value): string
+    {
+        if ($this->isStructuredLength($value)) {
+            return $value['value'].$value['unit'];
+        }
+
+        return (string) $value;
+    }
+
+    private function isStructuredLength(mixed $value): bool
+    {
+        return is_array($value)
+            && ! array_is_list($value)
+            && (is_int($value['value'] ?? null) || is_float($value['value'] ?? null))
+            && is_string($value['unit'] ?? null);
     }
 }

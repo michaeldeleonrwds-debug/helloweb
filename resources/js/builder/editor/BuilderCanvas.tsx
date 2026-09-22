@@ -42,14 +42,17 @@ interface BuilderCanvasViewProps {
     onStartDrag?: (nodeId: string) => void;
     onDropNode?: (nodeId: string, mode: 'append' | 'before' | 'after') => void;
     onDragOverNode?: (nodeId: string, mode: 'append' | 'before' | 'after') => void;
+    canDropOnNode?: (nodeId: string, mode: 'append' | 'before' | 'after') => boolean;
     onEndDrag?: () => void;
     dropTargetId?: string | null;
     reusableDefinitions?: ReusableComponentDefinition[];
     zoom?: number;
+    viewportWidth?: number;
     onInlineTextChange?: (nodeId: string, text: string) => void;
     editingNodeId?: string | null;
     onStartInlineEdit?: (nodeId: string) => void;
     onEndInlineEdit?: () => void;
+    onInsertContextual?: (parentId: string, type: `${string}.${string}`) => void;
 }
 
 export function BuilderCanvasView({
@@ -60,14 +63,17 @@ export function BuilderCanvasView({
     onStartDrag,
     onDropNode,
     onDragOverNode,
+    canDropOnNode,
     onEndDrag,
     dropTargetId,
     reusableDefinitions = [],
     zoom = 100,
+    viewportWidth,
     onInlineTextChange,
     editingNodeId,
     onStartInlineEdit,
     onEndInlineEdit,
+    onInsertContextual,
 }: BuilderCanvasViewProps) {
     const renderedDocument = useMemo(() => {
         const context: RenderContext = {
@@ -82,15 +88,28 @@ export function BuilderCanvasView({
     const selectedNode = getSelectedNode(state);
     const hoveredNode = getHoveredNode(state);
 
-    const viewportWidth = breakpoint === 'desktop' ? 1200 : breakpoint === 'tablet' ? 768 : 390;
+    const resolvedViewportWidth = viewportWidth ?? (breakpoint === 'desktop' ? 1200 : breakpoint === 'tablet' ? 768 : 390);
+
+    const pageIsEmpty = state.document.root.children.length === 0;
 
     return (
         <div className="builder-canvas bg-muted/60 flex min-h-0 flex-1 items-start justify-center overflow-auto p-6" data-builder-canvas="true">
             <div
                 className="shrink-0 transition-transform duration-200"
-                style={{ width: viewportWidth, transform: `scale(${zoom / 100})`, transformOrigin: 'top center' }}
+                style={{ width: resolvedViewportWidth, transform: `scale(${zoom / 100})`, transformOrigin: 'top center' }}
             >
-                <div className="bg-background ring-border/80 min-h-[720px] shadow-xl ring-1">
+                <div className="bg-background ring-border/80 min-h-full shadow-sm ring-1">
+                    {pageIsEmpty && onInsertContextual ? (
+                        <div className="p-8">
+                            <button
+                                type="button"
+                                className="border-border text-muted-foreground hover:border-primary hover:text-foreground flex min-h-40 w-full items-center justify-center rounded-md border border-dashed text-sm font-medium transition"
+                                onClick={() => onInsertContextual(state.document.root.id, 'layout.section')}
+                            >
+                                + Add Section
+                            </button>
+                        </div>
+                    ) : null}
                     <CanvasNode
                         result={renderedDocument}
                         selectedNodeId={selectedNode?.id ?? null}
@@ -105,6 +124,7 @@ export function BuilderCanvasView({
                         onStartDrag={onStartDrag}
                         onDropNode={onDropNode}
                         onDragOverNode={onDragOverNode}
+                        canDropOnNode={canDropOnNode}
                         onEndDrag={onEndDrag}
                         dropTargetId={dropTargetId}
                         componentRegistry={componentRegistry}
@@ -112,6 +132,7 @@ export function BuilderCanvasView({
                         editingNodeId={editingNodeId}
                         onStartInlineEdit={onStartInlineEdit}
                         onEndInlineEdit={onEndInlineEdit}
+                        onInsertContextual={onInsertContextual}
                     />
                 </div>
             </div>

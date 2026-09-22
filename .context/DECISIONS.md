@@ -273,3 +273,10 @@ The visual editor cannot become a professional website environment with only thr
 
 Implication:
 Each component must provide real defaults, props, child rules, style capabilities, and renderer behavior before appearing as an insertable library item. Navigation, Forms, Advanced, states, and richer media behavior remain future extension work until implemented.
+# D-017: Page-first composition hierarchy
+
+The authoritative page composition model is `layout.root -> layout.section -> layout.row -> layout.column -> content`. The root accepts only Sections; Sections accept Rows; Rows accept Columns; Columns accept registered content and internal layout primitives.
+
+# D-018: Validated drag insertion
+
+Drag/drop proposals are checked through registry capabilities and ComponentTreeEngine before targets are highlighted or drops are committed. Editor insertion controls and indicators remain outside public rendering.

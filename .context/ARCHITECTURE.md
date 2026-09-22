@@ -273,3 +273,8 @@ Do not create one row per visual component in the initial design. Validate and v
 ## Key Decisions
 
 See `DECISIONS.md`: D-001 through D-016.
+# Page-first composition
+
+The Builder page is the editing surface and remains a normal-flow webpage: `layout.root -> layout.section -> layout.row -> layout.column -> content`. Sections stack vertically and receive structured 10px top/bottom padding only when newly created. Rows provide horizontal composition; Columns host content and intentional internal layout primitives. Sections are never valid children of Rows, Columns, Flex, Grid, or other internal primitives.
+
+Drag/drop proposes `inside`, `before`, or `after` positions in editor state. Registry capabilities and ComponentTreeEngine validate the proposal before highlighting a target or committing an immutable document operation. Insertion controls, overlays, and indicators are editor-only. Viewport width and zoom are presentation state, and font selection uses metadata with on-demand loading information.

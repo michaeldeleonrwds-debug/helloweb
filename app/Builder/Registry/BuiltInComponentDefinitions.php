@@ -11,10 +11,11 @@ final class BuiltInComponentDefinitions
      */
     public static function all(): array
     {
-        $layoutChildren = [
+        $columnChildren = [
             'layout.container', 'layout.stack', 'layout.flex', 'layout.grid', 'layout.columns', 'layout.spacer', 'layout.divider',
             'content.heading', 'content.text', 'content.richtext', 'content.button', 'content.link', 'media.image', 'marketing.card', 'reusable.instance',
         ];
+        $internalLayoutChildren = $columnChildren;
 
         return [
             new ComponentDefinition(
@@ -52,17 +53,47 @@ final class BuiltInComponentDefinitions
                 defaultStyles: [
                     'desktop' => [
                         'display' => 'block',
+                        'width' => '100%',
+                        'position' => 'relative',
+                        'paddingTop' => ['value' => 10, 'unit' => 'px'],
+                        'paddingBottom' => ['value' => 10, 'unit' => 'px'],
+                        'paddingLeft' => ['value' => 0, 'unit' => 'px'],
+                        'paddingRight' => ['value' => 0, 'unit' => 'px'],
                     ],
                 ],
-                styleCapabilities: ['display', 'width', 'minHeight', 'margin', 'padding', 'paddingTop', 'paddingBottom', 'backgroundColor', 'flexDirection', 'justifyContent', 'alignItems'],
+                styleCapabilities: ['display', 'width', 'minHeight', 'margin', 'padding', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft', 'backgroundColor', 'position', 'borderWidth', 'borderStyle', 'borderColor', 'borderRadius', 'boxShadow', 'opacity'],
                 propSchema: [],
                 childRules: [
-                    'allowedTypes' => $layoutChildren,
+                    'allowedTypes' => ['layout.row'],
                 ],
                 integration: [
                     'rendererKey' => 'layout.section',
                     'editorKey' => 'layout.section',
                 ],
+            ),
+            new ComponentDefinition(
+                type: 'layout.row',
+                name: 'Row',
+                category: 'layout',
+                description: 'Horizontal composition layer inside a Section.',
+                capabilities: ['canHaveChildren' => true, 'canAcceptChildren' => true, 'supportsResponsiveStyles' => true],
+                defaultStyles: ['desktop' => ['display' => 'flex', 'flexDirection' => 'row', 'width' => '100%', 'gap' => '1rem', 'flexWrap' => 'nowrap']],
+                styleCapabilities: ['display', 'width', 'minHeight', 'maxWidth', 'margin', 'padding', 'gap', 'flexDirection', 'justifyContent', 'alignItems', 'flexWrap', 'backgroundColor'],
+                propSchema: [],
+                childRules: ['allowedTypes' => ['layout.column']],
+                integration: ['rendererKey' => 'layout.row', 'editorKey' => 'layout.row'],
+            ),
+            new ComponentDefinition(
+                type: 'layout.column',
+                name: 'Column',
+                category: 'layout',
+                description: 'Content container inside a Row.',
+                capabilities: ['canHaveChildren' => true, 'canAcceptChildren' => true, 'supportsResponsiveStyles' => true],
+                defaultStyles: ['desktop' => ['display' => 'flex', 'flexDirection' => 'column', 'gap' => '1rem', 'width' => '100%']],
+                styleCapabilities: ['display', 'width', 'minWidth', 'maxWidth', 'minHeight', 'margin', 'padding', 'gap', 'flexDirection', 'justifyContent', 'alignItems', 'backgroundColor'],
+                propSchema: [],
+                childRules: ['allowedTypes' => $columnChildren],
+                integration: ['rendererKey' => 'layout.column', 'editorKey' => 'layout.column'],
             ),
             new ComponentDefinition(
                 type: 'layout.container',
@@ -83,7 +114,7 @@ final class BuiltInComponentDefinitions
                 styleCapabilities: ['display', 'width', 'maxWidth', 'margin', 'padding', 'gap', 'flexDirection', 'justifyContent', 'alignItems', 'backgroundColor'],
                 propSchema: [],
                 childRules: [
-                    'allowedTypes' => $layoutChildren,
+                    'allowedTypes' => $internalLayoutChildren,
                 ],
                 integration: [
                     'rendererKey' => 'layout.container',
@@ -98,7 +129,7 @@ final class BuiltInComponentDefinitions
                 capabilities: ['canHaveChildren' => true, 'canAcceptChildren' => true, 'supportsResponsiveStyles' => true],
                 defaultStyles: ['desktop' => ['display' => 'flex', 'flexDirection' => 'column', 'gap' => '1rem']],
                 styleCapabilities: ['display', 'width', 'minHeight', 'maxWidth', 'margin', 'padding', 'gap', 'flexDirection', 'justifyContent', 'alignItems', 'flexWrap', 'backgroundColor'],
-                childRules: ['allowedTypes' => $layoutChildren],
+                childRules: ['allowedTypes' => $internalLayoutChildren],
                 integration: ['rendererKey' => 'layout.stack', 'icon' => 'stack'],
             ),
             new ComponentDefinition(
@@ -109,7 +140,7 @@ final class BuiltInComponentDefinitions
                 capabilities: ['canHaveChildren' => true, 'canAcceptChildren' => true, 'supportsResponsiveStyles' => true],
                 defaultStyles: ['desktop' => ['display' => 'flex', 'flexDirection' => 'row', 'gap' => '1rem']],
                 styleCapabilities: ['display', 'width', 'minHeight', 'maxWidth', 'margin', 'padding', 'gap', 'flexDirection', 'justifyContent', 'alignItems', 'flexWrap', 'backgroundColor'],
-                childRules: ['allowedTypes' => $layoutChildren],
+                childRules: ['allowedTypes' => $internalLayoutChildren],
                 integration: ['rendererKey' => 'layout.flex', 'icon' => 'flex'],
             ),
             new ComponentDefinition(
@@ -120,7 +151,7 @@ final class BuiltInComponentDefinitions
                 capabilities: ['canHaveChildren' => true, 'canAcceptChildren' => true, 'supportsResponsiveStyles' => true],
                 defaultStyles: ['desktop' => ['display' => 'grid', 'gridTemplateColumns' => 'repeat(3, minmax(0, 1fr))', 'gap' => '1rem']],
                 styleCapabilities: ['display', 'width', 'minHeight', 'maxWidth', 'margin', 'padding', 'gap', 'gridTemplateColumns', 'backgroundColor'],
-                childRules: ['allowedTypes' => $layoutChildren],
+                childRules: ['allowedTypes' => $internalLayoutChildren],
                 integration: ['rendererKey' => 'layout.grid', 'icon' => 'grid'],
             ),
             new ComponentDefinition(
@@ -131,7 +162,7 @@ final class BuiltInComponentDefinitions
                 capabilities: ['canHaveChildren' => true, 'canAcceptChildren' => true, 'supportsResponsiveStyles' => true],
                 defaultStyles: ['desktop' => ['display' => 'flex', 'flexDirection' => 'row', 'gap' => '1rem']],
                 styleCapabilities: ['display', 'width', 'minHeight', 'maxWidth', 'margin', 'padding', 'gap', 'flexDirection', 'justifyContent', 'alignItems', 'flexWrap'],
-                childRules: ['allowedTypes' => $layoutChildren],
+                childRules: ['allowedTypes' => $internalLayoutChildren],
                 integration: ['rendererKey' => 'layout.columns', 'icon' => 'columns'],
             ),
             new ComponentDefinition(
@@ -174,7 +205,7 @@ final class BuiltInComponentDefinitions
                         'fontSize' => '2rem',
                     ],
                 ],
-                styleCapabilities: ['margin', 'padding', 'color', 'fontSize', 'fontWeight', 'lineHeight', 'textAlign'],
+                styleCapabilities: ['margin', 'padding', 'color', 'fontFamily', 'fontSize', 'fontWeight', 'lineHeight', 'textAlign'],
                 propSchema: [
                     'text' => ['type' => 'string'],
                     'level' => ['type' => 'integer', 'min' => 1, 'max' => 6],
@@ -195,7 +226,7 @@ final class BuiltInComponentDefinitions
                 capabilities: ['supportsText' => true, 'supportsResponsiveStyles' => true],
                 defaultProps: ['text' => 'Add a paragraph of text.'],
                 defaultStyles: ['desktop' => ['fontSize' => '1rem', 'lineHeight' => 1.6]],
-                styleCapabilities: ['margin', 'padding', 'color', 'fontSize', 'fontWeight', 'lineHeight', 'letterSpacing', 'textTransform', 'textDecoration', 'textAlign'],
+                styleCapabilities: ['margin', 'padding', 'color', 'fontFamily', 'fontSize', 'fontWeight', 'lineHeight', 'letterSpacing', 'textTransform', 'textDecoration', 'textAlign'],
                 propSchema: ['text' => ['type' => 'string']],
                 childRules: ['allowedTypes' => []],
                 integration: ['rendererKey' => 'content.text', 'icon' => 'text'],
@@ -207,7 +238,7 @@ final class BuiltInComponentDefinitions
                 description: 'Structured editorial copy for longer content.',
                 capabilities: ['supportsText' => true, 'supportsResponsiveStyles' => true],
                 defaultProps: ['text' => 'Add rich text content.'],
-                styleCapabilities: ['margin', 'padding', 'color', 'fontSize', 'fontWeight', 'lineHeight', 'letterSpacing', 'textTransform', 'textDecoration', 'textAlign'],
+                styleCapabilities: ['margin', 'padding', 'color', 'fontFamily', 'fontSize', 'fontWeight', 'lineHeight', 'letterSpacing', 'textTransform', 'textDecoration', 'textAlign'],
                 propSchema: ['text' => ['type' => 'string']],
                 childRules: ['allowedTypes' => []],
                 integration: ['rendererKey' => 'content.richtext', 'icon' => 'rich-text'],
@@ -220,7 +251,7 @@ final class BuiltInComponentDefinitions
                 capabilities: ['supportsText' => true, 'supportsResponsiveStyles' => true],
                 defaultProps: ['text' => 'Get started', 'href' => '#'],
                 defaultStyles: ['desktop' => ['display' => 'inline-block', 'padding' => '0.75rem 1rem', 'backgroundColor' => 'hsl(158 64% 32%)', 'color' => 'white', 'borderRadius' => '0.5rem', 'textAlign' => 'center']],
-                styleCapabilities: ['display', 'margin', 'padding', 'color', 'backgroundColor', 'fontSize', 'fontWeight', 'lineHeight', 'textAlign', 'borderRadius', 'borderWidth', 'borderStyle', 'borderColor', 'boxShadow'],
+                styleCapabilities: ['display', 'margin', 'padding', 'color', 'backgroundColor', 'fontFamily', 'fontSize', 'fontWeight', 'lineHeight', 'textAlign', 'borderRadius', 'borderWidth', 'borderStyle', 'borderColor', 'boxShadow'],
                 propSchema: ['text' => ['type' => 'string'], 'href' => ['type' => 'string']],
                 childRules: ['allowedTypes' => []],
                 integration: ['rendererKey' => 'content.button', 'icon' => 'button'],
@@ -232,7 +263,7 @@ final class BuiltInComponentDefinitions
                 description: 'A lightweight inline navigation link.',
                 capabilities: ['supportsText' => true, 'supportsResponsiveStyles' => true],
                 defaultProps: ['text' => 'Learn more', 'href' => '#'],
-                styleCapabilities: ['margin', 'color', 'fontSize', 'fontWeight', 'lineHeight', 'textDecoration', 'textAlign'],
+                styleCapabilities: ['margin', 'color', 'fontFamily', 'fontSize', 'fontWeight', 'lineHeight', 'textDecoration', 'textAlign'],
                 propSchema: ['text' => ['type' => 'string'], 'href' => ['type' => 'string']],
                 childRules: ['allowedTypes' => []],
                 integration: ['rendererKey' => 'content.link', 'icon' => 'link'],
@@ -257,7 +288,7 @@ final class BuiltInComponentDefinitions
                 capabilities: ['canHaveChildren' => true, 'canAcceptChildren' => true, 'supportsResponsiveStyles' => true],
                 defaultStyles: ['desktop' => ['display' => 'flex', 'flexDirection' => 'column', 'gap' => '0.75rem', 'padding' => '1.5rem', 'backgroundColor' => 'white', 'borderWidth' => '1px', 'borderStyle' => 'solid', 'borderColor' => 'hsl(160 10% 88%)', 'borderRadius' => '0.75rem', 'boxShadow' => '0 1px 2px rgba(0,0,0,.08)']],
                 styleCapabilities: ['display', 'width', 'minHeight', 'maxWidth', 'margin', 'padding', 'gap', 'flexDirection', 'justifyContent', 'alignItems', 'backgroundColor', 'borderWidth', 'borderStyle', 'borderColor', 'borderRadius', 'boxShadow'],
-                childRules: ['allowedTypes' => $layoutChildren],
+                childRules: ['allowedTypes' => $internalLayoutChildren],
                 integration: ['rendererKey' => 'marketing.card', 'icon' => 'card'],
             ),
             new ComponentDefinition(

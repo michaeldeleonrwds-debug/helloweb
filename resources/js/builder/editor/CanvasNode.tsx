@@ -16,6 +16,7 @@ interface CanvasNodeProps {
     onStartDrag?: (nodeId: string) => void;
     onDropNode?: (nodeId: string, mode: 'append' | 'before' | 'after') => void;
     onDragOverNode?: (nodeId: string, mode: 'append' | 'before' | 'after') => void;
+    canDropOnNode?: (nodeId: string, mode: 'append' | 'before' | 'after') => boolean;
     onEndDrag?: () => void;
     dropTargetId?: string | null;
     componentRegistry?: ComponentRegistry;
@@ -23,6 +24,7 @@ interface CanvasNodeProps {
     editingNodeId?: string | null;
     onStartInlineEdit?: (nodeId: string) => void;
     onEndInlineEdit?: () => void;
+    onInsertContextual?: (parentId: string, type: `${string}.${string}`) => void;
 }
 
 export function CanvasNode({
@@ -35,6 +37,7 @@ export function CanvasNode({
     onStartDrag,
     onDropNode,
     onDragOverNode,
+    canDropOnNode,
     onEndDrag,
     dropTargetId,
     componentRegistry,
@@ -42,6 +45,7 @@ export function CanvasNode({
     editingNodeId,
     onStartInlineEdit,
     onEndInlineEdit,
+    onInsertContextual,
 }: CanvasNodeProps) {
     if (result.tag === null) {
         return <>{result.children.map((child, index) => renderChild(child, index))}</>;
@@ -75,17 +79,22 @@ export function CanvasNode({
 
     const handleDragOver = (event: DragEvent<HTMLElement>) => {
         if (!nodeId || !onDropNode) return;
+        const mode = modeForEvent(event);
+        if (canDropOnNode && !canDropOnNode(nodeId, mode)) return;
         event.preventDefault();
-        onDragOverNode?.(nodeId, modeForEvent(event));
+        onDragOverNode?.(nodeId, mode);
     };
 
     const handleDrop = (event: DragEvent<HTMLElement>) => {
         if (!nodeId || !onDropNode) return;
+        const mode = modeForEvent(event);
+        if (canDropOnNode && !canDropOnNode(nodeId, mode)) return;
         event.preventDefault();
-        onDropNode(nodeId, modeForEvent(event));
+        onDropNode(nodeId, mode);
     };
 
     const overlays: ReactNode[] = [];
+    const insertionZone = nodeId && onInsertContextual ? insertionZoneFor(componentType) : null;
 
     if (nodeId && hoveredNodeId === nodeId && selectedNodeId !== nodeId) {
         overlays.push(<HoverOverlay key="hover" nodeId={nodeId} />);
@@ -140,6 +149,20 @@ export function CanvasNode({
         },
         result.text,
         ...children,
+        insertionZone && nodeId ? (
+            <button
+                key="insert-zone"
+                type="button"
+                className="border-border text-muted-foreground hover:border-primary hover:text-foreground my-2 flex min-h-20 w-full items-center justify-center rounded-md border border-dashed bg-transparent text-sm font-medium transition"
+                data-builder-insertion-zone={nodeId}
+                onClick={(event: MouseEvent<HTMLElement>) => {
+                    event.stopPropagation();
+                    onInsertContextual?.(nodeId, insertionZone.type);
+                }}
+            >
+                {insertionZone.label}
+            </button>
+        ) : null,
         ...overlays,
     );
 
@@ -156,6 +179,7 @@ export function CanvasNode({
                 onStartDrag={onStartDrag}
                 onDropNode={onDropNode}
                 onDragOverNode={onDragOverNode}
+                canDropOnNode={canDropOnNode}
                 onEndDrag={onEndDrag}
                 dropTargetId={dropTargetId}
                 componentRegistry={componentRegistry}
@@ -163,7 +187,15 @@ export function CanvasNode({
                 editingNodeId={editingNodeId}
                 onStartInlineEdit={onStartInlineEdit}
                 onEndInlineEdit={onEndInlineEdit}
+                onInsertContextual={onInsertContextual}
             />
         );
     }
+}
+
+function insertionZoneFor(componentType: string | undefined): { label: string; type: `${string}.${string}` } | null {
+    if (componentType === 'layout.section') return { label: '+ Add Row', type: 'layout.row' };
+    if (componentType === 'layout.row') return { label: '+ Add Column', type: 'layout.column' };
+    if (componentType === 'layout.column') return { label: '+ Add Element', type: 'content.heading' };
+    return null;
 }

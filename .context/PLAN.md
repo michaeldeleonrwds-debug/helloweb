@@ -125,6 +125,12 @@ Legend: done / in-progress / not-started
 - **Validation:** Focused editor tests, focused tree-engine PHPUnit tests, full PHPUnit, TypeScript, production build, targeted Pint, builder Prettier, and global formatting were run for this milestone. Global formatting retains only the known starter failures in `resources/js/components/app-header.tsx` and `resources/js/ssr.jsx`.
 - **Exit criteria:** Satisfied. The in-memory document remains canonical; all mutations are immutable and engine-validated; insertion, before/after/append movement, duplicate, remove, and heading prop editing are covered; no persistence or Phase 7 style/responsive work was started.
 
+## Page-first composition correction
+
+- **Status:** done.
+- **Completed:** Registry-enforced Section/Row/Column hierarchy, structured Section defaults, contextual insertion zones, capability-aware drag/drop, viewport/zoom separation, and font metadata foundation.
+- **Exit criteria:** Satisfied. Core document, tree, registry, renderer, style, persistence, and editor-state boundaries remain authoritative.
+
 ## Next Exact Milestone
 
 PHASE 10 — PREVIEW AND PUBLISHING

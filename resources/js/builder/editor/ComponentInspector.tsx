@@ -4,7 +4,7 @@ import type { ComponentDefinition } from '../component/definition';
 import { CssValueEditor } from './CssValueEditor';
 import { HELLOWEB_DESIGN_TOKENS } from '../design-tokens';
 import type { BuilderBreakpoint, BuilderComponentNode, BuilderRecord, JsonValue } from '../document';
-import { getStyleDefinitions, inheritedStyleValue, type StyleDefinition, type StylePropertyKey } from '../style/style';
+import { getStyleDefinitions, inheritedStyleValue, type LengthValue, type StyleDefinition, type StylePropertyKey, type StyleValue } from '../style/style';
 
 interface ComponentInspectorProps {
     node: BuilderComponentNode | null;
@@ -12,10 +12,11 @@ interface ComponentInspectorProps {
     onChange: (patch: Partial<BuilderRecord>) => void;
     breakpoint: BuilderBreakpoint;
     onBreakpointChange: (breakpoint: BuilderBreakpoint) => void;
-    onStyleChange: (key: StylePropertyKey, value: string | number) => void;
+    onStyleChange: (key: StylePropertyKey, value: StyleValue) => void;
     onStyleClear: (key: StylePropertyKey) => void;
     onDuplicate: () => void;
     onRemove: () => void;
+    onAddChild?: (type: `${string}.${string}`) => void;
 }
 
 export function ComponentInspector({
@@ -28,6 +29,7 @@ export function ComponentInspector({
     onStyleClear,
     onDuplicate,
     onRemove,
+    onAddChild,
 }: ComponentInspectorProps) {
     if (!node || !definition) {
         return (
@@ -74,6 +76,21 @@ export function ComponentInspector({
                     <MoreHorizontal className="size-4" />
                 </button>
             </div>
+            {node.type === 'layout.section' && onAddChild ? (
+                <div className="border-border flex items-center gap-2 border-b px-4 py-3">
+                    <span className="text-muted-foreground mr-auto text-[10px] font-semibold tracking-[0.14em] uppercase">Section</span>
+                    <button
+                        type="button"
+                        className="border-border hover:bg-muted rounded-md border px-2 py-1 text-xs font-medium transition"
+                        onClick={() => onAddChild('layout.row')}
+                    >
+                        + Row
+                    </button>
+                    <button type="button" className="border-border hover:bg-muted rounded-md border px-2 py-1 text-xs font-medium transition">
+                        Settings
+                    </button>
+                </div>
+            ) : null}
             <div className="min-h-0 flex-1 overflow-y-auto">
                 <div className="border-border border-b px-4 py-3">
                     <p className="text-muted-foreground mb-2 text-[10px] font-semibold tracking-[0.14em] uppercase">Responsive</p>
@@ -207,7 +224,7 @@ function StyleControl({
     node: BuilderComponentNode;
     definition: ComponentDefinition;
     breakpoint: BuilderBreakpoint;
-    onChange: (key: StylePropertyKey, value: string | number) => void;
+    onChange: (key: StylePropertyKey, value: StyleValue) => void;
     onClear: (key: StylePropertyKey) => void;
 }) {
     const current = inheritedStyleValue(node, definition, breakpoint, property.key);
@@ -229,7 +246,7 @@ function StyleControl({
                     ))}
                 </select>
             ) : property.type === 'length' ? (
-                <CssValueEditor property={property.key} value={current.value} onChange={(value) => onChange(property.key, value)} />
+                <CssValueEditor property={property.key} value={current.value as string | number | LengthValue | undefined} onChange={(value) => onChange(property.key, value as StyleValue)} />
             ) : property.type === 'color' ? (
                 <div className="mt-1.5 flex gap-1.5">
                     <input
@@ -279,6 +296,6 @@ function parseValue(value: string, values: JsonValue[]): JsonValue {
     return values.find((option) => String(option) === value) ?? value;
 }
 
-function normalizeColor(value: string | number | undefined): string {
+function normalizeColor(value: StyleValue | undefined): string {
     return typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value) ? value : '#000000';
 }

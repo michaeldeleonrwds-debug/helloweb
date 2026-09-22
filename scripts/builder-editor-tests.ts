@@ -36,7 +36,7 @@ assert.equal(registry.get('marketing.card').name, 'Card');
 
 let operationState = createEditorState(document);
 const originalDocument = structuredClone(operationState.document);
-operationState = insertEditorComponent(operationState, engine, 'container-1', 'content.heading');
+operationState = insertEditorComponent(operationState, engine, 'column-1', 'content.heading');
 assert.equal(operationState.document.root.children[0].children[0].children.length, 2);
 assert.equal(operationState.selectedNodeId, operationState.document.root.children[0].children[0].children[1].id);
 assert.notEqual(operationState.document, originalDocument);
@@ -44,7 +44,7 @@ assert.deepEqual(document, originalDocument);
 
 const beforeDocument = engine.insert(
     document,
-    'container-1',
+    'column-1',
     {
         id: 'heading-before',
         type: 'content.heading',
@@ -60,7 +60,7 @@ assert.deepEqual(
 );
 const afterDocument = engine.insert(
     document,
-    'container-1',
+    'column-1',
     { id: 'heading-after', type: 'content.heading', props: { text: 'After', level: 2 }, styles: {}, children: [] },
     afterPosition('heading-1'),
 );
@@ -69,13 +69,12 @@ assert.deepEqual(
     ['heading-1', 'heading-after'],
 );
 
-const movedDocument = engine.move(document, 'heading-1', 'section-1');
-assert.equal(movedDocument.root.children[0].children[0].children.length, 0);
-assert.equal(movedDocument.root.children[0].children[1].id, 'heading-1');
+const movedDocument = engine.move(document, 'heading-1', 'column-1');
+assert.equal(movedDocument.root.children[0].children[0].children[0].children[0].id, 'heading-1');
 assert.throws(() => engine.move(document, 'heading-1', 'heading-1', beforePosition('heading-1')));
 
-const duplicatedState = duplicateEditorNode(selectCanvasNode(createEditorState(document), 'container-1'), engine, 'container-1');
-assert.notEqual(duplicatedState.selectedNodeId, 'container-1');
+const duplicatedState = duplicateEditorNode(selectCanvasNode(createEditorState(document), 'column-1'), engine, 'column-1');
+assert.notEqual(duplicatedState.selectedNodeId, 'column-1');
 assert.equal(duplicatedState.document.root.children[0].children.length, 2);
 assert.notEqual(duplicatedState.document.root.children[0].children[1].children[0].id, 'heading-1');
 assert.deepEqual(document, originalDocument);
@@ -103,12 +102,12 @@ assert.throws(() => engine.insert(document, 'heading-1', document.root.children[
 
 let dragState = editorReducer(createEditorState(document), { type: 'startDrag', nodeId: 'heading-1' });
 assert.equal(dragState.draggedNodeId, 'heading-1');
-dragState = editorReducer(dragState, { type: 'setDropTarget', target: { parentId: 'container-1', position: afterPosition('heading-1') } });
-assert.equal(dragState.dropTarget?.parentId, 'container-1');
+dragState = editorReducer(dragState, { type: 'setDropTarget', target: { parentId: 'column-1', position: afterPosition('heading-1') } });
+assert.equal(dragState.dropTarget?.parentId, 'column-1');
 dragState = editorReducer(dragState, { type: 'clearDrag' });
 assert.equal(dragState.draggedNodeId, null);
 
-const removedState = removeEditorNode(selectCanvasNode(createEditorState(document), 'container-1'), engine, 'container-1');
+const removedState = removeEditorNode(selectCanvasNode(createEditorState(document), 'column-1'), engine, 'column-1');
 assert.equal(removedState.selectedNodeId, null);
 assert.equal(engine.find(removedState.document, 'heading-1'), null);
 
@@ -122,9 +121,9 @@ state = selectCanvasNode(state, 'section-1');
 assert.equal(state.selectedNodeId, 'section-1');
 assert.equal(getSelectedNode(state)?.type, 'layout.section');
 
-state = selectCanvasNode(state, 'container-1');
-assert.equal(state.selectedNodeId, 'container-1');
-assert.equal(getSelectedNode(state)?.type, 'layout.container');
+state = selectCanvasNode(state, 'column-1');
+assert.equal(state.selectedNodeId, 'column-1');
+assert.equal(getSelectedNode(state)?.type, 'layout.column');
 
 state = selectCanvasNode(state, 'heading-1');
 assert.equal(state.selectedNodeId, 'heading-1');
@@ -134,13 +133,13 @@ state = selectCanvasNode(state, 'node_root');
 assert.equal(state.selectedNodeId, null);
 
 state = selectCanvasNode(state, 'heading-1');
-state = hoverCanvasNode(state, 'container-1');
-assert.equal(state.hoveredNodeId, 'container-1');
-assert.equal(getHoveredNode(state)?.type, 'layout.container');
+state = hoverCanvasNode(state, 'column-1');
+assert.equal(state.hoveredNodeId, 'column-1');
+assert.equal(getHoveredNode(state)?.type, 'layout.column');
 
 state = leaveCanvasNode(state, 'heading-1');
-assert.equal(state.hoveredNodeId, 'container-1');
-state = leaveCanvasNode(state, 'container-1');
+assert.equal(state.hoveredNodeId, 'column-1');
+state = leaveCanvasNode(state, 'column-1');
 assert.equal(state.hoveredNodeId, null);
 
 const originalBeforeInteraction = structuredClone(document);
@@ -173,7 +172,7 @@ assert.match(html, /Hello Builder/);
 const canvasMarkup = renderToStaticMarkup(createElement(BuilderCanvas, { document }));
 assert.match(canvasMarkup, /data-builder-canvas="true"/);
 assert.match(canvasMarkup, /data-builder-node-id="section-1"/);
-assert.match(canvasMarkup, /data-builder-node-id="container-1"/);
+assert.match(canvasMarkup, /data-builder-node-id="column-1"/);
 assert.match(canvasMarkup, /data-builder-node-id="heading-1"/);
 assert.doesNotMatch(canvasMarkup, /data-builder-node-id="node_root"/);
 
@@ -188,7 +187,7 @@ const selectedCanvasMarkup = renderToStaticMarkup(
     }),
 );
 assert.match(selectedCanvasMarkup, /data-builder-selection-for="heading-1"/);
-assert.doesNotMatch(selectedCanvasMarkup, /data-builder-selection-for="container-1"/);
+assert.doesNotMatch(selectedCanvasMarkup, /data-builder-selection-for="column-1"/);
 
 const editorMarkup = renderToStaticMarkup(createElement(BuilderEditor, { document }));
 assert.match(editorMarkup, /data-builder-editor="true"/);
@@ -201,13 +200,13 @@ const hoveredCanvasMarkup = renderToStaticMarkup(
     createElement(CanvasNode, {
         result: rendered,
         selectedNodeId: null,
-        hoveredNodeId: 'container-1',
+        hoveredNodeId: 'column-1',
         onSelectNode: () => undefined,
         onHoverNode: () => undefined,
         onClearHover: () => undefined,
     }),
 );
-assert.match(hoveredCanvasMarkup, /data-builder-hover-for="container-1"/);
+assert.match(hoveredCanvasMarkup, /data-builder-hover-for="column-1"/);
 assert.doesNotMatch(hoveredCanvasMarkup, /data-builder-hover-for="heading-1"/);
 
 assert.deepEqual(document, originalBeforeInteraction);

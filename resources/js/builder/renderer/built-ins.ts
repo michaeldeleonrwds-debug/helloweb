@@ -123,6 +123,8 @@ export function registerBuiltInRenderers(registry: ComponentRendererRegistry): C
     return registry
         .register('layout.root', rootRenderer)
         .register('layout.section', sectionRenderer)
+        .register('layout.row', blockRenderer('div'))
+        .register('layout.column', blockRenderer('div'))
         .register('layout.container', containerRenderer)
         .register('content.heading', headingRenderer)
         .register('layout.stack', blockRenderer('div'))

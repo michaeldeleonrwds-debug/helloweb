@@ -37,7 +37,7 @@ class ComponentTreeEngineTest extends TestCase
     {
         $parent = $this->engine()->findParent($this->document(), 'node_heading_1');
 
-        $this->assertSame('node_container_1', $parent['id']);
+        $this->assertSame('node_column_1', $parent['id']);
         $this->assertNull($this->engine()->findParent($this->document(), 'node_root'));
     }
 
@@ -45,7 +45,7 @@ class ComponentTreeEngineTest extends TestCase
     {
         $updated = $this->engine()->insert(
             $this->document(),
-            'node_container_1',
+            'node_column_1',
             $this->heading('node_heading_2', 'Inserted'),
         );
 
@@ -57,12 +57,12 @@ class ComponentTreeEngineTest extends TestCase
     {
         $updated = $this->engine()->insert(
             $this->document(),
-            'node_container_1',
+            'node_column_1',
             $this->heading('node_heading_2', 'Second'),
             TreeInsertPosition::append(),
         );
 
-        $children = $this->engine()->find($updated, 'node_container_1')['children'];
+        $children = $this->engine()->find($updated, 'node_column_1')['children'];
 
         $this->assertSame(['node_heading_1', 'node_heading_2'], array_column($children, 'id'));
     }
@@ -71,12 +71,12 @@ class ComponentTreeEngineTest extends TestCase
     {
         $updated = $this->engine()->insert(
             $this->document(),
-            'node_container_1',
+            'node_column_1',
             $this->heading('node_heading_2', 'Before'),
             TreeInsertPosition::before('node_heading_1'),
         );
 
-        $children = $this->engine()->find($updated, 'node_container_1')['children'];
+        $children = $this->engine()->find($updated, 'node_column_1')['children'];
 
         $this->assertSame(['node_heading_2', 'node_heading_1'], array_column($children, 'id'));
     }
@@ -85,18 +85,18 @@ class ComponentTreeEngineTest extends TestCase
     {
         $document = $this->engine()->insert(
             $this->document(),
-            'node_container_1',
+            'node_column_1',
             $this->heading('node_heading_2', 'Second'),
         );
 
         $updated = $this->engine()->insert(
             $document,
-            'node_container_1',
+            'node_column_1',
             $this->heading('node_heading_3', 'After'),
             TreeInsertPosition::after('node_heading_1'),
         );
 
-        $children = $this->engine()->find($updated, 'node_container_1')['children'];
+        $children = $this->engine()->find($updated, 'node_column_1')['children'];
 
         $this->assertSame(['node_heading_1', 'node_heading_3', 'node_heading_2'], array_column($children, 'id'));
     }
@@ -111,29 +111,31 @@ class ComponentTreeEngineTest extends TestCase
 
     public function test_remove_nested_subtree(): void
     {
-        $updated = $this->engine()->remove($this->document(), 'node_container_1');
+        $updated = $this->engine()->remove($this->document(), 'node_column_1');
 
-        $this->assertNull($this->engine()->find($updated, 'node_container_1'));
+        $this->assertNull($this->engine()->find($updated, 'node_column_1'));
         $this->assertNull($this->engine()->find($updated, 'node_heading_1'));
     }
 
     public function test_move_node(): void
     {
         $document = $this->engine()->insert($this->document(), 'node_root', $this->section('node_section_2'));
+        $document = $this->engine()->insert($document, 'node_section_2', $this->row('node_row_2', [$this->column('node_column_2')]));
 
-        $updated = $this->engine()->move($document, 'node_heading_1', 'node_section_2');
+        $updated = $this->engine()->move($document, 'node_heading_1', 'node_column_2');
 
-        $this->assertSame('node_section_2', $this->engine()->findParent($updated, 'node_heading_1')['id']);
+        $this->assertSame('node_column_2', $this->engine()->findParent($updated, 'node_heading_1')['id']);
     }
 
     public function test_move_nested_subtree(): void
     {
         $document = $this->engine()->insert($this->document(), 'node_root', $this->section('node_section_2'));
+        $document = $this->engine()->insert($document, 'node_section_2', $this->row('node_row_2'));
 
-        $updated = $this->engine()->move($document, 'node_container_1', 'node_section_2');
+        $updated = $this->engine()->move($document, 'node_row_1', 'node_section_2');
 
-        $this->assertSame('node_section_2', $this->engine()->findParent($updated, 'node_container_1')['id']);
-        $this->assertSame('node_container_1', $this->engine()->findParent($updated, 'node_heading_1')['id']);
+        $this->assertSame('node_section_2', $this->engine()->findParent($updated, 'node_row_1')['id']);
+        $this->assertSame('node_column_1', $this->engine()->findParent($updated, 'node_heading_1')['id']);
     }
 
     public function test_move_before_or_after_itself_fails(): void
@@ -141,7 +143,7 @@ class ComponentTreeEngineTest extends TestCase
         $this->expectException(TreeOperationException::class);
         $this->expectExceptionMessage('cannot be moved before or after itself');
 
-        $this->engine()->move($this->document(), 'node_heading_1', 'node_container_1', TreeInsertPosition::before('node_heading_1'));
+        $this->engine()->move($this->document(), 'node_heading_1', 'node_column_1', TreeInsertPosition::before('node_heading_1'));
     }
 
     public function test_update_props_preserves_other_node_data_and_is_immutable(): void
@@ -185,7 +187,7 @@ class ComponentTreeEngineTest extends TestCase
         $this->expectException(TreeOperationException::class);
         $this->expectExceptionMessage('Component type [content.unknown] is not registered.');
 
-        $this->engine()->insert($this->document(), 'node_container_1', [
+        $this->engine()->insert($this->document(), 'node_column_1', [
             'id' => 'node_unknown',
             'type' => 'content.unknown',
             'props' => [],
@@ -201,7 +203,7 @@ class ComponentTreeEngineTest extends TestCase
 
         $this->engine()->insert(
             $this->document(),
-            'node_container_1',
+            'node_column_1',
             $this->heading('node_heading_2'),
             TreeInsertPosition::before('node_missing'),
         );
@@ -210,7 +212,7 @@ class ComponentTreeEngineTest extends TestCase
     public function test_duplicate_node(): void
     {
         $updated = $this->engine(['node_heading_copy'])->duplicate($this->document(), 'node_heading_1');
-        $children = $this->engine()->find($updated, 'node_container_1')['children'];
+        $children = $this->engine()->find($updated, 'node_column_1')['children'];
 
         $this->assertSame(['node_heading_1', 'node_heading_copy'], array_column($children, 'id'));
         $this->assertSame('Hello', $this->engine()->find($updated, 'node_heading_copy')['props']['text']);
@@ -218,28 +220,28 @@ class ComponentTreeEngineTest extends TestCase
 
     public function test_duplicate_nested_subtree_preserves_structure_with_unique_ids(): void
     {
-        $updated = $this->engine(['node_container_copy', 'node_heading_copy'])
-            ->duplicate($this->document(), 'node_container_1');
+        $updated = $this->engine(['node_column_copy', 'node_heading_copy'])
+            ->duplicate($this->document(), 'node_column_1');
 
-        $copy = $this->engine()->find($updated, 'node_container_copy');
+        $copy = $this->engine()->find($updated, 'node_column_copy');
 
-        $this->assertSame('layout.container', $copy['type']);
+        $this->assertSame('layout.column', $copy['type']);
         $this->assertSame(['node_heading_copy'], array_column($copy['children'], 'id'));
         $this->assertSame('content.heading', $copy['children'][0]['type']);
         $this->assertSame('Hello', $copy['children'][0]['props']['text']);
-        $this->assertCount(6, $this->collectIds($updated->toArray()['root']));
-        $this->assertCount(6, array_unique($this->collectIds($updated->toArray()['root'])));
+        $this->assertCount(7, $this->collectIds($updated->toArray()['root']));
+        $this->assertCount(7, array_unique($this->collectIds($updated->toArray()['root'])));
     }
 
     public function test_duplicated_subtree_does_not_share_mutable_data(): void
     {
-        $updated = $this->engine(['node_container_copy', 'node_heading_copy'])
-            ->duplicate($this->document(), 'node_container_1')
+        $updated = $this->engine(['node_column_copy', 'node_heading_copy'])
+            ->duplicate($this->document(), 'node_column_1')
             ->toArray();
 
-        $updated['root']['children'][0]['children'][0]['children'][0]['props']['text'] = 'Changed';
+        $updated['root']['children'][0]['children'][0]['children'][0]['children'][0]['props']['text'] = 'Changed';
 
-        $copy = $updated['root']['children'][0]['children'][1]['children'][0];
+        $copy = $updated['root']['children'][0]['children'][0]['children'][1]['children'][0];
 
         $this->assertSame('Hello', $copy['props']['text']);
     }
@@ -306,8 +308,10 @@ class ComponentTreeEngineTest extends TestCase
                 'styles' => [],
                 'children' => [
                     $this->section('node_section_1', [
-                        $this->container('node_container_1', [
-                            $this->heading('node_heading_1', 'Hello'),
+                        $this->row('node_row_1', [
+                            $this->column('node_column_1', [
+                                $this->heading('node_heading_1', 'Hello'),
+                            ]),
                         ]),
                     ]),
                 ],
@@ -337,11 +341,27 @@ class ComponentTreeEngineTest extends TestCase
      * @param  list<array<string, mixed>>  $children
      * @return array<string, mixed>
      */
-    private function container(string $id, array $children = []): array
+    private function row(string $id, array $children = []): array
     {
         return [
             'id' => $id,
-            'type' => 'layout.container',
+            'type' => 'layout.row',
+            'props' => [],
+            'styles' => [],
+            'children' => $children,
+            'metadata' => [],
+        ];
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $children
+     * @return array<string, mixed>
+     */
+    private function column(string $id, array $children = []): array
+    {
+        return [
+            'id' => $id,
+            'type' => 'layout.column',
             'props' => [],
             'styles' => [],
             'children' => $children,

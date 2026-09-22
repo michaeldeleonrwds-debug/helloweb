@@ -15,8 +15,20 @@ export function renderStyleToReactStyle(styles: Record<string, JsonValue>): Reac
     Object.entries(styles).forEach(([name, value]) => {
         if (typeof value === 'string' || typeof value === 'number') {
             Object.assign(reactStyle, { [name]: value });
+        } else if (isStructuredLength(value)) {
+            Object.assign(reactStyle, { [name]: `${value.value}${value.unit}` });
         }
     });
 
     return reactStyle;
+}
+
+function isStructuredLength(value: JsonValue): value is { value: number; unit: string } {
+    return (
+        typeof value === 'object' &&
+        value !== null &&
+        !Array.isArray(value) &&
+        typeof value.value === 'number' &&
+        typeof value.unit === 'string'
+    );
 }

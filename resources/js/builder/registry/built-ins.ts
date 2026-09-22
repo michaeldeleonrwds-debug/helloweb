@@ -1,7 +1,7 @@
 import type { ComponentDefinition } from '../component/definition';
 import { ComponentRegistry } from './component-registry';
 
-const layoutChildren = [
+const columnChildren = [
     'layout.container',
     'layout.stack',
     'layout.flex',
@@ -18,6 +18,8 @@ const layoutChildren = [
     'marketing.card',
     'reusable.instance',
 ] as const;
+
+const internalLayoutChildren = [...columnChildren] as const;
 
 export const BUILT_IN_COMPONENT_DEFINITIONS: ComponentDefinition[] = [
     {
@@ -55,6 +57,12 @@ export const BUILT_IN_COMPONENT_DEFINITIONS: ComponentDefinition[] = [
         defaultStyles: {
             desktop: {
                 display: 'block',
+                width: '100%',
+                position: 'relative',
+                paddingTop: { value: 10, unit: 'px' },
+                paddingBottom: { value: 10, unit: 'px' },
+                paddingLeft: { value: 0, unit: 'px' },
+                paddingRight: { value: 0, unit: 'px' },
             },
         },
         styleCapabilities: [
@@ -64,19 +72,111 @@ export const BUILT_IN_COMPONENT_DEFINITIONS: ComponentDefinition[] = [
             'margin',
             'padding',
             'paddingTop',
+            'paddingRight',
             'paddingBottom',
+            'paddingLeft',
             'backgroundColor',
-            'flexDirection',
-            'justifyContent',
-            'alignItems',
+            'position',
+            'overflow',
+            'borderWidth',
+            'borderStyle',
+            'borderColor',
+            'borderRadius',
+            'boxShadow',
+            'opacity',
         ],
         propSchema: {},
         childRules: {
-            allowedTypes: [...layoutChildren],
+            allowedTypes: ['layout.row'],
         },
         integration: {
             rendererKey: 'layout.section',
             editorKey: 'layout.section',
+        },
+    },
+    {
+        type: 'layout.row',
+        name: 'Row',
+        category: 'layout',
+        description: 'Horizontal composition layer inside a Section.',
+        capabilities: {
+            canHaveChildren: true,
+            canAcceptChildren: true,
+            supportsResponsiveStyles: true,
+        },
+        defaultProps: {},
+        defaultStyles: {
+            desktop: {
+                display: 'flex',
+                flexDirection: 'row',
+                width: '100%',
+                gap: '1rem',
+                flexWrap: 'nowrap',
+            },
+        },
+        styleCapabilities: [
+            'display',
+            'width',
+            'minHeight',
+            'maxWidth',
+            'margin',
+            'padding',
+            'gap',
+            'flexDirection',
+            'justifyContent',
+            'alignItems',
+            'flexWrap',
+            'backgroundColor',
+        ],
+        propSchema: {},
+        childRules: {
+            allowedTypes: ['layout.column'],
+        },
+        integration: {
+            rendererKey: 'layout.row',
+            editorKey: 'layout.row',
+        },
+    },
+    {
+        type: 'layout.column',
+        name: 'Column',
+        category: 'layout',
+        description: 'Content container inside a Row.',
+        capabilities: {
+            canHaveChildren: true,
+            canAcceptChildren: true,
+            supportsResponsiveStyles: true,
+        },
+        defaultProps: {},
+        defaultStyles: {
+            desktop: {
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '1rem',
+                width: '100%',
+            },
+        },
+        styleCapabilities: [
+            'display',
+            'width',
+            'minWidth',
+            'maxWidth',
+            'minHeight',
+            'margin',
+            'padding',
+            'gap',
+            'flexDirection',
+            'justifyContent',
+            'alignItems',
+            'backgroundColor',
+        ],
+        propSchema: {},
+        childRules: {
+            allowedTypes: [...columnChildren],
+        },
+        integration: {
+            rendererKey: 'layout.column',
+            editorKey: 'layout.column',
         },
     },
     {
@@ -109,7 +209,7 @@ export const BUILT_IN_COMPONENT_DEFINITIONS: ComponentDefinition[] = [
         ],
         propSchema: {},
         childRules: {
-            allowedTypes: [...layoutChildren],
+            allowedTypes: [...internalLayoutChildren],
         },
         integration: {
             rendererKey: 'layout.container',
@@ -138,7 +238,7 @@ export const BUILT_IN_COMPONENT_DEFINITIONS: ComponentDefinition[] = [
             'backgroundColor',
         ],
         propSchema: {},
-        childRules: { allowedTypes: [...layoutChildren] },
+        childRules: { allowedTypes: [...internalLayoutChildren] },
         integration: { rendererKey: 'layout.stack', icon: 'stack' },
     },
     {
@@ -163,7 +263,7 @@ export const BUILT_IN_COMPONENT_DEFINITIONS: ComponentDefinition[] = [
             'backgroundColor',
         ],
         propSchema: {},
-        childRules: { allowedTypes: [...layoutChildren] },
+        childRules: { allowedTypes: [...internalLayoutChildren] },
         integration: { rendererKey: 'layout.flex', icon: 'flex' },
     },
     {
@@ -175,7 +275,7 @@ export const BUILT_IN_COMPONENT_DEFINITIONS: ComponentDefinition[] = [
         defaultStyles: { desktop: { display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '1rem' } },
         styleCapabilities: ['display', 'width', 'minHeight', 'maxWidth', 'margin', 'padding', 'gap', 'gridTemplateColumns', 'backgroundColor'],
         propSchema: {},
-        childRules: { allowedTypes: [...layoutChildren] },
+        childRules: { allowedTypes: [...internalLayoutChildren] },
         integration: { rendererKey: 'layout.grid', icon: 'grid' },
     },
     {
@@ -199,7 +299,7 @@ export const BUILT_IN_COMPONENT_DEFINITIONS: ComponentDefinition[] = [
             'flexWrap',
         ],
         propSchema: {},
-        childRules: { allowedTypes: [...layoutChildren] },
+        childRules: { allowedTypes: [...internalLayoutChildren] },
         integration: { rendererKey: 'layout.columns', icon: 'columns' },
     },
     {
@@ -244,7 +344,7 @@ export const BUILT_IN_COMPONENT_DEFINITIONS: ComponentDefinition[] = [
                 fontSize: '2rem',
             },
         },
-        styleCapabilities: ['margin', 'padding', 'color', 'fontSize', 'fontWeight', 'lineHeight', 'textAlign'],
+        styleCapabilities: ['margin', 'padding', 'color', 'fontFamily', 'fontSize', 'fontWeight', 'lineHeight', 'textAlign'],
         propSchema: {
             text: { type: 'string' },
             level: { type: 'integer', min: 1, max: 6 },
@@ -269,6 +369,7 @@ export const BUILT_IN_COMPONENT_DEFINITIONS: ComponentDefinition[] = [
             'margin',
             'padding',
             'color',
+            'fontFamily',
             'fontSize',
             'fontWeight',
             'lineHeight',
@@ -292,6 +393,7 @@ export const BUILT_IN_COMPONENT_DEFINITIONS: ComponentDefinition[] = [
             'margin',
             'padding',
             'color',
+            'fontFamily',
             'fontSize',
             'fontWeight',
             'lineHeight',
@@ -327,6 +429,7 @@ export const BUILT_IN_COMPONENT_DEFINITIONS: ComponentDefinition[] = [
             'padding',
             'color',
             'backgroundColor',
+            'fontFamily',
             'fontSize',
             'fontWeight',
             'lineHeight',
@@ -348,7 +451,7 @@ export const BUILT_IN_COMPONENT_DEFINITIONS: ComponentDefinition[] = [
         description: 'A lightweight inline navigation link.',
         capabilities: { supportsText: true, supportsResponsiveStyles: true },
         defaultProps: { text: 'Learn more', href: '#' },
-        styleCapabilities: ['margin', 'color', 'fontSize', 'fontWeight', 'lineHeight', 'textDecoration', 'textAlign'],
+        styleCapabilities: ['margin', 'color', 'fontFamily', 'fontSize', 'fontWeight', 'lineHeight', 'textDecoration', 'textAlign'],
         propSchema: { text: { type: 'string' }, href: { type: 'string' } },
         childRules: { allowedTypes: [] },
         integration: { rendererKey: 'content.link', icon: 'link' },
@@ -404,7 +507,7 @@ export const BUILT_IN_COMPONENT_DEFINITIONS: ComponentDefinition[] = [
             'boxShadow',
         ],
         propSchema: {},
-        childRules: { allowedTypes: [...layoutChildren] },
+        childRules: { allowedTypes: [...internalLayoutChildren] },
         integration: { rendererKey: 'marketing.card', icon: 'card' },
     },
     {

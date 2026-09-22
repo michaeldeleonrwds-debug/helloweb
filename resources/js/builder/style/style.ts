@@ -1,8 +1,14 @@
 import type { ComponentDefinition } from '../component/definition';
 import type { BuilderBreakpoint, BuilderComponentNode, BuilderResponsiveStyles, JsonValue } from '../document';
+import { HELLOWEB_FONT_LIBRARY } from '../fonts/font-library';
 
 export type LengthUnit = 'px' | 'rem' | 'em' | '%' | 'vw' | 'vh' | 'auto';
-export type StyleValue = string | number;
+export type LengthValue = {
+    [key: string]: JsonValue;
+    value: number;
+    unit: Exclude<LengthUnit, 'auto'>;
+};
+export type StyleValue = string | number | LengthValue;
 export type StylePropertyType = 'length' | 'color' | 'number' | 'enum';
 export type StyleGroup = 'layout' | 'flex' | 'position' | 'background' | 'border' | 'text';
 
@@ -34,8 +40,11 @@ export const STYLE_PROPERTY_DEFINITIONS: readonly StyleDefinition[] = [
     { key: 'margin', label: 'Margin', group: 'layout', type: 'length', responsive: true },
     { key: 'padding', label: 'Padding', group: 'layout', type: 'length', responsive: true },
     { key: 'paddingTop', label: 'Padding top', group: 'layout', type: 'length', responsive: true },
+    { key: 'paddingRight', label: 'Padding right', group: 'layout', type: 'length', responsive: true },
     { key: 'paddingBottom', label: 'Padding bottom', group: 'layout', type: 'length', responsive: true },
+    { key: 'paddingLeft', label: 'Padding left', group: 'layout', type: 'length', responsive: true },
     { key: 'gap', label: 'Gap', group: 'layout', type: 'length', responsive: true },
+    { key: 'overflow', label: 'Overflow', group: 'layout', type: 'enum', options: ['visible', 'hidden', 'auto', 'scroll'], responsive: true },
     {
         key: 'gridTemplateColumns',
         label: 'Grid columns',
@@ -95,6 +104,14 @@ export const STYLE_PROPERTY_DEFINITIONS: readonly StyleDefinition[] = [
     { key: 'borderColor', label: 'Border color', group: 'border', type: 'color', responsive: true },
     { key: 'borderRadius', label: 'Border radius', group: 'border', type: 'length', responsive: true },
     { key: 'color', label: 'Color', group: 'text', type: 'color', responsive: true },
+    {
+        key: 'fontFamily',
+        label: 'Font family',
+        group: 'text',
+        type: 'enum',
+        options: HELLOWEB_FONT_LIBRARY.map((font) => font.family),
+        responsive: true,
+    },
     { key: 'fontSize', label: 'Font size', group: 'text', type: 'length', responsive: true },
     { key: 'fontWeight', label: 'Font weight', group: 'text', type: 'number', responsive: true },
     { key: 'lineHeight', label: 'Line height', group: 'text', type: 'number', responsive: true },
@@ -139,6 +156,7 @@ export type StylePropertyKey =
     | 'margin'
     | 'padding'
     | 'gap'
+    | 'overflow'
     | 'flexDirection'
     | 'justifyContent'
     | 'alignItems'
@@ -150,7 +168,9 @@ export type StylePropertyKey =
     | 'left'
     | 'zIndex'
     | 'paddingTop'
+    | 'paddingRight'
     | 'paddingBottom'
+    | 'paddingLeft'
     | 'gridTemplateColumns'
     | 'backgroundColor'
     | 'borderWidth'
@@ -158,6 +178,7 @@ export type StylePropertyKey =
     | 'borderColor'
     | 'borderRadius'
     | 'color'
+    | 'fontFamily'
     | 'fontSize'
     | 'fontWeight'
     | 'lineHeight'
@@ -217,9 +238,9 @@ export function resolveStyles(node: BuilderComponentNode, definition: ComponentD
 
 export function serializeStyles(styles: ResolvedStyle): string {
     return Object.entries(styles)
-        .filter(([, value]) => typeof value === 'string' || typeof value === 'number')
+        .filter(([, value]) => typeof value === 'string' || typeof value === 'number' || isStructuredLength(value as JsonValue))
         .sort(([a], [b]) => a.localeCompare(b))
-        .map(([key, value]) => `${kebabCase(key)}: ${escapeStyleValue(String(value))}`)
+        .map(([key, value]) => `${kebabCase(key)}: ${escapeStyleValue(serializeStyleValue(value as StyleValue))}`)
         .join('; ');
 }
 
@@ -230,6 +251,7 @@ function isValidStyleValue(definition: StyleDefinition, value: JsonValue): boole
     if (definition.type === 'length')
         return (
             typeof value === 'number' ||
+            isStructuredLength(value) ||
             (typeof value === 'string' &&
                 /^(auto|(?:-?\d+(?:\.\d+)?)(px|rem|em|%|vw|vh))(\s+(?:-?\d+(?:\.\d+)?)(px|rem|em|%|vw|vh)){0,3}$/.test(value))
         );
@@ -241,6 +263,24 @@ function kebabCase(value: string): string {
 }
 function escapeStyleValue(value: string): string {
     return value.replaceAll('&', '&amp;').replaceAll(';', '').replaceAll('"', '&quot;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+}
+
+export function serializeStyleValue(value: StyleValue): string {
+    if (isStructuredLength(value)) {
+        return `${value.value}${value.unit}`;
+    }
+
+    return String(value);
+}
+
+function isStructuredLength(value: JsonValue): value is LengthValue {
+    return (
+        typeof value === 'object' &&
+        value !== null &&
+        !Array.isArray(value) &&
+        typeof value.value === 'number' &&
+        ['px', 'rem', 'em', '%', 'vw', 'vh'].includes(String(value.unit))
+    );
 }
 
 export function clearStyleOverride(styles: BuilderResponsiveStyles, breakpoint: BuilderBreakpoint, key: StylePropertyKey): BuilderResponsiveStyles {

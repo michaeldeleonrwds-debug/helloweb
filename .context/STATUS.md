@@ -2,12 +2,12 @@
 
 Updated: 2026-09-23
 Agent: Codex
-Phase: Phase 9 - Templates, media, and reusable components
+Phase: Page-first composition correction
 Status: complete
 
 ## Current Objective
 
-Phase 9 foundations, the Builder UI/UX presentation milestone, and Phase 9.5 component/design-system work are complete. The next exact milestone is PHASE 10 — PREVIEW AND PUBLISHING.
+The page-first Builder composition correction is complete: PAGE -> SECTION -> ROW -> COLUMN -> CONTENT. The next exact milestone remains PHASE 10 — PREVIEW AND PUBLISHING.
 
 ## Completed
 

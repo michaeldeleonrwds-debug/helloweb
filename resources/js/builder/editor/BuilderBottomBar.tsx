@@ -5,11 +5,15 @@ import type { BuilderBreakpoint } from '../document';
 interface BuilderBottomBarProps {
     breakpoint: BuilderBreakpoint;
     zoom: number;
+    viewportWidth: number;
     onZoomChange: (zoom: number) => void;
+    onViewportWidthChange: (width: number) => void;
     onBreakpointChange: (breakpoint: BuilderBreakpoint) => void;
 }
 
-export function BuilderBottomBar({ breakpoint, zoom, onZoomChange, onBreakpointChange }: BuilderBottomBarProps) {
+const VIEWPORT_PRESETS = [1920, 1440, 1366, 1280, 1200, 1024, 768, 430, 390, 375, 360] as const;
+
+export function BuilderBottomBar({ breakpoint, zoom, viewportWidth, onZoomChange, onViewportWidthChange, onBreakpointChange }: BuilderBottomBarProps) {
     return (
         <footer className="border-border bg-card text-muted-foreground flex h-11 shrink-0 items-center justify-between border-t px-3 text-xs">
             <div className="flex items-center gap-1">
@@ -57,9 +61,31 @@ export function BuilderBottomBar({ breakpoint, zoom, onZoomChange, onBreakpointC
                     </button>
                 ))}
             </div>
-            <div className="hidden items-center gap-2 sm:flex">
+            <div className="hidden min-w-0 items-center gap-2 sm:flex">
                 <ZoomIn className="size-3.5" />
-                <span>Canvas viewport</span>
+                <span>Viewport</span>
+                <select
+                    className="border-border bg-background text-foreground h-7 rounded-md border px-2 text-xs"
+                    value={VIEWPORT_PRESETS.includes(viewportWidth as (typeof VIEWPORT_PRESETS)[number]) ? String(viewportWidth) : 'custom'}
+                    onChange={(event) => {
+                        if (event.target.value !== 'custom') onViewportWidthChange(Number(event.target.value));
+                    }}
+                >
+                    {VIEWPORT_PRESETS.map((width) => (
+                        <option key={width} value={width}>
+                            {width}
+                        </option>
+                    ))}
+                    <option value="custom">Custom</option>
+                </select>
+                <input
+                    aria-label="Custom viewport width"
+                    className="border-border bg-background text-foreground h-7 w-20 rounded-md border px-2 text-xs"
+                    type="number"
+                    min={320}
+                    value={viewportWidth}
+                    onChange={(event) => onViewportWidthChange(Number(event.target.value))}
+                />
                 <span className="text-foreground font-medium capitalize">{breakpoint}</span>
             </div>
         </footer>

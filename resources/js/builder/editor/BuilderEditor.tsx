@@ -54,6 +54,7 @@ export function BuilderEditor({
     const [error, setError] = useState<string | null>(null);
     const [activeBreakpoint, setActiveBreakpoint] = useState<BuilderBreakpoint>(breakpoint);
     const [zoom, setZoom] = useState(85);
+    const [viewportWidth, setViewportWidth] = useState(1200);
     const [elementsOpen, setElementsOpen] = useState(true);
     const [inspectorOpen, setInspectorOpen] = useState(true);
     const save = useBuilderAutosave(state.document, pageId, initialVersion);
@@ -64,8 +65,8 @@ export function BuilderEditor({
 
     const selectedNode = getSelectedNode(state);
     const selectedDefinition = selectedNode ? registry.get(selectedNode.type) : null;
-    const insertionParentId = selectedNode?.id ?? state.document.root.id;
     const registeredDefinitions = registry.all().filter((definition) => !['layout.root', 'reusable.instance'].includes(definition.type));
+    const insertionParentIdFor = (type: `${string}.${string}`) => findInsertionParentId(type, selectedNode?.id ?? state.document.root.id);
 
     const run = (operation: () => ReturnType<typeof createEditorState>) => {
         try {
@@ -90,6 +91,15 @@ export function BuilderEditor({
             dispatch({ type: 'clearDrag' });
             setError(caught instanceof Error ? caught.message : 'The drop was rejected.');
         }
+    };
+
+    const canDropOnNode = (targetId: string, mode: 'append' | 'before' | 'after') => {
+        if (!state.draggedNodeId || state.draggedNodeId === targetId) return false;
+        const draggedNode = engine.find(state.document, state.draggedNodeId);
+        const targetNode = engine.find(state.document, targetId);
+        if (!draggedNode || !targetNode || containsNode(draggedNode, targetId)) return false;
+        const parentId = mode === 'append' ? targetId : engine.findParent(state.document, targetId)?.id;
+        return Boolean(parentId && engine.canAcceptChild(state.document, parentId, draggedNode.type));
     };
 
     const insertPersistedDefinition = async (kind: 'template' | 'reusable', definitionId: number) => {
@@ -140,7 +150,7 @@ export function BuilderEditor({
                             templates={templates}
                             reusableDefinitions={reusableDefinitions}
                             mediaAssets={mediaAssets}
-                            onInsert={(type) => run(() => insertEditorComponent(state, engine, insertionParentId, type))}
+                            onInsert={(type) => run(() => insertEditorComponent(state, engine, insertionParentIdFor(type), type))}
                             onInsertTemplate={(id) => void insertPersistedDefinition('template', id)}
                             onInsertReusable={(id) => void insertPersistedDefinition('reusable', id)}
                         />
@@ -165,12 +175,19 @@ export function BuilderEditor({
                         componentRegistry={registry}
                         onStartDrag={(nodeId) => dispatch({ type: 'startDrag', nodeId })}
                         onDragOverNode={(targetId, mode) => {
+                            if (!state.draggedNodeId) return;
                             const parentId = mode === 'append' ? targetId : engine.findParent(state.document, targetId)?.id;
                             if (!parentId) return;
                             const position =
                                 mode === 'append' ? appendPosition() : mode === 'before' ? beforePosition(targetId) : afterPosition(targetId);
+                            const draggedNode = engine.find(state.document, state.draggedNodeId);
+                            if (!draggedNode || !engine.canAcceptChild(state.document, parentId, draggedNode.type)) {
+                                dispatch({ type: 'setDropTarget', target: null });
+                                return;
+                            }
                             dispatch({ type: 'setDropTarget', target: { parentId, position } });
                         }}
+                        canDropOnNode={canDropOnNode}
                         onDropNode={dropNode}
                         onEndDrag={() => dispatch({ type: 'clearDrag' })}
                         dropTargetId={
@@ -182,10 +199,12 @@ export function BuilderEditor({
                         }
                         reusableDefinitions={reusableDefinitions}
                         zoom={zoom}
+                        viewportWidth={viewportWidth}
                         onInlineTextChange={(nodeId, text) => { run(() => updateEditorProps(state, engine, nodeId, { text })); dispatch({ type: 'endInlineEdit' }); }}
                         editingNodeId={state.editingNodeId}
                         onStartInlineEdit={(nodeId) => dispatch({ type: 'startInlineEdit', nodeId })}
                         onEndInlineEdit={() => dispatch({ type: 'endInlineEdit' })}
+                        onInsertContextual={(parentId, type) => run(() => insertEditorComponent(state, engine, parentId, type))}
                     />
                 </main>
                 {inspectorOpen ? (
@@ -203,10 +222,48 @@ export function BuilderEditor({
                         }
                         onDuplicate={() => selectedNode && run(() => duplicateEditorNode(state, engine, selectedNode.id))}
                         onRemove={() => selectedNode && run(() => removeEditorNode(state, engine, selectedNode.id))}
+                        onAddChild={(type) => selectedNode && run(() => insertEditorComponent(state, engine, selectedNode.id, type))}
                     />
                 ) : null}
             </div>
-            <BuilderBottomBar breakpoint={activeBreakpoint} zoom={zoom} onZoomChange={setZoom} onBreakpointChange={setActiveBreakpoint} />
+            <BuilderBottomBar
+                breakpoint={activeBreakpoint}
+                zoom={zoom}
+                viewportWidth={viewportWidth}
+                onZoomChange={setZoom}
+                onViewportWidthChange={setViewportWidth}
+                onBreakpointChange={setActiveBreakpoint}
+            />
         </div>
     );
+
+    function findInsertionParentId(type: `${string}.${string}`, preferredParentId: string): string {
+        if (engine.canAcceptChild(state.document, preferredParentId, type)) {
+            return preferredParentId;
+        }
+
+        const fallback = findFirstAcceptingParent(state.document.root, type);
+        if (fallback) {
+            return fallback;
+        }
+
+        return state.document.root.id;
+    }
+
+    function findFirstAcceptingParent(node: BuilderPageDocument['root'], type: `${string}.${string}`): string | null {
+        if (engine.canAcceptChild(state.document, node.id, type)) {
+            return node.id;
+        }
+
+        for (const child of node.children) {
+            const found = findFirstAcceptingParent(child, type);
+            if (found) return found;
+        }
+
+        return null;
+    }
+}
+
+function containsNode(node: BuilderPageDocument['root'], nodeId: string): boolean {
+    return node.children.some((child) => child.id === nodeId || containsNode(child, nodeId));
 }

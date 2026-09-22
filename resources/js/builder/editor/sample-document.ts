@@ -10,11 +10,13 @@ export function createSampleBuilderDocument(): BuilderPageDocument {
             styles: {},
             children: [
                 sectionNode('section-1', [
-                    containerNode('container-1', [
-                        headingNode('heading-1', {
-                            text: 'Hello Builder',
-                            level: 1,
-                        }),
+                    rowNode('row-1', [
+                        columnNode('column-1', [
+                            headingNode('heading-1', {
+                                text: 'Hello Builder',
+                                level: 1,
+                            }),
+                        ]),
                     ]),
                 ]),
             ],
@@ -31,8 +33,8 @@ export function sectionNode(id: string, children: BuilderComponentNode[] = []): 
         props: {},
         styles: {
             desktop: {
-                paddingTop: '3rem',
-                paddingBottom: '3rem',
+                paddingTop: { value: 10, unit: 'px' },
+                paddingBottom: { value: 10, unit: 'px' },
             },
         },
         children,
@@ -51,6 +53,28 @@ export function containerNode(id: string, children: BuilderComponentNode[] = [])
                 minHeight: '8rem',
             },
         },
+        children,
+        metadata: {},
+    };
+}
+
+export function rowNode(id: string, children: BuilderComponentNode[] = []): BuilderComponentNode {
+    return {
+        id,
+        type: 'layout.row',
+        props: {},
+        styles: {},
+        children,
+        metadata: {},
+    };
+}
+
+export function columnNode(id: string, children: BuilderComponentNode[] = []): BuilderComponentNode {
+    return {
+        id,
+        type: 'layout.column',
+        props: {},
+        styles: {},
         children,
         metadata: {},
     };

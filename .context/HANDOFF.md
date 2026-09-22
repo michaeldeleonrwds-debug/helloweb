@@ -9,7 +9,7 @@ Build an original website builder framework on Laravel, React, TypeScript, Inert
 
 ## Current State
 
-Phase 9 foundations plus the Builder UI/UX and Phase 9.5 component-library milestones are implemented. The framework now has owned structured templates, storage-abstracted media assets, explicit reusable references, a professional visual workspace, foundational layout/content/media/marketing components, HelloWeb design tokens, property-aware inspector controls, and tree-backed inline text editing. Preview/publishing, deployment, themes, plugins, and collaboration remain out of scope.
+Phase 9 foundations plus the Builder UI/UX, Phase 9.5 component-library, and page-first composition correction milestones are implemented. The framework now has the authoritative PAGE -> SECTION -> ROW -> COLUMN -> CONTENT model, validated drag insertion, structured Section defaults, a professional visual workspace, and font metadata. Preview/publishing, deployment, themes, plugins, and collaboration remain out of scope.
 
 ## Completed
 

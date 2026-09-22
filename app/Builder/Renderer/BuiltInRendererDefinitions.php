@@ -22,6 +22,8 @@ final class BuiltInRendererDefinitions
         return [
             'layout.root' => new RootRenderer,
             'layout.section' => new SectionRenderer,
+            'layout.row' => new ConfiguredRenderer('div'),
+            'layout.column' => new ConfiguredRenderer('div'),
             'layout.container' => new ContainerRenderer,
             'content.heading' => new HeadingRenderer,
             'layout.stack' => new ConfiguredRenderer('div'),
