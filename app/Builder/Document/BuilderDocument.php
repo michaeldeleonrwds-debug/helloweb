@@ -8,19 +8,18 @@ use JsonException;
 final readonly class BuilderDocument
 {
     /**
-     * @param array<string, mixed> $data
+     * @param  array<string, mixed>  $data
      */
     private function __construct(
         private array $data,
-    ) {
-    }
+    ) {}
 
     /**
-     * @param array<string, mixed> $data
+     * @param  array<string, mixed>  $data
      */
     public static function fromArray(array $data): self
     {
-        $validation = (new BuilderDocumentValidator())->validate($data);
+        $validation = (new BuilderDocumentValidator)->validate($data);
 
         if ($validation->fails()) {
             throw new InvalidArgumentException(implode(' ', $validation->errors()));

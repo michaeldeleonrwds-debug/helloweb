@@ -14,7 +14,12 @@ export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue
 
 export type BuilderRecord = Record<string, JsonValue>;
 
-export type BuilderStyleProperties = Record<string, JsonValue>;
+export interface ReusableComponentReference {
+    type: 'reusable-component';
+    id: number;
+}
+
+export type BuilderStyleProperties = import('./style/style').BuilderStyleProperties;
 
 export type BuilderResponsiveStyles = Partial<Record<BuilderBreakpoint, BuilderStyleProperties>>;
 
@@ -24,6 +29,7 @@ export interface BuilderComponentNode {
     props: BuilderRecord;
     styles: BuilderResponsiveStyles;
     children: BuilderComponentNode[];
+    reusableReference?: ReusableComponentReference;
     metadata?: BuilderRecord;
 }
 

@@ -4,7 +4,7 @@ Updated: 2026-09-23
 
 ## Audit Baseline
 
-Fresh Laravel React Starter Kit with authentication, settings, dashboard, Inertia, React, TypeScript, Tailwind, Vite, SQLite local config, and starter PHPUnit tests. Phase 1 introduced the first builder document contracts. Phase 2 introduced the component definition and registry foundation. Phase 3 introduced framework-level component tree operations. Phase 4 introduced renderer foundation. No editor, database persistence, dashboard CRUD, or visual builder UI exists yet.
+Fresh Laravel React Starter Kit with authentication, settings, dashboard, Inertia, React, TypeScript, Tailwind, Vite, SQLite local config, and starter PHPUnit tests. Phases 1–9 established the document, registry, engine, renderer, style, persistence, template, media, and reusable-component foundations. The builder now has a dedicated visual workspace presentation layer over those contracts; dashboard management remains a separate product experience.
 
 ## Actual Versions
 
@@ -79,6 +79,54 @@ Tree operations return a new document instead of mutating the caller's original 
 
 The renderer uses the ComponentRegistry to resolve what a component is, then uses the RendererRegistry to resolve how it renders. Render output is a neutral tree representation, not React components or Laravel views. Root is represented as a structural fragment and does not add unnecessary visual markup.
 
+## Implemented Phase 5 Editor Canvas And Selection
+
+| Area | Responsibility | Key files |
+| :--- | :--- | :--- |
+| Editor state | Typed in-memory editor state around the canonical `BuilderPageDocument`, with selected and hovered node IDs | `resources/js/builder/editor/editor-state.ts`, `editor-reducer.ts` |
+| Canvas rendering | React canvas that renders the current document through the Phase 4 renderer output | `resources/js/builder/editor/BuilderCanvas.tsx`, `CanvasNode.tsx` |
+| DOM mapping | Stable `data-builder-node-id` mapping from rendered canvas elements back to component node IDs | `CanvasNode.tsx`, `render-result-utils.ts` |
+| Interaction state | Node selection and hover interactions by component node ID, with nested event handling that stops child clicks from selecting parents | `CanvasNode.tsx`, `canvas-interactions.ts` |
+| Visual boundaries | Non-intercepting hover and selection outlines | `HoverOverlay.tsx`, `SelectionOverlay.tsx` |
+| Sample document and focused tests | Deterministic root/section/container/heading document and Node-based editor test harness | `sample-document.ts`, `scripts/builder-editor-tests.ts` |
+
+The editor stores interaction state separately from the document. It does not mutate document structure when selecting or hovering. The structural `layout.root` remains non-selectable in the editor canvas; real components such as section, container, and heading are selectable by node ID. If the document changes and selected/hovered, dragged, or targeted nodes no longer exist, the editor clears those stale IDs.
+
+## Implemented Phase 6 Insertion, Drag/Drop, And Inspector
+
+| Area | Responsibility | Key files |
+| :--- | :--- | :--- |
+| Editor mutations | Centralized editor-facing calls to `ComponentTreeEngine` for insert, move, duplicate, remove, and prop updates | `resources/js/builder/editor/editor-operations.ts` |
+| Component creation | Registry defaults plus engine-owned ID generation for new nodes | `resources/js/builder/engine/component-tree-engine.ts` |
+| Insertion palette | Registry-driven component categories filtered by engine child validation | `resources/js/builder/editor/ComponentPalette.tsx` |
+| Drag/drop | Native drag events translated into before, after, or append engine positions; invalid drops are rejected by the engine | `resources/js/builder/editor/CanvasNode.tsx`, `BuilderEditor.tsx` |
+| Inspector | Definition prop schemas drive basic text, integer, and enum controls | `resources/js/builder/editor/ComponentInspector.tsx` |
+| Builder shell | Palette, canvas, and inspector share one in-memory editor state | `resources/js/builder/editor/BuilderEditor.tsx` |
+
+Phase 6 keeps `BuilderDocument` as the source of truth. React components dispatch editor operations and never edit node children, props, or the document root directly. `updateProps` validates registry metadata, preserves unrelated node data, and returns a new document.
+
+## Implemented Phase 7 Style And Responsive Engine
+
+The style subsystem is framework-neutral and lives under `app/Builder/Style` and `resources/js/builder/style`. Typed style definitions describe supported keys, groups, value types, options, and responsive behavior. Component definitions declare `styleCapabilities`, so controls are metadata-driven and arbitrary registered components can participate without inspector branching.
+
+Resolution applies component defaults followed by node desktop, tablet, and mobile overrides. Tablet inherits desktop and mobile inherits tablet/desktop values unless overridden. Tree-engine `updateStyles` and `clearStyleOverride` operations validate breakpoint, property, capability, and value, then return immutable documents. The renderer consumes resolved styles and `RenderResult` uses stable property ordering and escaped serialization. The inspector exposes registry-defined style capabilities with breakpoint switching, inherited-value indication, and clear-override actions.
+
+## Implemented Phase 8 Persistence, Autosave, And Revisions
+
+Persistence is an application boundary under `app/Builder/Persistence`. `Website` owns `Page` records, and each `Page` stores one validated structured `draft_document` JSON value plus a page-scoped `document_version`. `PageRevision` stores immutable JSON snapshots with schema version, page-scoped revision number, creator, and checkpoint/restore type. No visual component is normalized into a database row and no rendered HTML is persisted.
+
+The `BuilderPagePersistenceService` validates documents through the existing document validator plus registered component, prop, child-rule, and style-capability checks before saving. Draft saves lock the page row and require the caller's expected document version. A mismatch raises a stale-write conflict without overwriting newer data. Explicit revision creation snapshots the current draft; restoration copies a historical document into a new revision and current draft, leaving the source revision unchanged.
+
+Authenticated builder endpoints are thin controller/application boundaries. `PagePolicy` scopes view, draft, revision, and restore access through the owning user. The persisted page route loads and validates the document into the existing editor. The React editor keeps the local document on save failure and uses a 650ms debounce, save lifecycle state, and retry action for autosave. Autosave updates only the draft; it does not create a revision per keystroke.
+
+## Implemented Phase 9 Templates, Media, And Reusable Components
+
+Templates are owned, persisted structured BuilderDocuments. `TemplatePersistenceService` validates stored and incoming documents, archives templates instead of deleting their source data, and instantiates templates by deep-cloning nodes with newly generated IDs before inserting them through `ComponentTreeEngine`. Instantiation produces independent page nodes and does not retain a template reference.
+
+Media assets are separate owned records containing metadata and a storage disk/key. `MediaStorage` abstracts storage operations from local/S3-compatible implementations; the renderer never reads media storage. `MediaAssetService` owns storage lifecycle, metadata persistence, reference creation, and owner checks. The current phase establishes the media reference contract without adding an image editor or processing pipeline.
+
+Reusable components are persisted structured component documents. A page reusable instance is an explicit `reusable.instance` node with a typed `reusableReference`, not a local copy and not a template instantiation. `ReusableComponentService` validates ownership, inserts references through the tree engine, and exposes owned definitions. The TypeScript application boundary resolves references into namespaced render documents before `BuilderRenderer`; unresolved references fail clearly in the renderer and never trigger database queries.
+
 ## Framework Boundaries
 
 Recommended module boundaries:
@@ -91,7 +139,23 @@ Recommended module boundaries:
 - **Layout System** - containers, section semantics, flex/grid primitives, allowed nesting.
 - **Style System** - structured style object and resolver to CSS/Tailwind-safe render output.
 - **Responsive System** - desktop base plus tablet/mobile overrides with deterministic resolution.
-- **Persistence Layer** - Laravel models/services for websites, pages, schema-versioned documents, revisions, templates, media, publishing state.
+- **Style Definitions** - typed, validated property catalog and component-declared style capabilities.
+- **Persistence Layer** - Laravel Website/Page/PageRevision models, native JSON document storage, validated draft/revision application services, authorization, and optimistic version checks.
+- **Templates** - owned structured document definitions and independent tree instantiation.
+- **Media** - owned metadata records and `MediaStorage` abstraction; no renderer storage coupling.
+- **Reusable Components** - owned structured definitions, explicit page references, and pre-render resolution.
+- **Builder Workspace** - presentation-only toolbar, elements, layers, canvas viewport, inspector, responsive controls, zoom, and save-state composition over editor state and document operations.
+- **Dashboard** - platform management surface kept separate from the visual builder route and workspace state.
+
+The Dashboard currently loads owned Website/Page/Template/Media/ReusableComponent/PageRevision summaries through a dedicated controller and presents empty states when those collections are empty. It does not create demo records or become a page editor.
+
+HelloWeb is the visible product identity for the application shell, dashboard, builder, authentication, landing page, and document metadata. Laravel remains an internal implementation dependency only.
+
+## Phase 9.5 Design System And Component Library
+
+The foundational component library now includes registered Section, Container, Stack, Flex, Grid, Columns, Spacer, Divider, Heading, Text, Rich Text, Button, Link, Image, and Card primitives. PHP and TypeScript definitions remain aligned through the component registries; each component declares its category, description, defaults, child rules, props, style capabilities, and renderer integration metadata. Navigation, Forms, and Advanced categories remain extension points rather than fake UI entries.
+
+The HelloWeb design-token contract is exposed in `resources/js/builder/design-tokens.ts`, while semantic CSS variables remain the application styling source. The inspector uses property-aware controls, responsive inheritance, color tokens, and component metadata. Inline text editing dispatches through the existing `ComponentTreeEngine` prop mutation path; DOM editing never mutates persisted documents directly.
 - **Extension System** - future registration surface for components, controls, renderers, and transforms.
 
 ## Recommended Component Model
@@ -146,6 +210,16 @@ Current built-ins:
 - Responsive style resolution applies component defaults and node styles in this order: desktop base, tablet overrides for tablet/mobile, mobile overrides for mobile.
 - Current output can serialize to deterministic HTML for tests/public rendering experiments, while remaining neutral enough for future React preview rendering.
 
+## Editor And Canvas Semantics
+
+- `BuilderEditorState` contains `document`, `selectedNodeId`, and `hoveredNodeId`.
+- `selectNode`, `hoverNode`, and lookup helpers operate on stable component node IDs.
+- `setDocument` replaces the in-memory document and clears stale selection/hover state when IDs disappear.
+- `BuilderCanvas` rebuilds render output from the current document through `BuilderRenderer`.
+- `CanvasNode` converts neutral `RenderResult` nodes into React elements and attaches editor-only event handlers outside the renderer.
+- Canvas overlays use `pointer-events: none` so they do not block component interaction.
+- Editor state is independent from persistence and database models.
+
 ## Tree Operation Semantics
 
 - `find(document, nodeId)`: returns the matching node or `null`.
@@ -154,8 +228,11 @@ Current built-ins:
 - `remove(document, nodeId)`: removes a non-root node and its subtree.
 - `move(document, nodeId, newParentId, position)`: moves a non-root node/subtree to a valid parent and prevents cycles.
 - `duplicate(document, nodeId)`: duplicates a non-root subtree after the source node and generates new IDs for every copied node.
+- `createNode(document, type)`: creates a registry-default node with an engine-generated unique ID.
+- `insertComponent(document, parentId, type, position)`: creates and inserts a registry component through the same insert validation.
+- `updateProps(document, nodeId, patch)`: validates editable prop metadata and returns a new document.
 
-Invalid operations fail with domain-level errors rather than vague booleans. The engine does not implement visual drag/drop, selection, undo/redo, renderer output, persistence, or editor state.
+Invalid operations fail with domain-level errors rather than vague booleans. The engine rejects root operations, self drops, descendant cycles, invalid parents, invalid positions, invalid child types, and invalid prop values. Visual drag/drop and editor state remain in the editor layer; undo/redo, renderer output, and persistence remain separate concerns.
 
 ## Recommended Style And Responsive Model
 
@@ -195,4 +272,4 @@ Do not create one row per visual component in the initial design. Validate and v
 
 ## Key Decisions
 
-See `DECISIONS.md`: D-001, D-002, D-003, D-004, D-005, D-006, D-007.
+See `DECISIONS.md`: D-001 through D-016.

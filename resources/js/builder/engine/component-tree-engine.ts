@@ -1,5 +1,6 @@
-import type { BuilderComponentNode, BuilderPageDocument, ComponentType } from '../document';
+import type { BuilderBreakpoint, BuilderComponentNode, BuilderPageDocument, BuilderRecord, ComponentType, JsonValue } from '../document';
 import type { ComponentRegistry } from '../registry/component-registry';
+import { clearStyleOverride, validateStylePatch } from '../style/style';
 import type { NodeIdGenerator } from './node-id-generator';
 import { SequentialNodeIdGenerator } from './node-id-generator';
 import type { TreeInsertPosition } from './tree-position';
@@ -32,6 +33,10 @@ export class TreeOperationError extends Error {
     static duplicateIdGenerated(nodeId: string): TreeOperationError {
         return new TreeOperationError(`Generated duplicate node ID [${nodeId}].`);
     }
+
+    static invalidProp(nodeType: string, propName: string, message: string): TreeOperationError {
+        return new TreeOperationError(`Invalid prop [${propName}] for component [${nodeType}]: ${message}`);
+    }
 }
 
 export class ComponentTreeEngine {
@@ -51,6 +56,50 @@ export class ComponentTreeEngine {
         }
 
         return findParentInNode(document.root, nodeId);
+    }
+
+    canAcceptChild(document: BuilderPageDocument, parentId: string, childType: ComponentType): boolean {
+        try {
+            this.assertParentAccepts(document, parentId, childType);
+            return true;
+        } catch (error) {
+            if (error instanceof TreeOperationError) {
+                return false;
+            }
+
+            throw error;
+        }
+    }
+
+    createNode(document: BuilderPageDocument, type: ComponentType): BuilderComponentNode {
+        if (!this.registry.has(type)) {
+            throw TreeOperationError.invalidComponentType(type);
+        }
+
+        const definition = this.registry.get(type);
+        const existingIds = collectIds(document.root);
+        const id = this.idGenerator.generate(type, existingIds);
+
+        if (existingIds.has(id)) {
+            throw TreeOperationError.duplicateIdGenerated(id);
+        }
+
+        return {
+            id,
+            type,
+            props: structuredClone(definition.defaultProps ?? {}),
+            styles: structuredClone(definition.defaultStyles ?? {}),
+            children: [],
+        };
+    }
+
+    insertComponent(
+        document: BuilderPageDocument,
+        parentId: string,
+        type: ComponentType,
+        position: TreeInsertPosition = { mode: 'append' },
+    ): BuilderPageDocument {
+        return this.insert(document, parentId, this.createNode(document, type), position);
     }
 
     insert(
@@ -99,6 +148,10 @@ export class ComponentTreeEngine {
             throw TreeOperationError.nodeNotFound(nodeId);
         }
 
+        if (position.mode !== 'append' && position.siblingId === nodeId) {
+            throw TreeOperationError.invalidPosition('A node cannot be moved before or after itself.');
+        }
+
         if (findInNode(node, newParentId)) {
             throw TreeOperationError.invalidChildRelationship(node.type, newParentId);
         }
@@ -140,6 +193,63 @@ export class ComponentTreeEngine {
 
         insertIntoNode(nextDocument.root, parent.id, duplicate, { mode: 'after', siblingId: nodeId });
 
+        return nextDocument;
+    }
+
+    updateProps(document: BuilderPageDocument, nodeId: string, patch: Partial<BuilderRecord>): BuilderPageDocument {
+        const nextDocument = cloneDocument(document);
+        const node = findInNode(nextDocument.root, nodeId);
+
+        if (!node) {
+            throw TreeOperationError.nodeNotFound(nodeId);
+        }
+
+        const definition = this.registry.get(node.type);
+        const validPatch: BuilderRecord = {};
+        Object.entries(patch).forEach(([name, value]) => {
+            const schema = definition.propSchema?.[name];
+
+            if (!schema) {
+                throw TreeOperationError.invalidProp(node.type, name, 'property is not editable.');
+            }
+
+            if (value === undefined) {
+                throw TreeOperationError.invalidProp(node.type, name, 'value cannot be undefined.');
+            }
+
+            assertValidProp(node.type, name, value, schema);
+            validPatch[name] = value;
+        });
+
+        node.props = { ...node.props, ...structuredClone(validPatch) };
+
+        return nextDocument;
+    }
+
+    updateStyles(
+        document: BuilderPageDocument,
+        nodeId: string,
+        breakpoint: BuilderBreakpoint,
+        patch: Record<string, JsonValue | undefined>,
+    ): BuilderPageDocument {
+        const nextDocument = cloneDocument(document);
+        const node = findInNode(nextDocument.root, nodeId);
+        if (!node) throw TreeOperationError.nodeNotFound(nodeId);
+        const validPatch = validateStylePatch(this.registry.get(node.type), patch);
+        node.styles[breakpoint] = { ...(node.styles[breakpoint] ?? {}), ...validPatch };
+        return nextDocument;
+    }
+
+    clearStyleOverride(
+        document: BuilderPageDocument,
+        nodeId: string,
+        breakpoint: BuilderBreakpoint,
+        key: Parameters<typeof clearStyleOverride>[2],
+    ): BuilderPageDocument {
+        const nextDocument = cloneDocument(document);
+        const node = findInNode(nextDocument.root, nodeId);
+        if (!node) throw TreeOperationError.nodeNotFound(nodeId);
+        node.styles = clearStyleOverride(node.styles, breakpoint, key);
         return nextDocument;
     }
 
@@ -205,6 +315,30 @@ export class ComponentTreeEngine {
             id: nextId,
             children: node.children.map((child) => this.duplicateNode(child, existingIds)),
         };
+    }
+}
+
+function assertValidProp(nodeType: string, name: string, value: BuilderRecord[string], schema: BuilderRecord): void {
+    const type = schema.type;
+
+    if (type === 'string' && typeof value !== 'string') {
+        throw TreeOperationError.invalidProp(nodeType, name, 'expected a string.');
+    }
+
+    if (type === 'integer' && (!Number.isInteger(value) || typeof value !== 'number')) {
+        throw TreeOperationError.invalidProp(nodeType, name, 'expected an integer.');
+    }
+
+    if (typeof schema.min === 'number' && typeof value === 'number' && value < schema.min) {
+        throw TreeOperationError.invalidProp(nodeType, name, `must be at least ${schema.min}.`);
+    }
+
+    if (typeof schema.max === 'number' && typeof value === 'number' && value > schema.max) {
+        throw TreeOperationError.invalidProp(nodeType, name, `must be at most ${schema.max}.`);
+    }
+
+    if (Array.isArray(schema.values) && !schema.values.includes(value)) {
+        throw TreeOperationError.invalidProp(nodeType, name, 'value is not allowed.');
     }
 }
 

@@ -1,0 +1,25 @@
+export const HELLOWEB_DESIGN_TOKENS = {
+    colors: {
+        primary: 'hsl(158 64% 32%)',
+        secondary: 'hsl(160 18% 94%)',
+        background: 'hsl(0 0% 100%)',
+        surface: 'hsl(0 0% 98%)',
+        text: 'hsl(160 30% 8%)',
+        muted: 'hsl(160 8% 45%)',
+        border: 'hsl(160 10% 88%)',
+        accent: 'hsl(158 64% 48%)',
+    },
+    typography: {
+        display: '2.75rem',
+        h1: '2rem',
+        h2: '1.5rem',
+        h3: '1.25rem',
+        h4: '1.0625rem',
+        body: '1rem',
+        small: '0.875rem',
+        caption: '0.75rem',
+    },
+    spacing: { xs: '0.25rem', sm: '0.5rem', md: '1rem', lg: '1.5rem', xl: '2rem', '2xl': '3rem', '3xl': '4.5rem' },
+    radius: { none: '0', sm: '0.25rem', md: '0.5rem', lg: '0.75rem', xl: '1rem', full: '9999px' },
+    shadow: { none: 'none', sm: '0 1px 2px rgba(0,0,0,.08)', md: '0 8px 24px rgba(0,0,0,.12)', lg: '0 18px 48px rgba(0,0,0,.16)' },
+} as const;

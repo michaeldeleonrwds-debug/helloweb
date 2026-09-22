@@ -60,10 +60,82 @@ export const headingRenderer: ComponentRenderer = {
     },
 };
 
+export const reusableInstanceRenderer: ComponentRenderer = {
+    render() {
+        throw RendererError.invalidNode('Reusable component references must be resolved before rendering.');
+    },
+};
+
+function blockRenderer(tag: string): ComponentRenderer {
+    return {
+        render(node, definition, context, children) {
+            return {
+                tag,
+                attributes: { 'data-builder-id': node.id, 'data-builder-type': node.type },
+                styles: resolveStyles(node, definition, context.breakpoint),
+                children,
+            };
+        },
+    };
+}
+
+function textRenderer(tag = 'p'): ComponentRenderer {
+    return {
+        render(node, definition, context, children) {
+            const props = { ...(definition.defaultProps ?? {}), ...node.props };
+            return {
+                tag,
+                attributes: { 'data-builder-id': node.id, 'data-builder-type': node.type },
+                styles: resolveStyles(node, definition, context.breakpoint),
+                text: String(props.text ?? ''),
+                children,
+            };
+        },
+    };
+}
+
+const linkRenderer: ComponentRenderer = {
+    render(node, definition, context, children) {
+        const props = { ...(definition.defaultProps ?? {}), ...node.props };
+        return {
+            tag: 'a',
+            attributes: { 'data-builder-id': node.id, 'data-builder-type': node.type, href: String(props.href ?? '#') },
+            styles: resolveStyles(node, definition, context.breakpoint),
+            text: String(props.text ?? ''),
+            children,
+        };
+    },
+};
+
+const imageRenderer: ComponentRenderer = {
+    render(node, definition, context, children) {
+        const props = { ...(definition.defaultProps ?? {}), ...node.props };
+        return {
+            tag: 'img',
+            attributes: { 'data-builder-id': node.id, 'data-builder-type': node.type, src: String(props.src ?? ''), alt: String(props.alt ?? '') },
+            styles: resolveStyles(node, definition, context.breakpoint),
+            children,
+        };
+    },
+};
+
 export function registerBuiltInRenderers(registry: ComponentRendererRegistry): ComponentRendererRegistry {
     return registry
         .register('layout.root', rootRenderer)
         .register('layout.section', sectionRenderer)
         .register('layout.container', containerRenderer)
-        .register('content.heading', headingRenderer);
+        .register('content.heading', headingRenderer)
+        .register('layout.stack', blockRenderer('div'))
+        .register('layout.flex', blockRenderer('div'))
+        .register('layout.grid', blockRenderer('div'))
+        .register('layout.columns', blockRenderer('div'))
+        .register('layout.spacer', blockRenderer('div'))
+        .register('layout.divider', blockRenderer('hr'))
+        .register('content.text', textRenderer())
+        .register('content.richtext', textRenderer())
+        .register('content.button', linkRenderer)
+        .register('content.link', linkRenderer)
+        .register('media.image', imageRenderer)
+        .register('marketing.card', blockRenderer('article'))
+        .register('reusable.instance', reusableInstanceRenderer);
 }

@@ -120,11 +120,11 @@ class BuilderDocumentTest extends TestCase
 
     private function validator(): BuilderDocumentValidator
     {
-        return new BuilderDocumentValidator();
+        return new BuilderDocumentValidator;
     }
 
     /**
-     * @param list<array<string, mixed>> $children
+     * @param  list<array<string, mixed>>  $children
      * @return array<string, mixed>
      */
     private function minimalDocument(array $children = []): array

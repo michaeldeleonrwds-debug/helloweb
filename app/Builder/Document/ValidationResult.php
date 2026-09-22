@@ -5,12 +5,11 @@ namespace App\Builder\Document;
 final readonly class ValidationResult
 {
     /**
-     * @param list<string> $errors
+     * @param  list<string>  $errors
      */
     public function __construct(
         private array $errors = [],
-    ) {
-    }
+    ) {}
 
     public function passes(): bool
     {

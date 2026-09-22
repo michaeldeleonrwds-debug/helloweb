@@ -11,6 +11,7 @@ final readonly class ComponentDefinition
      * @param  array<string, mixed>  $defaultProps
      * @param  array<string, mixed>  $defaultStyles
      * @param  array<string, mixed>  $propSchema
+     * @param  list<string>  $styleCapabilities
      * @param  array<string, mixed>  $childRules
      * @param  array<string, mixed>  $integration
      */
@@ -25,6 +26,7 @@ final readonly class ComponentDefinition
         private array $propSchema = [],
         private array $childRules = [],
         private array $integration = [],
+        private array $styleCapabilities = [],
     ) {
         $this->assertValid();
     }
@@ -86,6 +88,12 @@ final readonly class ComponentDefinition
         return $this->propSchema;
     }
 
+    /** @return list<string> */
+    public function styleCapabilities(): array
+    {
+        return $this->styleCapabilities;
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -115,6 +123,7 @@ final readonly class ComponentDefinition
             'capabilities' => $this->capabilities,
             'defaultProps' => $this->defaultProps,
             'defaultStyles' => $this->defaultStyles,
+            'styleCapabilities' => $this->styleCapabilities,
             'propSchema' => $this->propSchema,
             'childRules' => $this->childRules,
             'integration' => $this->integration,

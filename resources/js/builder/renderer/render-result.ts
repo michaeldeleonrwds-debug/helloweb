@@ -1,4 +1,5 @@
 import type { JsonValue } from '../document';
+import { serializeStyles as serializeResolvedStyles } from '../style/style';
 
 export interface RenderResult {
     tag: string | null;
@@ -44,19 +45,7 @@ function serializeAttributes(result: RenderResult): string {
 }
 
 function serializeStyles(styles: Record<string, JsonValue>): string {
-    return Object.entries(styles)
-        .filter((entry): entry is [string, string | number | boolean] => {
-            const value = entry[1];
-
-            return ['string', 'number', 'boolean'].includes(typeof value);
-        })
-        .sort(([left], [right]) => left.localeCompare(right))
-        .map(([name, value]) => `${kebabCase(name)}: ${String(value)}`)
-        .join('; ');
-}
-
-function kebabCase(value: string): string {
-    return value.replace(/(?<!^)[A-Z]/g, '-$&').toLowerCase();
+    return serializeResolvedStyles(styles as unknown as Record<string, string | number>);
 }
 
 function escapeHtml(value: string): string {

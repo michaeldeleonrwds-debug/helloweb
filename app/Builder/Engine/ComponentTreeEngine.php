@@ -3,7 +3,9 @@
 namespace App\Builder\Engine;
 
 use App\Builder\Document\BuilderDocument;
+use App\Builder\Document\BuilderDocumentSchema;
 use App\Builder\Registry\ComponentRegistry;
+use App\Builder\Style\StyleValidator;
 
 final readonly class ComponentTreeEngine
 {
@@ -98,6 +100,10 @@ final readonly class ComponentTreeEngine
             throw TreeOperationException::nodeNotFound($nodeId);
         }
 
+        if ($position->mode() !== 'append' && $position->siblingId() === $nodeId) {
+            throw TreeOperationException::invalidPosition('A node cannot be moved before or after itself.');
+        }
+
         if ($this->findInNode($node, $newParentId) !== null) {
             throw TreeOperationException::invalidChildRelationship($node['type'], $newParentId);
         }
@@ -146,6 +152,78 @@ final readonly class ComponentTreeEngine
         if (! $inserted) {
             throw TreeOperationException::parentNotFound($parent['id']);
         }
+
+        return BuilderDocument::fromArray($data);
+    }
+
+    /**
+     * @param  array<string, mixed>  $patch
+     */
+    public function updateProps(BuilderDocument $document, string $nodeId, array $patch): BuilderDocument
+    {
+        $data = $document->toArray();
+        $node = $this->findInNode($data['root'], $nodeId);
+
+        if ($node === null) {
+            throw TreeOperationException::nodeNotFound($nodeId);
+        }
+
+        $definition = $this->registry->get($node['type']);
+
+        foreach ($patch as $name => $value) {
+            $schema = $definition->propSchema()[$name] ?? null;
+
+            if (! is_array($schema)) {
+                throw TreeOperationException::invalidProp($node['type'], $name, 'property is not editable.');
+            }
+
+            $this->assertValidProp($node['type'], $name, $value, $schema);
+        }
+
+        $this->updateNodeProps($data['root'], $nodeId, $patch);
+
+        return BuilderDocument::fromArray($data);
+    }
+
+    /** @param array<string, mixed> $patch */
+    public function updateStyles(BuilderDocument $document, string $nodeId, string $breakpoint, array $patch): BuilderDocument
+    {
+        if (! in_array($breakpoint, BuilderDocumentSchema::BREAKPOINTS, true)) {
+            throw TreeOperationException::invalidStyle('', $breakpoint, 'breakpoint is not supported.');
+        }
+        $data = $document->toArray();
+        $node = $this->findInNode($data['root'], $nodeId);
+        if ($node === null) {
+            throw TreeOperationException::nodeNotFound($nodeId);
+        }
+        $definition = $this->registry->get($node['type']);
+        foreach ((new StyleValidator)->validate([$breakpoint => $patch], 'styles') as $error) {
+            throw TreeOperationException::invalidStyle($node['type'], 'patch', $error);
+        }
+        foreach ($patch as $key => $_value) {
+            if (! in_array($key, $definition->styleCapabilities(), true)) {
+                throw TreeOperationException::invalidStyle($node['type'], $key, 'property is not supported.');
+            }
+        }
+        $this->updateNodeStyles($data['root'], $nodeId, $breakpoint, $patch);
+
+        return BuilderDocument::fromArray($data);
+    }
+
+    public function clearStyleOverride(BuilderDocument $document, string $nodeId, string $breakpoint, string $key): BuilderDocument
+    {
+        $data = $document->toArray();
+        $node = $this->findInNode($data['root'], $nodeId);
+        if ($node === null) {
+            throw TreeOperationException::nodeNotFound($nodeId);
+        }
+        if (isset($node['styles'][$breakpoint])) {
+            unset($node['styles'][$breakpoint][$key]);
+            if ($node['styles'][$breakpoint] === []) {
+                unset($node['styles'][$breakpoint]);
+            }
+        }
+        $this->replaceNode($data['root'], $nodeId, $node);
 
         return BuilderDocument::fromArray($data);
     }
@@ -363,5 +441,86 @@ final readonly class ComponentTreeEngine
         }
 
         return $copy;
+    }
+
+    /**
+     * @param  array<string, mixed>  $node
+     * @param  array<string, mixed>  $patch
+     */
+    private function updateNodeProps(array &$node, string $nodeId, array $patch): bool
+    {
+        if (($node['id'] ?? null) === $nodeId) {
+            $node['props'] = [...$node['props'], ...$patch];
+
+            return true;
+        }
+
+        foreach ($node['children'] as &$child) {
+            if (is_array($child) && $this->updateNodeProps($child, $nodeId, $patch)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function updateNodeStyles(array &$node, string $nodeId, string $breakpoint, array $patch): bool
+    {
+        if (($node['id'] ?? null) === $nodeId) {
+            $node['styles'][$breakpoint] = [...($node['styles'][$breakpoint] ?? []), ...$patch];
+
+            return true;
+        }
+        foreach ($node['children'] as &$child) {
+            if (is_array($child) && $this->updateNodeStyles($child, $nodeId, $breakpoint, $patch)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function replaceNode(array &$node, string $nodeId, array $replacement): bool
+    {
+        if (($node['id'] ?? null) === $nodeId) {
+            $node = $replacement;
+
+            return true;
+        }
+        foreach ($node['children'] as &$child) {
+            if (is_array($child) && $this->replaceNode($child, $nodeId, $replacement)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  array<string, mixed>  $schema
+     */
+    private function assertValidProp(string $nodeType, string $name, mixed $value, array $schema): void
+    {
+        $type = $schema['type'] ?? null;
+
+        if ($type === 'string' && ! is_string($value)) {
+            throw TreeOperationException::invalidProp($nodeType, $name, 'expected a string.');
+        }
+
+        if ($type === 'integer' && ! is_int($value)) {
+            throw TreeOperationException::invalidProp($nodeType, $name, 'expected an integer.');
+        }
+
+        if (isset($schema['min']) && is_int($value) && $value < $schema['min']) {
+            throw TreeOperationException::invalidProp($nodeType, $name, "must be at least {$schema['min']}.");
+        }
+
+        if (isset($schema['max']) && is_int($value) && $value > $schema['max']) {
+            throw TreeOperationException::invalidProp($nodeType, $name, "must be at most {$schema['max']}.");
+        }
+
+        if (isset($schema['values']) && is_array($schema['values']) && ! in_array($value, $schema['values'], true)) {
+            throw TreeOperationException::invalidProp($nodeType, $name, 'value is not allowed.');
+        }
     }
 }

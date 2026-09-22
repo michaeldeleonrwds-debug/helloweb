@@ -136,6 +136,34 @@ class ComponentTreeEngineTest extends TestCase
         $this->assertSame('node_container_1', $this->engine()->findParent($updated, 'node_heading_1')['id']);
     }
 
+    public function test_move_before_or_after_itself_fails(): void
+    {
+        $this->expectException(TreeOperationException::class);
+        $this->expectExceptionMessage('cannot be moved before or after itself');
+
+        $this->engine()->move($this->document(), 'node_heading_1', 'node_container_1', TreeInsertPosition::before('node_heading_1'));
+    }
+
+    public function test_update_props_preserves_other_node_data_and_is_immutable(): void
+    {
+        $updated = $this->engine()->updateProps($this->document(), 'node_heading_1', ['text' => 'Changed', 'level' => 3]);
+        $node = $this->engine()->find($updated, 'node_heading_1');
+
+        $this->assertSame('Changed', $node['props']['text']);
+        $this->assertSame(3, $node['props']['level']);
+        $this->assertSame(['desktop' => ['fontSize' => '2rem']], $node['styles']);
+        $this->assertSame([], $node['children']);
+        $this->assertSame('Hello', $this->engine()->find($this->document(), 'node_heading_1')['props']['text']);
+    }
+
+    public function test_invalid_prop_is_rejected(): void
+    {
+        $this->expectException(TreeOperationException::class);
+        $this->expectExceptionMessage('must be at most 6');
+
+        $this->engine()->updateProps($this->document(), 'node_heading_1', ['level' => 7]);
+    }
+
     public function test_invalid_parent_fails(): void
     {
         $this->expectException(TreeOperationException::class);

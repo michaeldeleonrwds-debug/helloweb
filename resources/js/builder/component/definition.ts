@@ -1,4 +1,5 @@
 import type { BuilderRecord, BuilderResponsiveStyles, ComponentType, JsonValue } from '../document';
+import type { StylePropertyKey } from '../style/style';
 
 export type ComponentCapability = 'canHaveChildren' | 'canAcceptChildren' | 'supportsText' | 'supportsResponsiveStyles' | (string & {});
 
@@ -24,6 +25,7 @@ export interface ComponentDefinition {
     capabilities?: ComponentCapabilities;
     defaultProps?: BuilderRecord;
     defaultStyles?: BuilderResponsiveStyles;
+    styleCapabilities?: StylePropertyKey[];
     propSchema?: ComponentPropSchema;
     childRules?: ComponentChildRules;
     integration?: ComponentIntegrationPoints;

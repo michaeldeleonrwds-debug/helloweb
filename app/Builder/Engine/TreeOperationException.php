@@ -40,4 +40,14 @@ final class TreeOperationException extends RuntimeException
     {
         return new self("Generated duplicate node ID [{$nodeId}].");
     }
+
+    public static function invalidProp(string $nodeType, string $propName, string $message): self
+    {
+        return new self("Invalid prop [{$propName}] for component [{$nodeType}]: {$message}");
+    }
+
+    public static function invalidStyle(string $nodeType, string $styleName, string $message): self
+    {
+        return new self("Invalid style [{$styleName}] for component [{$nodeType}]: {$message}");
+    }
 }

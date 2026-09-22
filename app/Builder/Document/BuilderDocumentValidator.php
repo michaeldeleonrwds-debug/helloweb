@@ -2,11 +2,10 @@
 
 namespace App\Builder\Document;
 
+use App\Builder\Style\StyleValidator;
+
 final class BuilderDocumentValidator
 {
-    /**
-     * @param mixed $document
-     */
     public function validate(mixed $document): ValidationResult
     {
         $errors = [];
@@ -40,9 +39,9 @@ final class BuilderDocumentValidator
     }
 
     /**
-     * @param array<string, mixed> $node
-     * @param array<string, true> $seenNodeIds
-     * @param list<string> $errors
+     * @param  array<string, mixed>  $node
+     * @param  array<string, true>  $seenNodeIds
+     * @param  list<string>  $errors
      */
     private function validateNode(array $node, string $path, array &$seenNodeIds, array &$errors): void
     {
@@ -73,7 +72,7 @@ final class BuilderDocumentValidator
         } elseif (! is_array($node['styles']) || ! $this->isObjectArray($node['styles'])) {
             $errors[] = "{$path}.styles must be an object.";
         } else {
-            $this->validateStyles($node['styles'], "{$path}.styles", $errors);
+            $errors = [...$errors, ...(new StyleValidator)->validate($node['styles'], "{$path}.styles")];
         }
 
         if (array_key_exists('metadata', $node) && (! is_array($node['metadata']) || ! $this->isObjectArray($node['metadata']))) {
@@ -104,26 +103,11 @@ final class BuilderDocumentValidator
     }
 
     /**
-     * @param array<string, mixed> $styles
-     * @param list<string> $errors
+     * @param  array<string, mixed>  $styles
+     * @param  list<string>  $errors
      */
-    private function validateStyles(array $styles, string $path, array &$errors): void
-    {
-        foreach ($styles as $breakpoint => $styleProperties) {
-            if (! is_string($breakpoint) || ! in_array($breakpoint, BuilderDocumentSchema::BREAKPOINTS, true)) {
-                $errors[] = "{$path} contains unsupported breakpoint {$breakpoint}.";
-
-                continue;
-            }
-
-            if (! is_array($styleProperties) || ! $this->isObjectArray($styleProperties)) {
-                $errors[] = "{$path}.{$breakpoint} must be an object.";
-            }
-        }
-    }
-
     /**
-     * @param array<mixed> $value
+     * @param  array<mixed>  $value
      */
     private function isObjectArray(array $value): bool
     {
@@ -131,7 +115,7 @@ final class BuilderDocumentValidator
     }
 
     /**
-     * @param array<mixed> $value
+     * @param  array<mixed>  $value
      */
     private function isListArray(array $value): bool
     {
