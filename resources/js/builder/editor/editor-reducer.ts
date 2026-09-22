@@ -12,6 +12,7 @@ export type BuilderEditorAction =
     | { type: 'setDocument'; document: BuilderPageDocument }
     | { type: 'setInsertionTarget'; target: EditorDropTarget | null }
     | { type: 'startDrag'; nodeId: string }
+    | { type: 'startComponentDrag'; componentType: `${string}.${string}` }
     | { type: 'setDropTarget'; target: EditorDropTarget | null }
     | { type: 'clearDrag' }
     | { type: 'replaceState'; state: BuilderEditorState };
@@ -35,11 +36,13 @@ export function editorReducer(state: BuilderEditorState, action: BuilderEditorAc
         case 'setInsertionTarget':
             return { ...state, insertionTarget: action.target };
         case 'startDrag':
-            return { ...state, draggedNodeId: action.nodeId, dropTarget: null };
+            return { ...state, draggedNodeId: action.nodeId, draggedComponentType: null, dropTarget: null };
+        case 'startComponentDrag':
+            return { ...state, draggedNodeId: null, draggedComponentType: action.componentType, dropTarget: null };
         case 'setDropTarget':
             return { ...state, dropTarget: action.target };
         case 'clearDrag':
-            return { ...state, draggedNodeId: null, dropTarget: null };
+            return { ...state, draggedNodeId: null, draggedComponentType: null, dropTarget: null };
         case 'replaceState':
             return action.state;
     }

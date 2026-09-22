@@ -55,6 +55,7 @@ export function BuilderEditor({
     const [activeBreakpoint, setActiveBreakpoint] = useState<BuilderBreakpoint>(breakpoint);
     const [zoom, setZoom] = useState(85);
     const [viewportWidth, setViewportWidth] = useState(1200);
+    const [elementPickerParentId, setElementPickerParentId] = useState<string | null>(null);
     const [elementsOpen, setElementsOpen] = useState(true);
     const [inspectorOpen, setInspectorOpen] = useState(true);
     const save = useBuilderAutosave(state.document, pageId, initialVersion);
@@ -78,12 +79,17 @@ export function BuilderEditor({
     };
 
     const dropNode = (targetId: string, mode: 'append' | 'before' | 'after') => {
-        if (!state.draggedNodeId) return;
+        if (!state.draggedNodeId && !state.draggedComponentType) return;
         const parentId = mode === 'append' ? targetId : engine.findParent(state.document, targetId)?.id;
         if (!parentId) return;
         const position = mode === 'append' ? appendPosition() : mode === 'before' ? beforePosition(targetId) : afterPosition(targetId);
         try {
-            const nextState = moveEditorNode(state, engine, state.draggedNodeId, { parentId, position });
+            if (state.draggedComponentType) {
+                run(() => insertEditorComponent(state, engine, parentId, state.draggedComponentType!));
+                dispatch({ type: 'clearDrag' });
+                return;
+            }
+            const nextState = moveEditorNode(state, engine, state.draggedNodeId!, { parentId, position });
             dispatch({ type: 'replaceState', state: nextState });
             dispatch({ type: 'clearDrag' });
             setError(null);
@@ -94,12 +100,13 @@ export function BuilderEditor({
     };
 
     const canDropOnNode = (targetId: string, mode: 'append' | 'before' | 'after') => {
-        if (!state.draggedNodeId || state.draggedNodeId === targetId) return false;
-        const draggedNode = engine.find(state.document, state.draggedNodeId);
+        if ((!state.draggedNodeId && !state.draggedComponentType) || state.draggedNodeId === targetId) return false;
+        const draggedNode = state.draggedNodeId ? engine.find(state.document, state.draggedNodeId) : null;
+        const draggedType = draggedNode?.type ?? state.draggedComponentType;
         const targetNode = engine.find(state.document, targetId);
-        if (!draggedNode || !targetNode || containsNode(draggedNode, targetId)) return false;
+        if (!draggedType || !targetNode || (draggedNode && containsNode(draggedNode, targetId))) return false;
         const parentId = mode === 'append' ? targetId : engine.findParent(state.document, targetId)?.id;
-        return Boolean(parentId && engine.canAcceptChild(state.document, parentId, draggedNode.type));
+        return Boolean(parentId && engine.canAcceptChild(state.document, parentId, draggedType));
     };
 
     const insertPersistedDefinition = async (kind: 'template' | 'reusable', definitionId: number) => {
@@ -151,6 +158,7 @@ export function BuilderEditor({
                             reusableDefinitions={reusableDefinitions}
                             mediaAssets={mediaAssets}
                             onInsert={(type) => run(() => insertEditorComponent(state, engine, insertionParentIdFor(type), type))}
+                            onStartDrag={(type) => dispatch({ type: 'startComponentDrag', componentType: type })}
                             onInsertTemplate={(id) => void insertPersistedDefinition('template', id)}
                             onInsertReusable={(id) => void insertPersistedDefinition('reusable', id)}
                         />
@@ -175,13 +183,14 @@ export function BuilderEditor({
                         componentRegistry={registry}
                         onStartDrag={(nodeId) => dispatch({ type: 'startDrag', nodeId })}
                         onDragOverNode={(targetId, mode) => {
-                            if (!state.draggedNodeId) return;
+                            if (!state.draggedNodeId && !state.draggedComponentType) return;
                             const parentId = mode === 'append' ? targetId : engine.findParent(state.document, targetId)?.id;
                             if (!parentId) return;
                             const position =
                                 mode === 'append' ? appendPosition() : mode === 'before' ? beforePosition(targetId) : afterPosition(targetId);
-                            const draggedNode = engine.find(state.document, state.draggedNodeId);
-                            if (!draggedNode || !engine.canAcceptChild(state.document, parentId, draggedNode.type)) {
+                            const draggedNode = state.draggedNodeId ? engine.find(state.document, state.draggedNodeId) : null;
+                            const draggedType = draggedNode?.type ?? state.draggedComponentType;
+                            if (!draggedType || !engine.canAcceptChild(state.document, parentId, draggedType)) {
                                 dispatch({ type: 'setDropTarget', target: null });
                                 return;
                             }
@@ -205,6 +214,7 @@ export function BuilderEditor({
                         onStartInlineEdit={(nodeId) => dispatch({ type: 'startInlineEdit', nodeId })}
                         onEndInlineEdit={() => dispatch({ type: 'endInlineEdit' })}
                         onInsertContextual={(parentId, type) => run(() => insertEditorComponent(state, engine, parentId, type))}
+                        onOpenElementPicker={setElementPickerParentId}
                     />
                 </main>
                 {inspectorOpen ? (
@@ -234,6 +244,23 @@ export function BuilderEditor({
                 onViewportWidthChange={setViewportWidth}
                 onBreakpointChange={setActiveBreakpoint}
             />
+            {elementPickerParentId ? (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-6" role="dialog" aria-modal="true" aria-label="Choose an element">
+                    <div className="border-border bg-card w-full max-w-md rounded-lg border p-4 shadow-2xl">
+                        <div className="mb-3 flex items-center justify-between">
+                            <h2 className="text-sm font-semibold">Add element</h2>
+                            <button type="button" className="text-muted-foreground hover:text-foreground text-xs" onClick={() => setElementPickerParentId(null)}>Close</button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                            {registeredDefinitions.filter((definition) => definition.category !== 'layout' && engine.canAcceptChild(state.document, elementPickerParentId, definition.type)).map((definition) => (
+                                <button key={definition.type} type="button" className="border-border hover:bg-muted rounded-md border px-3 py-2 text-left text-xs" onClick={() => { run(() => insertEditorComponent(state, engine, elementPickerParentId, definition.type)); setElementPickerParentId(null); }}>
+                                    {definition.name}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            ) : null}
         </div>
     );
 

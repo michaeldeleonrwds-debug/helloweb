@@ -13,6 +13,7 @@ interface BuilderElementsPanelProps {
     reusableDefinitions: ReusableComponentDefinition[];
     mediaAssets: MediaAsset[];
     onInsert: (type: ComponentType) => void;
+    onStartDrag: (type: ComponentType) => void;
     onInsertTemplate: (id: number) => void;
     onInsertReusable: (id: number) => void;
 }
@@ -25,6 +26,7 @@ export function BuilderElementsPanel({
     reusableDefinitions,
     mediaAssets,
     onInsert,
+    onStartDrag,
     onInsertTemplate,
     onInsertReusable,
 }: BuilderElementsPanelProps) {
@@ -80,7 +82,7 @@ export function BuilderElementsPanel({
                 ))}
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto p-3">
-                {tab === 'elements' ? <ElementList definitions={filtered} categories={categories} onInsert={onInsert} /> : null}
+                {tab === 'elements' ? <ElementList definitions={filtered} categories={categories} onInsert={onInsert} onStartDrag={onStartDrag} /> : null}
                 {tab === 'templates' ? <DefinitionList empty="No templates available." items={templates} onSelect={onInsertTemplate} /> : null}
                 {tab === 'components' ? (
                     <DefinitionList empty="No reusable components yet." items={reusableDefinitions} onSelect={onInsertReusable} />
@@ -95,10 +97,12 @@ function ElementList({
     definitions,
     categories,
     onInsert,
+    onStartDrag,
 }: {
     definitions: ComponentDefinition[];
     categories: string[];
     onInsert: (type: ComponentType) => void;
+    onStartDrag: (type: ComponentType) => void;
 }) {
     if (definitions.length === 0) return <EmptyPanel icon={<Search className="size-4" />} text="No matching elements." />;
     return (
@@ -116,6 +120,8 @@ function ElementList({
                                     key={definition.type}
                                     type="button"
                                     className="group hover:border-border hover:bg-muted/60 flex w-full items-center gap-2.5 rounded-lg border border-transparent px-2.5 py-2 text-left transition"
+                                    draggable
+                                    onDragStart={() => onStartDrag(definition.type)}
                                     onClick={() => onInsert(definition.type)}
                                 >
                                     <span className="bg-muted text-muted-foreground group-hover:bg-background group-hover:text-foreground flex size-7 items-center justify-center rounded-md">

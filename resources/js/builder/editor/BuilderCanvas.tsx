@@ -53,6 +53,7 @@ interface BuilderCanvasViewProps {
     onStartInlineEdit?: (nodeId: string) => void;
     onEndInlineEdit?: () => void;
     onInsertContextual?: (parentId: string, type: `${string}.${string}`) => void;
+    onOpenElementPicker?: (parentId: string) => void;
 }
 
 export function BuilderCanvasView({
@@ -74,6 +75,7 @@ export function BuilderCanvasView({
     onStartInlineEdit,
     onEndInlineEdit,
     onInsertContextual,
+    onOpenElementPicker,
 }: BuilderCanvasViewProps) {
     const renderedDocument = useMemo(() => {
         const context: RenderContext = {
@@ -93,12 +95,12 @@ export function BuilderCanvasView({
     const pageIsEmpty = state.document.root.children.length === 0;
 
     return (
-        <div className="builder-canvas bg-muted/60 flex min-h-0 flex-1 items-start justify-center overflow-auto p-6" data-builder-canvas="true">
+        <div className="builder-canvas bg-muted/60 flex min-h-0 flex-1 items-start justify-start overflow-auto p-0" data-builder-canvas="true">
             <div
                 className="shrink-0 transition-transform duration-200"
                 style={{ width: resolvedViewportWidth, transform: `scale(${zoom / 100})`, transformOrigin: 'top center' }}
             >
-                <div className="bg-background ring-border/80 min-h-full shadow-sm ring-1">
+                <div className="bg-background min-h-full w-full ring-0">
                     {pageIsEmpty && onInsertContextual ? (
                         <div className="p-8">
                             <button
@@ -133,6 +135,7 @@ export function BuilderCanvasView({
                         onStartInlineEdit={onStartInlineEdit}
                         onEndInlineEdit={onEndInlineEdit}
                         onInsertContextual={onInsertContextual}
+                        onOpenElementPicker={onOpenElementPicker}
                     />
                 </div>
             </div>

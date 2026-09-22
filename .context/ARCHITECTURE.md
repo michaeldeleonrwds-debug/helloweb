@@ -273,6 +273,10 @@ Do not create one row per visual component in the initial design. Validate and v
 ## Key Decisions
 
 See `DECISIONS.md`: D-001 through D-016.
+# Interaction correction: explicit insertion and page workspace
+
+The Elements panel supports click insertion and drag insertion. Contextual `+ Add Element` opens an explicit picker and never inserts an implicit default. The page uses the configured viewport width and normal document flow; inner Rows/Containers constrain content independently of full-width Sections.
+
 # Page-first composition
 
 The Builder page is the editing surface and remains a normal-flow webpage: `layout.root -> layout.section -> layout.row -> layout.column -> content`. Sections stack vertically and receive structured 10px top/bottom padding only when newly created. Rows provide horizontal composition; Columns host content and intentional internal layout primitives. Sections are never valid children of Rows, Columns, Flex, Grid, or other internal primitives.

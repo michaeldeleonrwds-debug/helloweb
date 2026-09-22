@@ -13,6 +13,7 @@ export interface BuilderEditorState {
     editingNodeId: string | null;
     insertionTarget: EditorDropTarget | null;
     draggedNodeId: string | null;
+    draggedComponentType: `${string}.${string}` | null;
     dropTarget: EditorDropTarget | null;
 }
 
@@ -24,6 +25,7 @@ export function createEditorState(document: BuilderPageDocument): BuilderEditorS
         editingNodeId: null,
         insertionTarget: null,
         draggedNodeId: null,
+        draggedComponentType: null,
         dropTarget: null,
     };
 }
@@ -38,6 +40,7 @@ export function setDocument(state: BuilderEditorState, document: BuilderPageDocu
         editingNodeId: state.editingNodeId && findNode(nextDocument, state.editingNodeId) ? state.editingNodeId : null,
         insertionTarget: state.insertionTarget && findNode(nextDocument, state.insertionTarget.parentId) ? state.insertionTarget : null,
         draggedNodeId: state.draggedNodeId && findNode(nextDocument, state.draggedNodeId) ? state.draggedNodeId : null,
+        draggedComponentType: state.draggedComponentType,
         dropTarget: state.dropTarget && findNode(nextDocument, state.dropTarget.parentId) ? state.dropTarget : null,
     };
 }

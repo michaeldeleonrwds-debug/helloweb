@@ -25,6 +25,7 @@ interface CanvasNodeProps {
     onStartInlineEdit?: (nodeId: string) => void;
     onEndInlineEdit?: () => void;
     onInsertContextual?: (parentId: string, type: `${string}.${string}`) => void;
+    onOpenElementPicker?: (parentId: string) => void;
 }
 
 export function CanvasNode({
@@ -46,6 +47,7 @@ export function CanvasNode({
     onStartInlineEdit,
     onEndInlineEdit,
     onInsertContextual,
+    onOpenElementPicker,
 }: CanvasNodeProps) {
     if (result.tag === null) {
         return <>{result.children.map((child, index) => renderChild(child, index))}</>;
@@ -157,7 +159,8 @@ export function CanvasNode({
                 data-builder-insertion-zone={nodeId}
                 onClick={(event: MouseEvent<HTMLElement>) => {
                     event.stopPropagation();
-                    onInsertContextual?.(nodeId, insertionZone.type);
+                    if (insertionZone.type === 'content.heading') onOpenElementPicker?.(nodeId);
+                    else onInsertContextual?.(nodeId, insertionZone.type);
                 }}
             >
                 {insertionZone.label}
@@ -188,6 +191,7 @@ export function CanvasNode({
                 onStartInlineEdit={onStartInlineEdit}
                 onEndInlineEdit={onEndInlineEdit}
                 onInsertContextual={onInsertContextual}
+                onOpenElementPicker={onOpenElementPicker}
             />
         );
     }
