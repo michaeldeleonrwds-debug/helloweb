@@ -9,6 +9,8 @@ export interface RenderResult {
     children: RenderResult[];
 }
 
+const voidElements = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr']);
+
 export function fragment(children: RenderResult[]): RenderResult {
     return {
         tag: null,
@@ -24,6 +26,10 @@ export function renderResultToHtml(result: RenderResult): string {
 
     if (result.tag === null) {
         return `${text}${children}`;
+    }
+
+    if (voidElements.has(result.tag)) {
+        return `<${result.tag}${serializeAttributes(result)}>`;
     }
 
     return `<${result.tag}${serializeAttributes(result)}>${text}${children}</${result.tag}>`;

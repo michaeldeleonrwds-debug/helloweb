@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Builder\Media\MediaAssetService;
 use App\Builder\Persistence\BuilderPagePersistenceService;
 use App\Builder\Persistence\ReusableComponentService;
 use App\Builder\Persistence\StaleDocumentException;
@@ -22,6 +23,7 @@ final class BuilderPageController extends Controller
 {
     public function __construct(
         private readonly BuilderPagePersistenceService $service,
+        private readonly MediaAssetService $media,
         private readonly ReusableComponentService $reusableComponents,
         private readonly TemplatePersistenceService $templates,
     ) {}
@@ -50,16 +52,19 @@ final class BuilderPageController extends Controller
                 'name' => $template->name,
                 'description' => $template->description,
             ], $this->templates->available($page->website->user)),
-            'mediaAssets' => $page->website->user->mediaAssets()->where('status', 'active')->latest()->get(['id', 'original_filename', 'mime_type', 'file_size', 'width', 'height', 'alt_text', 'status'])->map(static fn ($asset): array => [
-                'id' => $asset->id,
-                'originalFilename' => $asset->original_filename,
-                'mimeType' => $asset->mime_type,
-                'fileSize' => $asset->file_size,
-                'width' => $asset->width,
-                'height' => $asset->height,
-                'altText' => $asset->alt_text,
-                'status' => $asset->status,
-            ])->values()->all(),
+            'mediaAssets' => $page->website->user->mediaAssets()->where('status', 'active')->latest()->get(['id', 'user_id', 'storage_key', 'original_filename', 'mime_type', 'file_size', 'width', 'height', 'alt_text', 'status'])->map(function ($asset) use ($page): array {
+                return [
+                    'id' => $asset->id,
+                    'originalFilename' => $asset->original_filename,
+                    'mimeType' => $asset->mime_type,
+                    'fileSize' => $asset->file_size,
+                    'width' => $asset->width,
+                    'height' => $asset->height,
+                    'altText' => $asset->alt_text,
+                    'status' => $asset->status,
+                    'url' => $this->media->reference($page->website->user, $asset)->url,
+                ];
+            })->values()->all(),
         ]);
     }
 

@@ -135,11 +135,11 @@ export function BuilderToolbar({
 function SaveIndicator({ status, error, onRetry }: { status: BuilderSaveStatus; error: string | null; onRetry: () => void }) {
     const label = { saved: 'Saved', unsaved: 'Unsaved', saving: 'Saving', error: 'Save failed' }[status];
     return (
-        <div className="text-muted-foreground mr-1 flex items-center gap-1.5 text-xs" title={error ?? undefined}>
+        <div className="text-muted-foreground mr-1 flex max-w-64 items-center gap-1.5 text-xs" title={error ?? undefined}>
             <span
                 className={`size-1.5 rounded-full ${status === 'error' ? 'bg-destructive' : status === 'saving' || status === 'unsaved' ? 'bg-amber-500' : 'bg-emerald-500'}`}
             />
-            <span className="hidden sm:inline">{label}</span>
+            <span className="truncate sm:inline">{status === 'error' && error ? error : label}</span>
             {status === 'error' ? (
                 <button type="button" className="hover:text-foreground underline underline-offset-2" onClick={onRetry}>
                     Retry

@@ -62,6 +62,7 @@ export const BUILT_IN_COMPONENT_DEFINITIONS: ComponentDefinition[] = [
                 margin: '0 auto',
                 padding: '10px',
                 backgroundColor: 'white',
+                color: 'black',
                 paddingTop: { value: 10, unit: 'px' },
                 paddingBottom: { value: 10, unit: 'px' },
                 paddingLeft: { value: 0, unit: 'px' },
@@ -375,6 +376,7 @@ export const BUILT_IN_COMPONENT_DEFINITIONS: ComponentDefinition[] = [
         defaultStyles: {
             desktop: {
                 fontSize: '2rem',
+                color: 'black',
             },
         },
         styleCapabilities: ['margin', 'padding', 'color', 'fontFamily', 'fontSize', 'fontWeight', 'lineHeight', 'textAlign'],
@@ -397,7 +399,7 @@ export const BUILT_IN_COMPONENT_DEFINITIONS: ComponentDefinition[] = [
         description: 'A readable paragraph of body copy.',
         capabilities: { supportsText: true, supportsResponsiveStyles: true },
         defaultProps: { text: 'Add a paragraph of text.' },
-        defaultStyles: { desktop: { fontSize: '1rem', lineHeight: 1.6 } },
+        defaultStyles: { desktop: { fontSize: '1rem', lineHeight: 1.6, color: 'black' } },
         styleCapabilities: [
             'margin',
             'padding',
@@ -422,6 +424,7 @@ export const BUILT_IN_COMPONENT_DEFINITIONS: ComponentDefinition[] = [
         description: 'Structured editorial copy for longer content.',
         capabilities: { supportsText: true, supportsResponsiveStyles: true },
         defaultProps: { text: 'Add rich text content.' },
+        defaultStyles: { desktop: { color: 'black' } },
         styleCapabilities: [
             'margin',
             'padding',

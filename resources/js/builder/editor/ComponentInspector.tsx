@@ -24,6 +24,7 @@ interface ComponentInspectorProps {
     onDuplicate: () => void;
     onRemove: () => void;
     onAddChild?: (type: `${string}.${string}`) => void;
+    onOpenMediaManager?: () => void;
 }
 
 export function ComponentInspector({
@@ -37,6 +38,7 @@ export function ComponentInspector({
     onDuplicate,
     onRemove,
     onAddChild,
+    onOpenMediaManager,
 }: ComponentInspectorProps) {
     if (!node || !definition) {
         return (
@@ -145,7 +147,13 @@ export function ComponentInspector({
                         </summary>
                         <div className="space-y-3 px-4 pb-4">
                             {group.id === 'content' ? (
-                                <PropControls schema={schema} values={node.props} onChange={onChange} />
+                                <PropControls
+                                    schema={schema}
+                                    values={node.props}
+                                    onChange={onChange}
+                                    imageNode={node.type === 'media.image'}
+                                    onOpenMediaManager={onOpenMediaManager}
+                                />
                             ) : (
                                 group.properties.map((property) => (
                                     <StyleControl
@@ -189,13 +197,29 @@ function PropControls({
     schema,
     values,
     onChange,
+    imageNode,
+    onOpenMediaManager,
 }: {
     schema: NonNullable<ComponentDefinition['propSchema']>;
     values: BuilderRecord;
     onChange: (patch: Partial<BuilderRecord>) => void;
+    imageNode?: boolean;
+    onOpenMediaManager?: () => void;
 }) {
     return (
         <>
+            {imageNode && onOpenMediaManager ? (
+                <div className="border-border space-y-2 rounded-md border p-3">
+                    <p className="text-xs font-medium">Image source</p>
+                    <button
+                        type="button"
+                        className="border-border hover:bg-muted/60 w-full rounded-md border px-3 py-2 text-xs font-medium"
+                        onClick={onOpenMediaManager}
+                    >
+                        Open media manager
+                    </button>
+                </div>
+            ) : null}
             {Object.entries(schema).map(([name, property]) => {
                 const value = values[name];
                 const label = typeof property.label === 'string' ? property.label : name;

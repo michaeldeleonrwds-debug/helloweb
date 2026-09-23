@@ -55,6 +55,7 @@ export function useBuilderAutosave(builderDocument: BuilderPageDocument, pageId:
                 const validationMessage = Object.values(payload.errors ?? {})
                     .flat()
                     .join(' ');
+                console.error('Builder save rejected', response.status, payload);
                 throw new Error(validationMessage || payload.message || 'Unable to save the document.');
             }
 
@@ -77,6 +78,7 @@ export function useBuilderAutosave(builderDocument: BuilderPageDocument, pageId:
         pendingRef.current = builderDocument;
         if (!pageId || JSON.stringify(builderDocument) === lastSavedRef.current) return;
         setStatus('unsaved');
+        schedule();
 
         return () => {
             if (timerRef.current) clearTimeout(timerRef.current);

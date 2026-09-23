@@ -20,7 +20,7 @@ interface BuilderElementsPanelProps {
 
 type PanelTab = 'elements' | 'templates' | 'components' | 'media';
 
-export function BuilderElementsPanel({
+function BuilderElementsPanel({
     definitions,
     templates,
     reusableDefinitions,
@@ -42,7 +42,10 @@ export function BuilderElementsPanel({
     const categories = Array.from(new Set(filtered.map((definition) => definition.category)));
 
     return (
-        <aside className="border-border bg-card text-card-foreground flex h-1/2 min-h-0 w-[276px] shrink-0 flex-col border-r" aria-label="Builder elements">
+        <aside
+            className="border-border bg-card text-card-foreground flex h-1/2 min-h-0 w-[276px] shrink-0 flex-col border-r"
+            aria-label="Builder elements"
+        >
             <div className="border-border border-b px-4 pt-4 pb-3">
                 <div className="mb-3 flex items-center justify-between">
                     <div>
@@ -82,7 +85,9 @@ export function BuilderElementsPanel({
                 ))}
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto p-3">
-                {tab === 'elements' ? <ElementList definitions={filtered} categories={categories} onInsert={onInsert} onStartDrag={onStartDrag} /> : null}
+                {tab === 'elements' ? (
+                    <ElementList definitions={filtered} categories={categories} onInsert={onInsert} onStartDrag={onStartDrag} />
+                ) : null}
                 {tab === 'templates' ? <DefinitionList empty="No templates available." items={templates} onSelect={onInsertTemplate} /> : null}
                 {tab === 'components' ? (
                     <DefinitionList empty="No reusable components yet." items={reusableDefinitions} onSelect={onInsertReusable} />
@@ -92,6 +97,8 @@ export function BuilderElementsPanel({
         </aside>
     );
 }
+
+export default BuilderElementsPanel;
 
 function ElementList({
     definitions,
@@ -177,19 +184,28 @@ function DefinitionList({
 }
 
 function MediaList({ assets }: { assets: MediaAsset[] }) {
-    if (assets.length === 0) return <EmptyPanel icon={<Image className="size-4" />} text="No media assets yet." />;
     return (
-        <div className="grid grid-cols-2 gap-2">
-            {assets.map((asset) => (
-                <div key={asset.id} className="border-border bg-muted/30 overflow-hidden rounded-lg border">
-                    <div className="bg-muted text-muted-foreground flex aspect-square items-center justify-center">
-                        <Image className="size-5" />
-                    </div>
-                    <div className="truncate px-2 py-1.5 text-[10px]" title={asset.originalFilename}>
-                        {asset.originalFilename}
-                    </div>
+        <div>
+            {assets.length === 0 ? (
+                <EmptyPanel icon={<Image className="size-4" />} text="No media assets yet." />
+            ) : (
+                <div className="grid grid-cols-2 gap-2">
+                    {assets.map((asset) => (
+                        <div key={asset.id} className="border-border bg-muted/30 overflow-hidden rounded-lg border">
+                            <div className="bg-muted text-muted-foreground flex aspect-square items-center justify-center">
+                                {asset.url ? (
+                                    <img src={asset.url} alt={asset.altText ?? asset.originalFilename} className="size-full object-cover" />
+                                ) : (
+                                    <Image className="size-5" />
+                                )}
+                            </div>
+                            <div className="truncate px-2 py-1.5 text-[10px]" title={asset.originalFilename}>
+                                {asset.originalFilename}
+                            </div>
+                        </div>
+                    ))}
                 </div>
-            ))}
+            )}
         </div>
     );
 }

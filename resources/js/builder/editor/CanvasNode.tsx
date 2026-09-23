@@ -119,6 +119,8 @@ export function CanvasNode({
         );
     }
 
+    const elementChildren = result.tag === 'img' ? [] : [result.text, ...children, ...overlays];
+
     return createElement(
         result.tag,
         {
@@ -165,9 +167,7 @@ export function CanvasNode({
             onDrop: handleDrop,
             onDragEnd: onEndDrag,
         },
-        result.text,
-        ...children,
-        ...overlays,
+        ...elementChildren,
     );
 
     function renderChild(child: RenderResult, index: number) {

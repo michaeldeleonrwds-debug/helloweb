@@ -9,6 +9,8 @@ use App\Models\ReusableComponent;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Inertia\Inertia;
+use Inertia\Response;
 
 final class ReusableComponentController extends Controller
 {
@@ -19,6 +21,19 @@ final class ReusableComponentController extends Controller
     public function index(Request $request): JsonResponse
     {
         return response()->json(['components' => $this->components->definitions($request->user())]);
+    }
+
+    public function adminIndex(Request $request): Response
+    {
+        return Inertia::render('reusable-components/index', [
+            'components' => $request->user()->reusableComponents()->where('status', 'active')->latest()->get()->map(fn (ReusableComponent $component): array => [
+                'id' => $component->id,
+                'name' => $component->name,
+                'description' => $component->description,
+                'status' => $component->status,
+                'updatedAt' => $component->updated_at?->toISOString(),
+            ])->values()->all(),
+        ]);
     }
 
     public function store(Request $request): JsonResponse

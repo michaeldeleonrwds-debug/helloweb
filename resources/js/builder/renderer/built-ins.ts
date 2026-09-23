@@ -134,7 +134,7 @@ const imageRenderer: ComponentRenderer = {
             tag: 'img',
             attributes: { 'data-builder-id': node.id, 'data-builder-type': node.type, src, alt },
             styles: resolveStyles(node, definition, context.breakpoint),
-            children,
+            children: [],
         };
     },
 };

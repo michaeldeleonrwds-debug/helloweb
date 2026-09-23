@@ -9,6 +9,8 @@ use App\Models\Template;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Inertia\Inertia;
+use Inertia\Response;
 
 final class TemplateController extends Controller
 {
@@ -19,6 +21,21 @@ final class TemplateController extends Controller
     public function index(Request $request): JsonResponse
     {
         return response()->json(['templates' => array_map(fn (Template $template): array => $this->data($template), $this->templates->available($request->user()))]);
+    }
+
+    public function adminIndex(Request $request): Response
+    {
+        return Inertia::render('templates/index', [
+            'templates' => $request->user()->templates()->where('status', 'active')->latest()->get()->map(fn (Template $template): array => [
+                'id' => $template->id,
+                'name' => $template->name,
+                'slug' => $template->slug,
+                'description' => $template->description,
+                'type' => $template->type,
+                'status' => $template->status,
+                'updatedAt' => $template->updated_at?->toISOString(),
+            ])->values()->all(),
+        ]);
     }
 
     public function store(Request $request): JsonResponse

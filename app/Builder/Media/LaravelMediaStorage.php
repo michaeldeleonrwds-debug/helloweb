@@ -23,6 +23,10 @@ final readonly class LaravelMediaStorage implements MediaStorage
 
     public function url(string $key): string
     {
+        if ($this->disk === 'public') {
+            return '/storage/'.ltrim($key, '/');
+        }
+
         return $this->filesystem->disk($this->disk)->url($key);
     }
 }

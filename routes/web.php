@@ -1,12 +1,14 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
-use Inertia\Inertia;
 use App\Http\Controllers\BuilderPageController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\MediaAssetController;
+use App\Http\Controllers\PageController;
 use App\Http\Controllers\ReusableComponentController;
 use App\Http\Controllers\TemplateController;
+use App\Http\Controllers\WebsiteController;
+use Illuminate\Support\Facades\Route;
+use Inertia\Inertia;
 
 Route::get('/', function () {
     return Inertia::render('welcome');
@@ -14,6 +16,11 @@ Route::get('/', function () {
 
 Route::middleware(['auth'])->group(function () {
     Route::get('dashboard', DashboardController::class)->name('dashboard');
+    Route::get('websites', [WebsiteController::class, 'index'])->name('websites.index');
+    Route::get('pages', [PageController::class, 'index'])->name('pages.index');
+    Route::get('templates', [TemplateController::class, 'adminIndex'])->name('templates.index');
+    Route::get('media', [MediaAssetController::class, 'adminIndex'])->name('media.index');
+    Route::get('reusable-components', [ReusableComponentController::class, 'adminIndex'])->name('reusable-components.index');
 
     Route::get('builder', [BuilderPageController::class, 'index'])->name('builder');
     Route::get('builder/pages/{page}', [BuilderPageController::class, 'show'])->name('builder.pages.show');

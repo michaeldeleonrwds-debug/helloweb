@@ -10,14 +10,14 @@ import AppLogo from './app-logo';
 const mainNavItems: NavItem[] = [
     {
         title: 'Dashboard',
-        url: '/dashboard',
+        url: route('dashboard'),
         icon: LayoutGrid,
     },
-    { title: 'Websites', url: '/dashboard#websites', icon: Boxes },
-    { title: 'Pages', url: '/dashboard#pages', icon: FileText },
-    { title: 'Templates', url: '/dashboard#templates', icon: Shapes },
-    { title: 'Media', url: '/dashboard#media', icon: Image },
-    { title: 'Reusable components', url: '/dashboard#reusable-components', icon: Sparkles },
+    { title: 'Websites', url: route('websites.index'), icon: Boxes },
+    { title: 'Pages', url: route('pages.index'), icon: FileText },
+    { title: 'Templates', url: route('templates.index'), icon: Shapes },
+    { title: 'Media', url: route('media.index'), icon: Image },
+    { title: 'Reusable components', url: route('reusable-components.index'), icon: Sparkles },
 ];
 
 const footerNavItems: NavItem[] = [

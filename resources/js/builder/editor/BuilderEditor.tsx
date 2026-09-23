@@ -8,10 +8,11 @@ import { createBuiltInComponentRegistry } from '../registry/built-ins';
 import type { ReusableComponentDefinition } from '../reusable';
 import { BuilderBottomBar } from './BuilderBottomBar';
 import { BuilderCanvasView } from './BuilderCanvas';
-import { BuilderElementsPanel } from './BuilderElementsPanel';
+import BuilderElementsPanel from './BuilderElementsPanel';
 import { BuilderLayersPanel } from './BuilderLayersPanel';
 import { BuilderToolbar } from './BuilderToolbar';
 import { ComponentInspector } from './ComponentInspector';
+import { MediaManager } from './MediaManager';
 import {
     clearEditorStyleOverride,
     duplicateEditorNode,
@@ -52,6 +53,7 @@ export function BuilderEditor({
     const engine = useMemo(() => new ComponentTreeEngine(registry), [registry]);
     const [state, dispatch] = useReducer(editorReducer, document, createEditorState);
     const [error, setError] = useState<string | null>(null);
+    const [availableMediaAssets, setAvailableMediaAssets] = useState(mediaAssets);
     const [activeBreakpoint, setActiveBreakpoint] = useState<BuilderBreakpoint>(breakpoint);
     const [zoom, setZoom] = useState(100);
     const [viewportWidth, setViewportWidth] = useState(() => viewportWidthForBreakpoint(breakpoint));
@@ -59,6 +61,7 @@ export function BuilderEditor({
     const [elementPickerParentId, setElementPickerParentId] = useState<string | null>(null);
     const [elementsOpen, setElementsOpen] = useState(true);
     const [inspectorOpen, setInspectorOpen] = useState(true);
+    const [mediaManagerOpen, setMediaManagerOpen] = useState(false);
     const undoStack = useRef<BuilderPageDocument[]>([]);
     const redoStack = useRef<BuilderPageDocument[]>([]);
     const save = useBuilderAutosave(state.document, pageId, initialVersion);
@@ -91,6 +94,10 @@ export function BuilderEditor({
     useEffect(() => {
         dispatch({ type: 'setDocument', document });
     }, [document]);
+
+    useEffect(() => {
+        setAvailableMediaAssets(mediaAssets);
+    }, [mediaAssets]);
 
     const selectedNode = getSelectedNode(state);
     const selectedDefinition = selectedNode ? registry.get(selectedNode.type) : null;
@@ -166,6 +173,23 @@ export function BuilderEditor({
         }
     };
 
+    const uploadImage = async (file: File): Promise<MediaAsset> => {
+        const form = new FormData();
+        form.append('file', file);
+        const response = await fetch(route('builder.media.store'), {
+            method: 'POST',
+            headers: {
+                Accept: 'application/json',
+                'X-CSRF-TOKEN': window.document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? '',
+            },
+            body: form,
+        });
+        const payload = (await response.json()) as { media?: MediaAsset; message?: string };
+        if (!response.ok || !payload.media) throw new Error(payload.message ?? 'The image upload failed.');
+        setAvailableMediaAssets((current) => [payload.media!, ...current.filter((asset) => asset.id !== payload.media!.id)]);
+        return payload.media;
+    };
+
     return (
         <div className="bg-background text-foreground flex h-screen min-h-[620px] flex-col overflow-hidden" data-builder-editor="true">
             <BuilderToolbar
@@ -191,7 +215,7 @@ export function BuilderEditor({
                             definitions={registeredDefinitions}
                             templates={templates}
                             reusableDefinitions={reusableDefinitions}
-                            mediaAssets={mediaAssets}
+                            mediaAssets={availableMediaAssets}
                             onInsert={(type) => run(() => insertEditorComponent(state, engine, insertionParentIdFor(type), type))}
                             onStartDrag={(type) => dispatch({ type: 'startComponentDrag', componentType: type })}
                             onInsertTemplate={(id) => void insertPersistedDefinition('template', id)}
@@ -273,6 +297,7 @@ export function BuilderEditor({
                         onDuplicate={() => selectedNode && run(() => duplicateEditorNode(state, engine, selectedNode.id))}
                         onRemove={() => selectedNode && run(() => removeEditorNode(state, engine, selectedNode.id))}
                         onAddChild={(type) => selectedNode && run(() => insertEditorComponent(state, engine, selectedNode.id, type))}
+                        onOpenMediaManager={() => setMediaManagerOpen(true)}
                     />
                 ) : null}
             </div>
@@ -326,6 +351,17 @@ export function BuilderEditor({
                         </div>
                     </div>
                 </div>
+            ) : null}
+            {mediaManagerOpen && selectedNode?.type === 'media.image' ? (
+                <MediaManager
+                    assets={availableMediaAssets}
+                    onUpload={uploadImage}
+                    onSelect={(asset) => {
+                        run(() => updateEditorProps(state, engine, selectedNode.id, { src: asset.url ?? '', alt: asset.altText ?? '' }));
+                        setMediaManagerOpen(false);
+                    }}
+                    onClose={() => setMediaManagerOpen(false)}
+                />
             ) : null}
         </div>
     );

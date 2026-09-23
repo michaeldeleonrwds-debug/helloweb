@@ -151,10 +151,47 @@ class BuilderPersistenceTest extends TestCase
             'expected_version' => 0,
         ])->assertForbidden();
 
+        $this->withoutExceptionHandling();
         $this->actingAs($owner)->get(route('builder.pages.show', $page))->assertOk()->assertInertia(fn ($assertion) => $assertion
             ->component('builder')
             ->where('page.id', $page->id)
             ->where('document.schemaVersion', 1));
+    }
+
+    public function test_owner_can_open_builder_page_with_media_assets_loaded(): void
+    {
+        [$page, $owner] = $this->page();
+        $asset = $owner->mediaAssets()->create([
+            'original_filename' => 'hero.png',
+            'storage_disk' => 'public',
+            'storage_key' => 'builder/'.$owner->id.'/hero.png',
+            'mime_type' => 'image/png',
+            'file_size' => 12,
+            'status' => 'active',
+        ]);
+        $this->actingAs($owner)->get(route('builder.pages.show', $page))->assertOk()->assertInertia(fn ($assertion) => $assertion
+            ->component('builder')
+            ->where('page.id', $page->id)
+            ->where('mediaAssets.0.originalFilename', 'hero.png')
+            ->where('mediaAssets.0.url', '/storage/builder/'.$owner->id.'/hero.png'));
+    }
+
+    public function test_image_document_can_be_saved(): void
+    {
+        [$page, $owner] = $this->page();
+        $document = $page->draft_document;
+        $document['root']['children'][0]['children'][0]['children'][0]['children'][] = [
+            'id' => 'image-test',
+            'type' => 'media.image',
+            'props' => ['src' => '/storage/builder/'.$owner->id.'/hero.png', 'alt' => 'Hero'],
+            'styles' => [],
+            'children' => [],
+        ];
+
+        $this->actingAs($owner)->patchJson(route('builder.pages.document.update', $page), [
+            'document' => $document,
+            'expected_version' => 0,
+        ])->assertOk()->assertJsonPath('save.version', 1);
     }
 
     public function test_document_endpoint_returns_save_version_and_rejects_stale_versions(): void

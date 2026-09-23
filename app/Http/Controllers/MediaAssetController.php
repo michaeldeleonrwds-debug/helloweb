@@ -8,6 +8,8 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Inertia\Inertia;
+use Inertia\Response;
 
 final class MediaAssetController extends Controller
 {
@@ -18,6 +20,26 @@ final class MediaAssetController extends Controller
     public function index(Request $request): JsonResponse
     {
         return response()->json(['media' => $request->user()->mediaAssets()->where('status', 'active')->latest()->get()->map(fn (MediaAsset $asset): array => $this->data($asset, $request->user()))->values()]);
+    }
+
+    public function adminIndex(Request $request): Response
+    {
+        $user = $request->user();
+
+        return Inertia::render('media/index', [
+            'media' => $user->mediaAssets()->where('status', 'active')->latest()->get()->map(fn (MediaAsset $asset): array => [
+                'id' => $asset->id,
+                'originalFilename' => $asset->original_filename,
+                'mimeType' => $asset->mime_type,
+                'fileSize' => $asset->file_size,
+                'width' => $asset->width,
+                'height' => $asset->height,
+                'altText' => $asset->alt_text,
+                'status' => $asset->status,
+                'url' => $this->media->reference($user, $asset)->url,
+                'uploadedAt' => $asset->created_at?->toISOString(),
+            ])->values()->all(),
+        ]);
     }
 
     public function store(Request $request): JsonResponse
