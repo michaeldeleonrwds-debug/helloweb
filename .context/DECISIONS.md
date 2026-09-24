@@ -406,4 +406,30 @@ The previous left-hand panel was vertically split 50/50 between two cramped pane
 Implication:
 All tree operations, drag-and-drop handlers, insertion paths, and test contracts (`scripts/builder-editor-tests.ts`, `data-layer-node-id`) remain 100% preserved. Backward-compatible standalone exports of `BuilderElementsPanel` and `BuilderLayersPanel` are retained.
 
+# D-029: Edge-to-edge canvas, draggable side panels, and custom unsaved changes dialog
+
+Status: Accepted
+Date: 2026-09-25
+
+Decision:
+1. Edge-to-Edge Canvas Fitting (`BuilderCanvas.tsx`):
+   - Eliminated the surrounding padding (`px-8 pt-8 pb-20`) on desktop viewports so the website canvas touches the top header toolbar directly and sits seamlessly flush against the left and right side controls with zero gaps.
+   - Preserves centered device frames for tablet (768px) and mobile (375px) viewports with appropriate device padding.
+2. Draggable / Resizable Side Panels (`PanelResizeHandle.tsx`, `BuilderEditor.tsx`, `ComponentInspector.tsx`):
+   - Added interactive `PanelResizeHandle` dividers between the left panel & canvas and between the canvas & right inspector.
+   - Left panel resizable between 240px and 520px (default 300px); right inspector resizable between 260px and 600px (default 340px).
+   - Double-clicking either handle instantly resets the panel to its default width.
+3. Top Header Toolbar Redesign (`BuilderToolbar.tsx`):
+   - Redesigned top toolbar with Google UI aesthetics: globe site icon, clean breadcrumbs (`My Website / Page Name`), dropdown chevron, Google Docs-style cloud save status indicator, and center Google M3 segmented device switcher.
+   - Back button directs users back to `/dashboard` instead of the internal `/builder` route.
+4. Custom Unsaved Changes Dialog (`UnsavedChangesModal.tsx`):
+   - Replaced browser-native `window.confirm` popup with an elegant, custom confirmation modal featuring warning icon, clear explanatory text, and three distinct actions: "Keep editing" (cancel), "Discard & leave" (navigates to `/dashboard`), and "Save & leave" (saves immediately before redirecting).
+
+Reason:
+Visual builders require true webpage preview accuracy where desktop content meets viewport boundaries without distracting outer padding. Resizable side panels give creators fine-grained workspace control, and custom modal dialogs eliminate disruptive native browser alert popups.
+
+Implication:
+No database or schema changes. Responsive breakpoints and canvas node selection behaviors remain fully intact.
+
+
 

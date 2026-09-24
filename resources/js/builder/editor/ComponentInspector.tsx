@@ -47,6 +47,7 @@ interface ComponentInspectorProps {
     onMetadataChange: (patch: Record<string, JsonValue | undefined>) => void;
     onDuplicate: () => void;
     onRemove: () => void;
+    width?: number;
     onAddChild?: (type: `${string}.${string}`) => void;
     onOpenMediaManager?: (target?: 'image' | 'background') => void;
 }
@@ -154,6 +155,7 @@ export function ComponentInspector({
     onRemove,
     onAddChild,
     onOpenMediaManager,
+    width,
 }: ComponentInspectorProps) {
     const [inspectorTab, setInspectorTab] = useState<'content' | 'layout' | 'style' | 'more'>('layout');
 
@@ -161,6 +163,7 @@ export function ComponentInspector({
         return (
             <aside
                 className="border-border bg-card text-card-foreground absolute inset-y-14 right-0 z-10 flex w-[340px] shrink-0 items-center justify-center overflow-hidden border-l p-6 shadow-xl lg:static lg:inset-y-auto lg:right-auto lg:z-auto lg:shadow-none"
+                style={{ width: width ? `${width}px` : undefined }}
                 aria-label="Design inspector"
             >
                 <div className="max-w-56 text-center">
@@ -187,6 +190,7 @@ export function ComponentInspector({
     return (
         <aside
             className="border-border bg-card text-card-foreground absolute inset-y-14 right-0 z-10 flex w-[340px] shrink-0 flex-col overflow-hidden border-l shadow-xl lg:static lg:inset-y-auto lg:right-auto lg:z-auto lg:shadow-none"
+            style={{ width: width ? `${width}px` : undefined }}
             aria-label="Design inspector"
         >
             <div className="border-border bg-card flex h-14 items-center justify-between border-b px-4">

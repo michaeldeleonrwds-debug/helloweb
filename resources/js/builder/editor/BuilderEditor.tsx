@@ -14,6 +14,8 @@ import { BuilderToolbar } from './BuilderToolbar';
 import { CodeEditor } from './CodeEditor';
 import { ComponentInspector } from './ComponentInspector';
 import { MediaManager } from './MediaManager';
+import { PanelResizeHandle } from './PanelResizeHandle';
+import { UnsavedChangesModal } from './UnsavedChangesModal';
 import {
     clearEditorStyleOverride,
     duplicateEditorNode,
@@ -64,6 +66,10 @@ export function BuilderEditor({
     const [inspectorOpen, setInspectorOpen] = useState(true);
     const [mediaManagerTarget, setMediaManagerTarget] = useState<{ kind: 'image' | 'background'; nodeId: string } | null>(null);
     const [codeSettingsOpen, setCodeSettingsOpen] = useState(false);
+    const [leftPanelWidth, setLeftPanelWidth] = useState(300);
+    const [rightPanelWidth, setRightPanelWidth] = useState(340);
+    const [unsavedLeaveDialogOpen, setUnsavedLeaveDialogOpen] = useState(false);
+    const [isLeavingWithSave, setIsLeavingWithSave] = useState(false);
     const clipboardRef = useRef<BuilderComponentNode | null>(null);
     const undoStack = useRef<BuilderPageDocument[]>([]);
     const redoStack = useRef<BuilderPageDocument[]>([]);
@@ -82,7 +88,29 @@ export function BuilderEditor({
         return () => window.removeEventListener('beforeunload', handleBeforeUnload);
     }, [hasPendingChanges]);
 
-    const confirmBeforeLeave = () => !hasPendingChanges || window.confirm('You have unsaved changes. Leave the builder and discard them?');
+    const handleNavigateBack = () => {
+        if (hasPendingChanges) {
+            setUnsavedLeaveDialogOpen(true);
+        } else {
+            window.location.href = '/dashboard';
+        }
+    };
+
+    const handleDiscardAndLeave = () => {
+        setUnsavedLeaveDialogOpen(false);
+        window.location.href = '/dashboard';
+    };
+
+    const handleSaveAndLeave = async () => {
+        setIsLeavingWithSave(true);
+        try {
+            await save.saveNow();
+            window.location.href = '/dashboard';
+        } catch {
+            setIsLeavingWithSave(false);
+        }
+    };
+
     const handleBreakpointChange = (nextBreakpoint: BuilderBreakpoint) => {
         setActiveBreakpoint(nextBreakpoint);
     };
@@ -339,40 +367,50 @@ export function BuilderEditor({
                 onUndo={undo}
                 onRedo={redo}
                 onSave={save.saveNow}
-                onBeforeLeave={confirmBeforeLeave}
+                onNavigateBack={handleNavigateBack}
                 onOpenCodeSettings={() => setCodeSettingsOpen(true)}
             />
             <div className="flex min-h-0 flex-1">
                 {elementsOpen ? (
-                    <div className="bg-card border-border flex h-full min-h-0 w-[288px] sm:w-[300px] shrink-0 flex-col overflow-hidden border-r max-lg:absolute max-lg:inset-y-14 max-lg:left-0 max-lg:z-10 max-lg:shadow-xl">
-                        <BuilderLeftPanel
-                            definitions={registeredDefinitions}
-                            templates={templates}
-                            reusableDefinitions={reusableDefinitions}
-                            mediaAssets={availableMediaAssets}
-                            onInsert={(type) => run(() => insertEditorComponent(state, engine, insertionParentIdFor(type), type))}
-                            onStartDrag={(type) => dispatch({ type: 'startComponentDrag', componentType: type })}
-                            onInsertTemplate={(id) => void insertPersistedDefinition('template', id)}
-                            onInsertReusable={(id) => void insertPersistedDefinition('reusable', id)}
-                            onUploadMedia={uploadImage}
-                            document={state.document}
-                            registry={registry}
-                            selectedNodeId={state.selectedNodeId}
-                            dropTargetId={
-                                state.dropTarget
-                                    ? state.dropTarget.position.mode === 'append'
-                                        ? state.dropTarget.parentId
-                                        : state.dropTarget.position.siblingId
-                                    : null
-                            }
-                            onSelectNode={selectNodeFromLayers}
-                            onStartDragNode={(nodeId) => dispatch({ type: 'startDrag', nodeId })}
-                            onDragOverNode={dragOverNode}
-                            onDropNode={dropNode}
-                            onEndDragNode={() => dispatch({ type: 'clearDrag' })}
-                            canDropOnNode={canDropOnNode}
+                    <>
+                        <div
+                            className="bg-card border-border flex h-full min-h-0 shrink-0 flex-col overflow-hidden border-r max-lg:absolute max-lg:inset-y-14 max-lg:left-0 max-lg:z-10 max-lg:shadow-xl"
+                            style={{ width: `${leftPanelWidth}px` }}
+                        >
+                            <BuilderLeftPanel
+                                definitions={registeredDefinitions}
+                                templates={templates}
+                                reusableDefinitions={reusableDefinitions}
+                                mediaAssets={availableMediaAssets}
+                                onInsert={(type) => run(() => insertEditorComponent(state, engine, insertionParentIdFor(type), type))}
+                                onStartDrag={(type) => dispatch({ type: 'startComponentDrag', componentType: type })}
+                                onInsertTemplate={(id) => void insertPersistedDefinition('template', id)}
+                                onInsertReusable={(id) => void insertPersistedDefinition('reusable', id)}
+                                onUploadMedia={uploadImage}
+                                document={state.document}
+                                registry={registry}
+                                selectedNodeId={state.selectedNodeId}
+                                dropTargetId={
+                                    state.dropTarget
+                                        ? state.dropTarget.position.mode === 'append'
+                                            ? state.dropTarget.parentId
+                                            : state.dropTarget.position.siblingId
+                                        : null
+                                }
+                                onSelectNode={selectNodeFromLayers}
+                                onStartDragNode={(nodeId) => dispatch({ type: 'startDrag', nodeId })}
+                                onDragOverNode={dragOverNode}
+                                onDropNode={dropNode}
+                                onEndDragNode={() => dispatch({ type: 'clearDrag' })}
+                                canDropOnNode={canDropOnNode}
+                            />
+                        </div>
+                        <PanelResizeHandle
+                            direction="right"
+                            onResize={(delta) => setLeftPanelWidth((w) => Math.min(520, Math.max(240, w + delta)))}
+                            onReset={() => setLeftPanelWidth(300)}
                         />
-                    </div>
+                    </>
                 ) : null}
                 <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
                     {error ? (
@@ -448,28 +486,36 @@ export function BuilderEditor({
                     />
                 </main>
                 {inspectorOpen ? (
-                    <ComponentInspector
-                        node={selectedNode}
-                        definition={selectedDefinition}
-                        onChange={(patch) => run(() => updateEditorProps(state, engine, selectedNode?.id ?? '', patch))}
-                        breakpoint={activeBreakpoint}
-                        onStyleChange={(keyOrPatch, value) => {
-                            if (!selectedNode) return;
-                            const patch = typeof keyOrPatch === 'string' ? { [keyOrPatch]: value } : keyOrPatch;
-                            run(() => updateEditorStyles(state, engine, selectedNode.id, activeBreakpoint, patch));
-                        }}
-                        onStyleClear={(keyOrKeys) => {
-                            if (!selectedNode) return;
-                            run(() => clearEditorStyleOverride(state, engine, selectedNode.id, activeBreakpoint, keyOrKeys));
-                        }}
-                        onMetadataChange={(patch) => selectedNode && run(() => updateEditorMetadata(state, engine, selectedNode.id, patch))}
-                        onDuplicate={() => selectedNode && run(() => duplicateEditorNode(state, engine, selectedNode.id))}
-                        onRemove={() => selectedNode && run(() => removeEditorNode(state, engine, selectedNode.id))}
-                        onAddChild={(type) => selectedNode && run(() => insertEditorComponent(state, engine, selectedNode.id, type))}
-                        onOpenMediaManager={(target = 'image') => {
-                            if (selectedNode) setMediaManagerTarget({ kind: target, nodeId: selectedNode.id });
-                        }}
-                    />
+                    <>
+                        <PanelResizeHandle
+                            direction="left"
+                            onResize={(delta) => setRightPanelWidth((w) => Math.min(600, Math.max(260, w + delta)))}
+                            onReset={() => setRightPanelWidth(340)}
+                        />
+                        <ComponentInspector
+                            width={rightPanelWidth}
+                            node={selectedNode}
+                            definition={selectedDefinition}
+                            onChange={(patch) => run(() => updateEditorProps(state, engine, selectedNode?.id ?? '', patch))}
+                            breakpoint={activeBreakpoint}
+                            onStyleChange={(keyOrPatch, value) => {
+                                if (!selectedNode) return;
+                                const patch = typeof keyOrPatch === 'string' ? { [keyOrPatch]: value } : keyOrPatch;
+                                run(() => updateEditorStyles(state, engine, selectedNode.id, activeBreakpoint, patch));
+                            }}
+                            onStyleClear={(keyOrKeys) => {
+                                if (!selectedNode) return;
+                                run(() => clearEditorStyleOverride(state, engine, selectedNode.id, activeBreakpoint, keyOrKeys));
+                            }}
+                            onMetadataChange={(patch) => selectedNode && run(() => updateEditorMetadata(state, engine, selectedNode.id, patch))}
+                            onDuplicate={() => selectedNode && run(() => duplicateEditorNode(state, engine, selectedNode.id))}
+                            onRemove={() => selectedNode && run(() => removeEditorNode(state, engine, selectedNode.id))}
+                            onAddChild={(type) => selectedNode && run(() => insertEditorComponent(state, engine, selectedNode.id, type))}
+                            onOpenMediaManager={(target = 'image') => {
+                                if (selectedNode) setMediaManagerTarget({ kind: target, nodeId: selectedNode.id });
+                            }}
+                        />
+                    </>
                 ) : null}
             </div>
             {elementPickerParentId ? (
@@ -540,6 +586,13 @@ export function BuilderEditor({
                     onClose={() => setCodeSettingsOpen(false)}
                 />
             ) : null}
+            <UnsavedChangesModal
+                open={unsavedLeaveDialogOpen}
+                onClose={() => setUnsavedLeaveDialogOpen(false)}
+                onDiscard={handleDiscardAndLeave}
+                onSaveAndLeave={handleSaveAndLeave}
+                isSaving={isLeavingWithSave || save.status === 'saving'}
+            />
         </div>
     );
 
