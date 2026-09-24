@@ -1,8 +1,9 @@
-import { Image } from 'lucide-react';
+import { Image, Loader2, Plus, UploadCloud } from 'lucide-react';
 import { useRef, useState } from 'react';
 
-import { AdminResourcePage, ResourceCard, ResourceEmpty } from '@/components/admin-resource-page';
-import { CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { AdminResourcePage, ResourceEmpty } from '@/components/admin-resource-page';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface MediaAsset {
     id: number;
@@ -15,6 +16,12 @@ interface MediaAsset {
     status: string;
     url: string;
     uploadedAt: string | null;
+}
+
+function formatBytes(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 export default function Media({ media }: { media: MediaAsset[] }) {
@@ -51,16 +58,18 @@ export default function Media({ media }: { media: MediaAsset[] }) {
 
     return (
         <AdminResourcePage
-            title="Media"
-            description="Review the media assets available to the visual builder."
+            title="Media Library"
+            description="Upload, inspect, and manage photos, icons, and graphic assets for use across your website builder."
             empty="No media assets yet."
             icon={Image}
         >
-            <ResourceCard>
-                <CardHeader className="flex-row items-start justify-between space-y-0">
+            <Card className="border-border/80 shadow-xs">
+                <CardHeader className="flex flex-row items-center justify-between border-b border-border/60 pb-4">
                     <div>
-                        <CardTitle>Media library</CardTitle>
-                        <CardDescription>Assets owned by your workspace.</CardDescription>
+                        <CardTitle className="text-lg font-bold">Asset Gallery</CardTitle>
+                        <CardDescription className="text-xs">
+                            {assets.length} file{assets.length === 1 ? '' : 's'} uploaded and ready for canvas insertion.
+                        </CardDescription>
                     </div>
                     <>
                         <input
@@ -73,39 +82,69 @@ export default function Media({ media }: { media: MediaAsset[] }) {
                                 if (file) void upload(file);
                             }}
                         />
-                        <button
+                        <Button
                             type="button"
-                            className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-9 items-center justify-center rounded-md px-3 text-sm font-medium"
+                            size="sm"
+                            className="shadow-xs font-semibold gap-1.5"
                             disabled={uploading}
                             onClick={() => inputRef.current?.click()}
                         >
-                            {uploading ? 'Uploading...' : 'Upload media'}
-                        </button>
+                            {uploading ? (
+                                <>
+                                    <Loader2 className="size-3.5 animate-spin" />
+                                    Uploading...
+                                </>
+                            ) : (
+                                <>
+                                    <UploadCloud className="size-4" />
+                                    Upload Image
+                                </>
+                            )}
+                        </Button>
                     </>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="p-6">
                     {error ? (
-                        <p className="text-destructive mb-4 text-sm" role="alert">
+                        <div className="mb-5 rounded-lg border border-destructive/20 bg-destructive/10 p-3 text-xs text-destructive font-medium" role="alert">
                             {error}
-                        </p>
+                        </div>
                     ) : null}
+
                     {assets.length === 0 ? (
-                        <ResourceEmpty message="No media assets yet." action={{ label: 'Open builder', href: route('builder') }} />
+                        <ResourceEmpty
+                            message="No media assets uploaded yet."
+                            action={{ label: 'Upload your first image', href: '#' }}
+                            icon={Image}
+                        />
                     ) : (
                         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                             {assets.map((asset) => (
-                                <div key={asset.id} className="border-border overflow-hidden rounded-lg border">
-                                    <div className="bg-muted flex aspect-video items-center justify-center">
+                                <div
+                                    key={asset.id}
+                                    className="group overflow-hidden rounded-xl border border-border/80 bg-card transition-all duration-200 hover:-translate-y-1 hover:border-primary/50 hover:shadow-md"
+                                >
+                                    <div className="relative bg-muted/30 flex aspect-video items-center justify-center overflow-hidden border-b border-border/60">
                                         {asset.mimeType.startsWith('image/') ? (
-                                            <img src={asset.url} alt={asset.altText || asset.originalFilename} className="size-full object-cover" />
+                                            <img
+                                                src={asset.url}
+                                                alt={asset.altText || asset.originalFilename}
+                                                className="size-full object-cover transition-transform duration-300 group-hover:scale-105"
+                                            />
                                         ) : (
-                                            <Image className="text-muted-foreground" />
+                                            <Image className="size-8 text-muted-foreground/60" />
                                         )}
+                                        {asset.width && asset.height ? (
+                                            <span className="absolute bottom-2 right-2 rounded-md bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white backdrop-blur-xs">
+                                                {asset.width}x{asset.height}
+                                            </span>
+                                        ) : null}
                                     </div>
                                     <div className="p-3">
-                                        <p className="truncate text-sm font-medium">{asset.originalFilename}</p>
-                                        <p className="text-muted-foreground mt-1 truncate text-xs">
-                                            {asset.mimeType} · {asset.fileSize} bytes
+                                        <p className="truncate text-xs font-semibold text-foreground group-hover:text-primary transition" title={asset.originalFilename}>
+                                            {asset.originalFilename}
+                                        </p>
+                                        <p className="text-muted-foreground mt-1 truncate text-[11px]">
+                                            {formatBytes(asset.fileSize)} · {asset.mimeType.replace('image/', '').toUpperCase()}
                                         </p>
                                     </div>
                                 </div>
@@ -113,7 +152,7 @@ export default function Media({ media }: { media: MediaAsset[] }) {
                         </div>
                     )}
                 </CardContent>
-            </ResourceCard>
+            </Card>
         </AdminResourcePage>
     );
 }

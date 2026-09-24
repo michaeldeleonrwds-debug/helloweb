@@ -1,7 +1,7 @@
 import { Code2 } from 'lucide-react';
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 
-import type { BuilderBreakpoint, BuilderComponentNode, BuilderPageDocument, BuilderRecord, JsonValue } from '../document';
+import type { BuilderBreakpoint, BuilderComponentNode, BuilderPageDocument, BuilderRecord, ComponentType, JsonValue } from '../document';
 import { ComponentTreeEngine } from '../engine/component-tree-engine';
 import { afterPosition, appendPosition, beforePosition } from '../engine/tree-position';
 import type { MediaAsset } from '../persistence';
@@ -68,6 +68,7 @@ export function BuilderEditor({
     const [codeSettingsOpen, setCodeSettingsOpen] = useState(false);
     const [leftPanelWidth, setLeftPanelWidth] = useState(300);
     const [rightPanelWidth, setRightPanelWidth] = useState(340);
+    const [zoomLevel, setZoomLevel] = useState<number>(80);
     const [unsavedLeaveDialogOpen, setUnsavedLeaveDialogOpen] = useState(false);
     const [isLeavingWithSave, setIsLeavingWithSave] = useState(false);
     const clipboardRef = useRef<BuilderComponentNode | null>(null);
@@ -113,6 +114,11 @@ export function BuilderEditor({
 
     const handleBreakpointChange = (nextBreakpoint: BuilderBreakpoint) => {
         setActiveBreakpoint(nextBreakpoint);
+        if (nextBreakpoint === 'desktop') {
+            setZoomLevel(80);
+        } else {
+            setZoomLevel(100);
+        }
     };
     const commitDocument = (nextState: ReturnType<typeof createEditorState>) => {
         undoStack.current.push(state.document);
@@ -258,49 +264,78 @@ export function BuilderEditor({
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [selectedNode, state, engine]);
 
+    const resolveDropParentAndPosition = (targetId: string, mode: 'append' | 'before' | 'after', draggedType: ComponentType) => {
+        if (mode === 'append') {
+            if (engine.canAcceptChild(state.document, targetId, draggedType)) {
+                return { parentId: targetId, position: appendPosition() };
+            }
+            const targetNode = engine.find(state.document, targetId);
+            if (targetNode) {
+                const acceptingChild = targetNode.children.find((child) => engine.canAcceptChild(state.document, child.id, draggedType));
+                if (acceptingChild) {
+                    return { parentId: acceptingChild.id, position: appendPosition() };
+                }
+            }
+            return null;
+        }
+
+        const parent = engine.findParent(state.document, targetId);
+        if (parent && engine.canAcceptChild(state.document, parent.id, draggedType)) {
+            return { parentId: parent.id, position: mode === 'before' ? beforePosition(targetId) : afterPosition(targetId) };
+        }
+
+        // If parent cannot accept (e.g. column inside row, but draggedType is button),
+        // check if targetId itself can accept it as append
+        if (engine.canAcceptChild(state.document, targetId, draggedType)) {
+            return { parentId: targetId, position: appendPosition() };
+        }
+
+        return null;
+    };
+
+    const canDropOnNode = (targetId: string, mode: 'append' | 'before' | 'after') => {
+        if ((!state.draggedNodeId && !state.draggedComponentType) || state.draggedNodeId === targetId) return false;
+        const draggedNode = state.draggedNodeId ? engine.find(state.document, state.draggedNodeId) : null;
+        const draggedType = (draggedNode?.type ?? state.draggedComponentType) as ComponentType | undefined;
+        const targetNode = engine.find(state.document, targetId);
+        if (!draggedType || !targetNode || (draggedNode && containsNode(draggedNode, targetId))) return false;
+        return resolveDropParentAndPosition(targetId, mode, draggedType) !== null;
+    };
+
+    const dragOverNode = (targetId: string, mode: 'append' | 'before' | 'after') => {
+        if (!state.draggedNodeId && !state.draggedComponentType) return;
+        const draggedNode = state.draggedNodeId ? engine.find(state.document, state.draggedNodeId) : null;
+        const draggedType = (draggedNode?.type ?? state.draggedComponentType) as ComponentType | undefined;
+        if (!draggedType) return;
+        const resolved = resolveDropParentAndPosition(targetId, mode, draggedType);
+        if (!resolved) {
+            dispatch({ type: 'setDropTarget', target: null });
+            return;
+        }
+        dispatch({ type: 'setDropTarget', target: resolved });
+    };
+
     const dropNode = (targetId: string, mode: 'append' | 'before' | 'after') => {
         if (!state.draggedNodeId && !state.draggedComponentType) return;
-        const parentId = mode === 'append' ? targetId : engine.findParent(state.document, targetId)?.id;
-        if (!parentId) return;
-        const position = mode === 'append' ? appendPosition() : mode === 'before' ? beforePosition(targetId) : afterPosition(targetId);
+        const draggedNode = state.draggedNodeId ? engine.find(state.document, state.draggedNodeId) : null;
+        const draggedType = (draggedNode?.type ?? state.draggedComponentType) as ComponentType | undefined;
+        if (!draggedType) return;
+        const resolved = resolveDropParentAndPosition(targetId, mode, draggedType);
+        if (!resolved) return;
         try {
             if (state.draggedComponentType) {
-                run(() => insertEditorComponent(state, engine, parentId, state.draggedComponentType!));
+                run(() => insertEditorComponent(state, engine, resolved.parentId, state.draggedComponentType!, resolved.position));
                 dispatch({ type: 'clearDrag' });
                 return;
             }
-            const nextState = moveEditorNode(state, engine, state.draggedNodeId!, { parentId, position });
-            dispatch({ type: 'replaceState', state: nextState });
+            const nextState = moveEditorNode(state, engine, state.draggedNodeId!, resolved);
+            commitDocument(nextState);
             dispatch({ type: 'clearDrag' });
             setError(null);
         } catch (caught) {
             dispatch({ type: 'clearDrag' });
             setError(caught instanceof Error ? caught.message : 'The drop was rejected.');
         }
-    };
-
-    const dragOverNode = (targetId: string, mode: 'append' | 'before' | 'after') => {
-        if (!state.draggedNodeId && !state.draggedComponentType) return;
-        const parentId = mode === 'append' ? targetId : engine.findParent(state.document, targetId)?.id;
-        if (!parentId) return;
-        const position = mode === 'append' ? appendPosition() : mode === 'before' ? beforePosition(targetId) : afterPosition(targetId);
-        const draggedNode = state.draggedNodeId ? engine.find(state.document, state.draggedNodeId) : null;
-        const draggedType = draggedNode?.type ?? state.draggedComponentType;
-        if (!draggedType || !engine.canAcceptChild(state.document, parentId, draggedType)) {
-            dispatch({ type: 'setDropTarget', target: null });
-            return;
-        }
-        dispatch({ type: 'setDropTarget', target: { parentId, position } });
-    };
-
-    const canDropOnNode = (targetId: string, mode: 'append' | 'before' | 'after') => {
-        if ((!state.draggedNodeId && !state.draggedComponentType) || state.draggedNodeId === targetId) return false;
-        const draggedNode = state.draggedNodeId ? engine.find(state.document, state.draggedNodeId) : null;
-        const draggedType = draggedNode?.type ?? state.draggedComponentType;
-        const targetNode = engine.find(state.document, targetId);
-        if (!draggedType || !targetNode || (draggedNode && containsNode(draggedNode, targetId))) return false;
-        const parentId = mode === 'append' ? targetId : engine.findParent(state.document, targetId)?.id;
-        return Boolean(parentId && engine.canAcceptChild(state.document, parentId, draggedType));
     };
 
     const insertPersistedDefinition = async (kind: 'template' | 'reusable', definitionId: number) => {
@@ -355,6 +390,8 @@ export function BuilderEditor({
                 pageId={pageId}
                 breakpoint={activeBreakpoint}
                 onBreakpointChange={handleBreakpointChange}
+                zoom={zoomLevel}
+                onZoomChange={setZoomLevel}
                 saveStatus={save.status}
                 saveError={save.error}
                 onRetry={save.retry}
@@ -435,6 +472,8 @@ export function BuilderEditor({
                                     : state.dropTarget.position.siblingId
                                 : null
                         }
+                        dropTargetMode={state.dropTarget?.position.mode ?? null}
+                        zoom={zoomLevel}
                         reusableDefinitions={reusableDefinitions}
                         onInlineTextChange={(nodeId, text) => {
                             run(() => updateEditorProps(state, engine, nodeId, { text }));

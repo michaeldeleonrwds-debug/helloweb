@@ -11,6 +11,10 @@ The `code.customcss` palette element is removed and replaced by `code.customcode
 
 ## Completed
 
+- Canvas drag reordering, zoom reflow, and studio dashboard redesign (D-030):
+  - In-canvas drag & drop reordering (`CanvasNode.tsx`, `DropTargetOverlay.tsx`, `BuilderEditor.tsx`): stopped event bubbling on `onDragStart` to prevent ancestor container hijacking, added native dataTransfer payloads, upgraded drop resolution for leaf and container elements, added directional blue insertion lines for before/after modes, and called `commitDocument` on drop for full undo/redo and autosave tracking.
+  - Canvas zoom & desktop reflow (`BuilderToolbar.tsx`, `BuilderCanvas.tsx`, `BuilderEditor.tsx`): added zoom controls to the top toolbar (50%, 75%, 80%, 90%, 100%, 125%) with default 80% on desktop to prevent narrow tablet wrapping on laptop screens while preserving true desktop proportions.
+  - Complete dashboard & workspace redesign (`app-sidebar.tsx`, `app-header.tsx`, `dashboard.tsx`, `admin-resource-page.tsx`, `websites/index.tsx`, `pages/index.tsx`, `templates/index.tsx`, `media/index.tsx`, `reusable-components/index.tsx`): removed "Repository" and "Documentation" starter-kit links, organized sidebar into structured workspace groups with a prominent "Launch Builder" button, redesigned the dashboard with studio hero banner, color-accented KPI cards, active projects grid with mini browser chrome, recent pages quick launch, template blueprints, and modernized all workspace resource pages.
 - Redesigned builder header, canvas fit, draggable panels, and unsaved changes modal (D-029):
   - Redesigned top header toolbar (`BuilderToolbar.tsx`) with Google UI aesthetics: site globe icon + breadcrumbs (`Website / Page Name`) with dropdown chevron, Google Docs-style cloud save status indicator, center segmented device switcher pill, and a back button that redirects directly to `/dashboard`.
   - Created custom `UnsavedChangesModal.tsx`: sleek warning modal prompting users when navigating away with unsaved edits, offering "Keep editing", "Discard & leave", or "Save & leave" (triggers auto-save before redirecting to `/dashboard`).

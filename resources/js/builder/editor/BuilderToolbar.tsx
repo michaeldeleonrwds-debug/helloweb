@@ -15,6 +15,8 @@ import {
     Smartphone,
     Tablet,
     Undo2,
+    ZoomIn,
+    ZoomOut,
 } from 'lucide-react';
 
 import type { BuilderBreakpoint } from '../document';
@@ -26,6 +28,8 @@ export interface BuilderToolbarProps {
     pageId: number | null;
     breakpoint: BuilderBreakpoint;
     onBreakpointChange: (breakpoint: BuilderBreakpoint) => void;
+    zoom?: number;
+    onZoomChange?: (zoom: number) => void;
     saveStatus: BuilderSaveStatus;
     saveError: string | null;
     onRetry: () => void;
@@ -54,6 +58,8 @@ export function BuilderToolbar({
     pageId,
     breakpoint,
     onBreakpointChange,
+    zoom,
+    onZoomChange,
     saveStatus,
     saveError,
     onRetry,
@@ -109,31 +115,69 @@ export function BuilderToolbar({
                 <GoogleCloudSaveIndicator status={saveStatus} error={saveError} onRetry={onRetry} />
             </div>
 
-            {/* Center section: Google M3 Segmented Viewport Switcher */}
-            <div
-                className="absolute left-1/2 hidden -translate-x-1/2 items-center rounded-full border border-border/80 bg-muted/60 p-0.5 shadow-2xs md:flex"
-                aria-label="Device viewport switcher"
-            >
-                {devices.map(({ id, label, icon: Icon }) => {
-                    const isActive = breakpoint === id;
-                    return (
-                        <button
-                            key={id}
-                            type="button"
-                            aria-label={label}
-                            aria-pressed={isActive}
-                            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition ${
-                                isActive
-                                    ? 'bg-card text-primary font-semibold shadow-2xs'
-                                    : 'text-muted-foreground hover:bg-card/40 hover:text-foreground'
-                            }`}
-                            onClick={() => onBreakpointChange(id)}
-                        >
-                            <Icon className="size-3.5" />
-                            <span className="hidden lg:inline">{label}</span>
-                        </button>
-                    );
-                })}
+            {/* Center section: Google M3 Segmented Viewport Switcher & Zoom Selector */}
+            <div className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-2 md:flex">
+                <div
+                    className="flex items-center rounded-full border border-border/80 bg-muted/60 p-0.5 shadow-2xs"
+                    aria-label="Device viewport switcher"
+                >
+                    {devices.map(({ id, label, icon: Icon }) => {
+                        const isActive = breakpoint === id;
+                        return (
+                            <button
+                                key={id}
+                                type="button"
+                                aria-label={label}
+                                aria-pressed={isActive}
+                                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition ${
+                                    isActive
+                                        ? 'bg-card text-primary font-semibold shadow-2xs'
+                                        : 'text-muted-foreground hover:bg-card/40 hover:text-foreground'
+                                }`}
+                                onClick={() => onBreakpointChange(id)}
+                            >
+                                <Icon className="size-3.5" />
+                                <span className="hidden lg:inline">{label}</span>
+                            </button>
+                        );
+                    })}
+                </div>
+
+                {/* Canvas Zoom Control */}
+                <div className="flex items-center rounded-full border border-border/80 bg-muted/60 px-2 py-0.5 shadow-2xs text-xs font-medium text-muted-foreground">
+                    <button
+                        type="button"
+                        onClick={() => onZoomChange?.(Math.max(50, (zoom ?? 80) - 10))}
+                        className="p-0.5 hover:text-foreground transition rounded"
+                        title="Zoom out"
+                        aria-label="Zoom out"
+                    >
+                        <ZoomOut className="size-3" />
+                    </button>
+                    <select
+                        value={zoom ?? 80}
+                        onChange={(e) => onZoomChange?.(Number(e.target.value))}
+                        className="bg-transparent text-xs font-medium text-foreground focus:outline-none cursor-pointer px-1 py-0.5"
+                        title="Canvas zoom level"
+                        aria-label="Canvas zoom level"
+                    >
+                        <option value={50} className="bg-popover text-popover-foreground">50%</option>
+                        <option value={75} className="bg-popover text-popover-foreground">75%</option>
+                        <option value={80} className="bg-popover text-popover-foreground">80%</option>
+                        <option value={90} className="bg-popover text-popover-foreground">90%</option>
+                        <option value={100} className="bg-popover text-popover-foreground">100%</option>
+                        <option value={125} className="bg-popover text-popover-foreground">125%</option>
+                    </select>
+                    <button
+                        type="button"
+                        onClick={() => onZoomChange?.(Math.min(150, (zoom ?? 80) + 10))}
+                        className="p-0.5 hover:text-foreground transition rounded"
+                        title="Zoom in"
+                        aria-label="Zoom in"
+                    >
+                        <ZoomIn className="size-3" />
+                    </button>
+                </div>
             </div>
 
             {/* Right section: History, Code, Preview, Save, Panel toggles */}

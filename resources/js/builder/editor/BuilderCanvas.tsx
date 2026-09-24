@@ -46,6 +46,8 @@ interface BuilderCanvasViewProps {
     canDropOnNode?: (nodeId: string, mode: 'append' | 'before' | 'after') => boolean;
     onEndDrag?: () => void;
     dropTargetId?: string | null;
+    dropTargetMode?: 'append' | 'before' | 'after' | null;
+    zoom?: number;
     reusableDefinitions?: ReusableComponentDefinition[];
     onInlineTextChange?: (nodeId: string, text: string) => void;
     editingNodeId?: string | null;
@@ -84,6 +86,8 @@ export function BuilderCanvasView({
     canDropOnNode,
     onEndDrag,
     dropTargetId,
+    dropTargetMode,
+    zoom,
     reusableDefinitions = [],
     onInlineTextChange,
     editingNodeId,
@@ -125,6 +129,7 @@ export function BuilderCanvasView({
 
     const pageIsEmpty = state.document.root.children.length === 0;
     const fixedPreviewWidth = breakpoint === 'tablet' ? 768 : breakpoint === 'mobile' ? 375 : null;
+    const zoomScale = (zoom ?? (breakpoint === 'desktop' ? 80 : 100)) / 100;
 
     return (
         <div
@@ -134,7 +139,15 @@ export function BuilderCanvasView({
             <div className={`flex min-h-full min-w-full ${fixedPreviewWidth ? 'items-start justify-center px-4 py-8 pb-20' : 'items-start justify-stretch p-0'}`}>
                 <div
                     className={`${fixedPreviewWidth ? 'shrink-0' : 'w-full min-w-0'} transition-[width] duration-200`}
-                    style={fixedPreviewWidth ? { width: `${fixedPreviewWidth}px` } : undefined}
+                    style={
+                        fixedPreviewWidth
+                            ? { width: `${fixedPreviewWidth}px`, zoom: zoomScale }
+                            : {
+                                  width: zoomScale < 1 ? `${Math.round(100 / zoomScale)}%` : '100%',
+                                  minWidth: '1200px',
+                                  zoom: zoomScale,
+                              }
+                    }
                     data-builder-page-shell="true"
                 >
                     <div
@@ -158,6 +171,7 @@ export function BuilderCanvasView({
                             canDropOnNode={canDropOnNode}
                             onEndDrag={onEndDrag}
                             dropTargetId={dropTargetId}
+                            dropTargetMode={dropTargetMode}
                             componentRegistry={componentRegistry}
                             onInlineTextChange={onInlineTextChange}
                             editingNodeId={editingNodeId}

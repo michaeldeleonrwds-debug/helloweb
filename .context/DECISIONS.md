@@ -428,8 +428,36 @@ Decision:
 Reason:
 Visual builders require true webpage preview accuracy where desktop content meets viewport boundaries without distracting outer padding. Resizable side panels give creators fine-grained workspace control, and custom modal dialogs eliminate disruptive native browser alert popups.
 
+# D-030: Canvas drag reordering, zoom reflow, and studio dashboard redesign
+
+Status: Accepted
+Date: 2026-09-25
+
+Decision:
+1. Canvas Drag-and-Drop Reordering (`CanvasNode.tsx`, `DropTargetOverlay.tsx`, `BuilderEditor.tsx`):
+   - Stopped event bubbling on `onDragStart` (`event.stopPropagation()`) so dragging child elements (like buttons or text) no longer bubbles up to set the dragged node as the parent Column, Row, or Section.
+   - Populated native HTML5 drag dataTransfer (`text/plain`, `application/x-builder-node-id`, `effectAllowed = 'move'`).
+   - Upgraded drop target resolution (`resolveDropTarget` & `resolveDropParentAndPosition`):
+     - Leaf nodes (buttons, headings, text, links, images) accept positional drops (`'before'` or `'after'`) into their parent container.
+     - Container nodes (columns, containers, flex) accept `'append'` drops as well as positional sibling drops.
+     - Section and row drops intelligently resolve to descendant columns/containers that accept the dragged component type.
+   - Enhanced `DropTargetOverlay` with directional blue insertion lines for before/after modes and dashed container outlines for append mode.
+   - Wired `dropNode` to call `commitDocument(nextState)` so canvas moves are tracked in the undo/redo stack and marked dirty for autosave.
+2. Canvas Zoom & Scaling (`BuilderToolbar.tsx`, `BuilderCanvas.tsx`, `BuilderEditor.tsx`):
+   - Added canvas zoom selector in the toolbar header next to the device switcher with zoom in/out buttons and direct percentage selection (50%, 75%, 80%, 90%, 100%, 125%).
+   - Defaults desktop view to 80% zoom so that even on laptop screens with both sidebars open (640px combined), the desktop canvas retains full desktop viewport width (1200px+ reflow) and does not wrap into tablet layout.
+   - Applied CSS `zoom` with proportional shell scaling to prevent layout distortion and keep DOM event coordinates synchronized.
+3. Complete Dashboard & Workspace Redesign (`app-sidebar.tsx`, `app-header.tsx`, `dashboard.tsx`, `admin-resource-page.tsx`, `websites/index.tsx`, `pages/index.tsx`, `templates/index.tsx`, `media/index.tsx`, `reusable-components/index.tsx`):
+   - Removed starter-kit "Repository" and "Documentation" external links from `app-sidebar.tsx` and `app-header.tsx`.
+   - Redesigned sidebar into structured workspace groups ("Workspace", "Design Assets", "Settings") with a high-visibility "Launch Builder" button.
+   - Replaced stock dashboard with a modern studio experience: personalized welcome hero banner with live studio indicator, 4 color-accented KPI metric cards with hover elevation, active projects grid with mini browser chrome and status badges, recent pages table with direct 1-click "Edit Page" links, template starter cards, and revision checkpoint history.
+   - Modernized all admin resource pages with consistent glass cards, live dot status badges, empty states with clear CTAs, formatted file sizes, and quick builder launch shortcuts.
+
+Reason:
+Creators need fluid in-canvas drag repositioning, desktop canvas scaling that prevents narrow responsive breakpoint collapse on standard laptop displays, and a clean, bespoke website builder platform environment free of generic Laravel starter-kit links.
+
 Implication:
-No database or schema changes. Responsive breakpoints and canvas node selection behaviors remain fully intact.
+All schema, database models, document persistence, and registry contracts remain unmodified. Undo/redo stacks and autosave mechanisms now accurately record drag reorder operations.
 
 
 

@@ -1,7 +1,8 @@
-import { ArrowUpRight, Boxes } from 'lucide-react';
+import { ArrowUpRight, Boxes, Clock, Globe, Plus, Sparkles } from 'lucide-react';
 
-import { AdminResourcePage, ResourceCard, ResourceEmpty, StatusBadge } from '@/components/admin-resource-page';
-import { CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { AdminResourcePage, ResourceEmpty, StatusBadge } from '@/components/admin-resource-page';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Link } from '@inertiajs/react';
 
 interface Website {
@@ -17,52 +18,82 @@ export default function Websites({ websites }: { websites: Website[] }) {
     return (
         <AdminResourcePage
             title="Websites"
-            description="Manage the websites in your workspace and open their page content."
-            action={{ label: 'New website', href: route('builder') }}
+            description="Manage your projects, configure domains, and edit page layouts in the visual builder."
+            action={{ label: 'New Website', href: route('builder') }}
             empty="No websites yet."
             icon={Boxes}
         >
-            <ResourceCard>
-                <CardHeader>
-                    <CardTitle>Projects</CardTitle>
-                    <CardDescription>
-                        {websites.length} website{websites.length === 1 ? '' : 's'} in this workspace.
-                    </CardDescription>
+            <Card className="border-border/80 shadow-xs">
+                <CardHeader className="flex flex-row items-center justify-between border-b border-border/60 pb-4">
+                    <div>
+                        <CardTitle className="text-lg font-bold">Your Projects</CardTitle>
+                        <CardDescription className="text-xs">
+                            {websites.length} website{websites.length === 1 ? '' : 's'} configured in this workspace.
+                        </CardDescription>
+                    </div>
+                    <Button asChild size="sm" className="font-semibold gap-1.5">
+                        <Link href={route('builder')}>
+                            <Plus className="size-3.5" />
+                            Create Site
+                        </Link>
+                    </Button>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="p-6">
                     {websites.length === 0 ? (
-                        <ResourceEmpty message="No websites yet." action={{ label: 'Create website', href: route('builder') }} />
+                        <ResourceEmpty
+                            message="No websites created yet."
+                            action={{ label: 'Launch Builder', href: route('builder') }}
+                            icon={Boxes}
+                        />
                     ) : (
-                        <div className="divide-border divide-y">
+                        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
                             {websites.map((website) => (
-                                <div key={website.id} className="flex items-center justify-between gap-4 py-4 first:pt-0 last:pb-0">
-                                    <div className="flex min-w-0 items-center gap-3">
-                                        <div className="bg-muted text-muted-foreground flex size-10 shrink-0 items-center justify-center rounded-lg">
-                                            <Boxes className="size-4" />
+                                <div
+                                    key={website.id}
+                                    className="group relative flex flex-col justify-between rounded-xl border border-border/80 bg-card p-5 transition-all duration-200 hover:-translate-y-1 hover:border-primary/50 hover:shadow-md"
+                                >
+                                    {/* Mini Browser Bar */}
+                                    <div className="mb-4 flex items-center justify-between border-b border-border/50 pb-3">
+                                        <div className="flex items-center gap-1.5">
+                                            <span className="size-2 rounded-full bg-red-400/80" />
+                                            <span className="size-2 rounded-full bg-amber-400/80" />
+                                            <span className="size-2 rounded-full bg-emerald-400/80" />
                                         </div>
-                                        <div className="min-w-0">
-                                            <p className="truncate text-sm font-medium">{website.name}</p>
-                                            <p className="text-muted-foreground truncate text-xs">
-                                                {website.slug} · {website.pagesCount} {website.pagesCount === 1 ? 'page' : 'pages'}
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-3">
                                         <StatusBadge status={website.status} />
-                                        <Link
-                                            href={route('builder')}
-                                            className="text-muted-foreground hover:text-foreground"
-                                            aria-label={`Open ${website.name}`}
-                                        >
-                                            <ArrowUpRight className="size-4" />
-                                        </Link>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <div className="flex items-center gap-2.5">
+                                            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                                                <Globe className="size-4" />
+                                            </div>
+                                            <h3 className="truncate font-bold text-base text-foreground group-hover:text-primary transition">
+                                                {website.name}
+                                            </h3>
+                                        </div>
+                                        <p className="text-muted-foreground truncate text-xs pl-0.5">
+                                            /{website.slug} · <span className="font-semibold text-foreground">{website.pagesCount}</span> {website.pagesCount === 1 ? 'page' : 'pages'}
+                                        </p>
+                                    </div>
+
+                                    <div className="mt-6 flex items-center justify-between border-t border-border/50 pt-3">
+                                        <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+                                            <Clock className="size-3" />
+                                            {website.updatedAt ? new Date(website.updatedAt).toLocaleDateString() : 'Active'}
+                                        </span>
+                                        <Button asChild size="sm" variant="default" className="shadow-xs font-semibold gap-1.5 h-8 text-xs">
+                                            <Link href={route('builder')}>
+                                                <Sparkles className="size-3" />
+                                                Open Builder
+                                            </Link>
+                                        </Button>
                                     </div>
                                 </div>
                             ))}
                         </div>
                     )}
                 </CardContent>
-            </ResourceCard>
+            </Card>
         </AdminResourcePage>
     );
 }

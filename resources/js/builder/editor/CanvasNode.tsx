@@ -21,6 +21,7 @@ interface CanvasNodeProps {
     canDropOnNode?: (nodeId: string, mode: 'append' | 'before' | 'after') => boolean;
     onEndDrag?: () => void;
     dropTargetId?: string | null;
+    dropTargetMode?: 'append' | 'before' | 'after' | null;
     componentRegistry?: ComponentRegistry;
     onInlineTextChange?: (nodeId: string, text: string) => void;
     editingNodeId?: string | null;
@@ -61,6 +62,7 @@ export function CanvasNode({
     canDropOnNode,
     onEndDrag,
     dropTargetId,
+    dropTargetMode,
     componentRegistry,
     onInlineTextChange,
     editingNodeId,
@@ -121,11 +123,11 @@ export function CanvasNode({
         style.minHeight = style.minHeight ?? '56px';
     }
 
-    const modeForEvent = (event: DragEvent<HTMLElement>): 'append' | 'before' | 'after' => {
-        const bounds = event.currentTarget.getBoundingClientRect();
-        const relativeY = event.clientY - bounds.top;
-        return relativeY < bounds.height * 0.25 ? 'before' : relativeY > bounds.height * 0.75 ? 'after' : 'append';
-    };
+    const canAcceptChildren = Boolean(
+        componentType &&
+            componentRegistry?.has(componentType as `${string}.${string}`) &&
+            componentRegistry.get(componentType as `${string}.${string}`)?.capabilities?.canAcceptChildren,
+    );
 
     const handleDragOver = (event: DragEvent<HTMLElement>) => {
         if (!nodeId || !onDropNode) return;
@@ -148,16 +150,58 @@ export function CanvasNode({
     const resolveDropTarget = (event: DragEvent<HTMLElement>): { nodeId: string; mode: 'append' | 'before' | 'after' } | null => {
         if (!nodeId) return null;
 
-        const mode = modeForEvent(event);
-        if (!canDropOnNode || canDropOnNode(nodeId, mode)) {
+        const bounds = event.currentTarget.getBoundingClientRect();
+        const relativeY = event.clientY - bounds.top;
+
+        // If this element cannot accept children (e.g. Button, Heading, Text, Link, Image),
+        // drops onto it are always positional (before or after it in its parent container).
+        if (!canAcceptChildren) {
+            const mode = relativeY < bounds.height * 0.5 ? 'before' : 'after';
+            if (!canDropOnNode || canDropOnNode(nodeId, mode)) {
+                return { nodeId, mode };
+            }
+            const oppositeMode = mode === 'before' ? 'after' : 'before';
+            if (canDropOnNode && canDropOnNode(nodeId, oppositeMode)) {
+                return { nodeId, mode: oppositeMode };
+            }
+            return null;
+        }
+
+        // If this element can accept children (e.g. Column, Container, Flex, Row, Section):
+        // Top 20% can be 'before', bottom 20% can be 'after', and middle 60% is 'append'
+        let mode: 'append' | 'before' | 'after' = 'append';
+        if (relativeY < bounds.height * 0.2) {
+            mode = 'before';
+        } else if (relativeY > bounds.height * 0.8) {
+            mode = 'after';
+        }
+
+        if (canDropOnNode && canDropOnNode(nodeId, mode)) {
             return { nodeId, mode };
         }
 
-        if (mode !== 'append') return null;
+        // If 'before' or 'after' failed on a container, try 'append' into it
+        if (mode !== 'append' && canDropOnNode && canDropOnNode(nodeId, 'append')) {
+            return { nodeId, mode: 'append' };
+        }
 
+        // Check if there is a child target inside that can accept the drop
         const childTarget = childDropTargetForEvent(event);
-        if (childTarget && canDropOnNode(childTarget, 'append')) {
-            return { nodeId: childTarget, mode: 'append' };
+        if (childTarget && canDropOnNode) {
+            if (canDropOnNode(childTarget, 'append')) {
+                return { nodeId: childTarget, mode: 'append' };
+            }
+            if (canDropOnNode(childTarget, 'after')) {
+                return { nodeId: childTarget, mode: 'after' };
+            }
+            if (canDropOnNode(childTarget, 'before')) {
+                return { nodeId: childTarget, mode: 'before' };
+            }
+        }
+
+        // Fallback: if canDropOnNode allows append
+        if (!canDropOnNode || canDropOnNode(nodeId, 'append')) {
+            return { nodeId, mode: 'append' };
         }
 
         return null;
@@ -198,7 +242,7 @@ export function CanvasNode({
     }
 
     if (!editingText && nodeId && dropTargetId === nodeId) {
-        overlays.push(<DropTargetOverlay key="drop-target" nodeId={nodeId} label={componentName} />);
+        overlays.push(<DropTargetOverlay key="drop-target" nodeId={nodeId} label={componentName} mode={dropTargetMode ?? undefined} />);
     }
 
     if (!editingText && nodeId && (selectedNodeId === nodeId || (selectedNodeId === null && hoveredNodeId === nodeId))) {
@@ -270,7 +314,16 @@ export function CanvasNode({
                       onEndInlineEdit?.();
                   }
                 : undefined,
-        onDragStart: nodeId && !locked && onStartDrag ? () => onStartDrag(nodeId) : undefined,
+        onDragStart:
+            nodeId && !locked && onStartDrag
+                ? (event: DragEvent<HTMLElement>) => {
+                      event.stopPropagation();
+                      event.dataTransfer.setData('text/plain', nodeId);
+                      event.dataTransfer.setData('application/x-builder-node-id', nodeId);
+                      event.dataTransfer.effectAllowed = 'move';
+                      onStartDrag(nodeId);
+                  }
+                : undefined,
         onDragOver: handleDragOver,
         onDrop: handleDrop,
         onDragEnd: onEndDrag,
@@ -323,6 +376,7 @@ export function CanvasNode({
                 canDropOnNode={canDropOnNode}
                 onEndDrag={onEndDrag}
                 dropTargetId={dropTargetId}
+                dropTargetMode={dropTargetMode}
                 componentRegistry={componentRegistry}
                 onInlineTextChange={onInlineTextChange}
                 editingNodeId={editingNodeId}
