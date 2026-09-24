@@ -459,5 +459,30 @@ Creators need fluid in-canvas drag repositioning, desktop canvas scaling that pr
 Implication:
 All schema, database models, document persistence, and registry contracts remain unmodified. Undo/redo stacks and autosave mechanisms now accurately record drag reorder operations.
 
+## D-031 - Left panel tab layout, split view cleanup, max width inspector controls, and dimensions preset grid
+
+Status: Accepted
+Date: 2026-09-25
+
+Decision:
+1. Left Panel Tab Navigation & View Cleanup (`BuilderLeftPanel.tsx`):
+   - Redesigned panel header tabs into a balanced `grid grid-cols-4 gap-1 w-full` layout. At the default 300px panel width, all four tabs ("Elements", "Layers", "Library", "Media") display both icon and label text clearly without text cutoff or icon-only truncation.
+   - Removed split view toggle button and split view dual rendering. When "Elements" is active, it renders exclusively the elements catalog full-height. When "Layers" is active, it renders the tree layers catalog full-height.
+2. Inspector Dimensions Control & Max Width Promotion (`ComponentInspector.tsx`, `built-ins.ts`, `BuiltInComponentDefinitions.php`):
+   - Added `'maxWidth'` to `layout.section` styleCapabilities in both TypeScript and PHP component registries.
+   - Promoted `Max Width (Max W)` directly into the primary 2-column dimensions grid alongside `Width (W)`, `Height (H)`, and `Min Height (Min H)`.
+   - Unified `CompactDimensionInput` into an integrated input-with-suffix container (`focus-within:ring-1 border border-input`), slimming the unit selector to 40px (`w-10`) with `border-l` to eliminate wasted margins and prevent long labels like "auto" from being clipped.
+   - Replaced cramped flex width preset buttons with an exact `grid grid-cols-4 gap-1 w-full` preset grid (`100%`, `Auto`, `320px`, `640px`) that stays strictly within the inspector card padding and never overflows or overlaps.
+   - Retained collapsible secondary constraints section for `minWidth` and `maxHeight` with an active override dot indicator.
+3. Test Suite Alignment (`scripts/builder-editor-tests.ts`):
+   - Verified Library tab rendering in `editorMarkup`.
+   - Tested `data-layer-node-id="section-1"` through explicit `BuilderLayersPanel` rendering.
+
+Reason:
+Users need immediate access to `maxWidth` without digging into collapsed menus, quick width presets must not overflow or overlap on narrow inspector panels, and left panel tabs must be fully readable without confusing layers appearing under the elements tab.
+
+Implication:
+No breaking changes to persisted document structures or responsive styling cascades. All tests pass with zero regressions.
+
 
 

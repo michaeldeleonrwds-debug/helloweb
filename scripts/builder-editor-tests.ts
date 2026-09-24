@@ -5,6 +5,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 
 import { BuilderCanvas } from '../resources/js/builder/editor/BuilderCanvas';
 import { BuilderEditor } from '../resources/js/builder/editor/BuilderEditor';
+import { BuilderLayersPanel } from '../resources/js/builder/editor/BuilderLayersPanel';
 import { CanvasNode } from '../resources/js/builder/editor/CanvasNode';
 import { hoverCanvasNode, leaveCanvasNode, selectCanvasNode } from '../resources/js/builder/editor/canvas-interactions';
 import {
@@ -215,8 +216,22 @@ const editorMarkup = renderToStaticMarkup(createElement(BuilderEditor, { documen
 assert.match(editorMarkup, /data-builder-editor="true"/);
 assert.match(editorMarkup, /Elements/);
 assert.match(editorMarkup, /Layers/);
-assert.match(editorMarkup, /data-layer-node-id="section-1"/);
+assert.match(editorMarkup, /Library/);
 assert.match(editorMarkup, /Select an element/);
+
+const layersMarkup = renderToStaticMarkup(
+    createElement(BuilderLayersPanel, {
+        document,
+        registry,
+        selectedNodeId: null,
+        onSelectNode: () => undefined,
+        hoveredNodeId: null,
+        onHoverNode: () => undefined,
+        onClearHover: () => undefined,
+        onMoveNode: () => undefined,
+    }),
+);
+assert.match(layersMarkup, /data-layer-node-id="section-1"/);
 
 const hoveredCanvasMarkup = renderToStaticMarkup(
     createElement(CanvasNode, {

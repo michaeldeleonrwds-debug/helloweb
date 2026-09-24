@@ -74,6 +74,7 @@ export const BUILT_IN_COMPONENT_DEFINITIONS: ComponentDefinition[] = [
         styleCapabilities: [
             'display',
             'width',
+            'maxWidth',
             'minHeight',
             'margin',
             'padding',

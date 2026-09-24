@@ -4,10 +4,8 @@ import {
     LayoutGrid,
     LayoutTemplate,
     Plus,
-    Rows2,
     Search,
     Sparkles,
-    SplitSquareVertical,
     UploadCloud,
     X,
 } from 'lucide-react';
@@ -67,7 +65,6 @@ export function BuilderLeftPanel({
     canDropOnNode,
 }: BuilderLeftPanelProps) {
     const [tab, setTab] = useState<LeftPanelTab>('elements');
-    const [isSplit, setIsSplit] = useState(true);
 
     // Count layers
     const layerCount = useMemo(() => {
@@ -82,44 +79,37 @@ export function BuilderLeftPanel({
 
     return (
         <aside className="builder-left-panel flex h-full min-h-0 w-full flex-col overflow-hidden bg-card text-card-foreground" aria-label="Builder controls">
-            {/* Top Navigation Bar */}
-            <div className="flex h-11 shrink-0 items-center justify-between border-b border-border bg-card px-2">
-                {/* Google M3 Segmented Navigation Tabs */}
-                <div className="flex flex-1 items-center gap-1">
+            {/* Top Navigation Bar: 4 Equal Grid Tabs */}
+            <div className="flex h-11 shrink-0 items-center border-b border-border bg-card px-1.5">
+                <div className="grid grid-cols-4 gap-1 w-full">
                     <button
                         type="button"
-                        onClick={() => {
-                            setTab('elements');
-                            if (isSplit) setIsSplit(false);
-                        }}
-                        className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition ${
-                            tab === 'elements' && !isSplit
+                        onClick={() => setTab('elements')}
+                        className={`inline-flex items-center justify-center gap-1 rounded-lg py-1.5 text-xs font-medium transition ${
+                            tab === 'elements'
                                 ? 'bg-primary/10 text-primary font-semibold shadow-2xs'
                                 : 'text-muted-foreground hover:bg-muted/70 hover:text-foreground'
                         }`}
                         title="Elements Catalog"
                     >
-                        <LayoutGrid className="size-3.5" />
-                        <span>Elements</span>
+                        <LayoutGrid className="size-3.5 shrink-0" />
+                        <span className="truncate">Elements</span>
                     </button>
 
                     <button
                         type="button"
-                        onClick={() => {
-                            setTab('layers');
-                            if (isSplit) setIsSplit(false);
-                        }}
-                        className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition ${
-                            tab === 'layers' && !isSplit
+                        onClick={() => setTab('layers')}
+                        className={`inline-flex items-center justify-center gap-1 rounded-lg py-1.5 text-xs font-medium transition ${
+                            tab === 'layers'
                                 ? 'bg-primary/10 text-primary font-semibold shadow-2xs'
                                 : 'text-muted-foreground hover:bg-muted/70 hover:text-foreground'
                         }`}
                         title="Layers Tree"
                     >
-                        <Layers className="size-3.5" />
-                        <span>Layers</span>
+                        <Layers className="size-3.5 shrink-0" />
+                        <span className="truncate">Layers</span>
                         {layerCount > 0 ? (
-                            <span className="rounded-full bg-muted px-1.5 py-0.2 text-[10px] font-mono text-muted-foreground">
+                            <span className="rounded-full bg-muted px-1 text-[9px] font-mono text-muted-foreground">
                                 {layerCount}
                             </span>
                         ) : null}
@@ -127,97 +117,37 @@ export function BuilderLeftPanel({
 
                     <button
                         type="button"
-                        onClick={() => {
-                            setTab('library');
-                            if (isSplit) setIsSplit(false);
-                        }}
-                        className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition ${
-                            tab === 'library' && !isSplit
+                        onClick={() => setTab('library')}
+                        className={`inline-flex items-center justify-center gap-1 rounded-lg py-1.5 text-xs font-medium transition ${
+                            tab === 'library'
                                 ? 'bg-primary/10 text-primary font-semibold shadow-2xs'
                                 : 'text-muted-foreground hover:bg-muted/70 hover:text-foreground'
                         }`}
                         title="Templates & Components"
                     >
-                        <LayoutTemplate className="size-3.5" />
-                        <span>Library</span>
+                        <LayoutTemplate className="size-3.5 shrink-0" />
+                        <span className="truncate">Library</span>
                     </button>
 
                     <button
                         type="button"
-                        onClick={() => {
-                            setTab('media');
-                            if (isSplit) setIsSplit(false);
-                        }}
-                        className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition ${
-                            tab === 'media' && !isSplit
+                        onClick={() => setTab('media')}
+                        className={`inline-flex items-center justify-center gap-1 rounded-lg py-1.5 text-xs font-medium transition ${
+                            tab === 'media'
                                 ? 'bg-primary/10 text-primary font-semibold shadow-2xs'
                                 : 'text-muted-foreground hover:bg-muted/70 hover:text-foreground'
                         }`}
                         title="Media Assets"
                     >
-                        <ImageIcon className="size-3.5" />
-                        <span>Media</span>
+                        <ImageIcon className="size-3.5 shrink-0" />
+                        <span className="truncate">Media</span>
                     </button>
                 </div>
-
-                {/* Split View Toggle */}
-                <button
-                    type="button"
-                    onClick={() => setIsSplit((v) => !v)}
-                    className={`flex size-7 items-center justify-center rounded-md transition ${
-                        isSplit
-                            ? 'bg-primary/15 text-primary'
-                            : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                    }`}
-                    title={isSplit ? 'Single view (Full height)' : 'Split view (Elements & Layers stacked)'}
-                    aria-label="Toggle split view"
-                >
-                    {isSplit ? <Rows2 className="size-3.5" /> : <SplitSquareVertical className="size-3.5" />}
-                </button>
             </div>
 
-            {/* Main Content Area */}
+            {/* Main Content Area: Selected Tab at 100% Height */}
             <div className="min-h-0 flex-1 overflow-hidden">
-                {isSplit ? (
-                    /* Split Mode: Elements on top, Layers on bottom */
-                    <div className="flex h-full flex-col divide-y divide-border">
-                        <div className="flex h-1/2 min-h-0 flex-col overflow-hidden">
-                            <div className="flex h-8 shrink-0 items-center justify-between bg-muted/30 px-3">
-                                <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Elements</span>
-                            </div>
-                            <div className="min-h-0 flex-1 overflow-hidden">
-                                <BuilderElementsPanel
-                                    definitions={definitions}
-                                    onInsert={onInsert}
-                                    onStartDrag={onStartDrag}
-                                />
-                            </div>
-                        </div>
-
-                        <div className="flex h-1/2 min-h-0 flex-col overflow-hidden">
-                            <div className="flex h-8 shrink-0 items-center justify-between bg-muted/30 px-3">
-                                <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Layers ({layerCount})</span>
-                            </div>
-                            <div className="min-h-0 flex-1 overflow-hidden">
-                                <BuilderLayersPanel
-                                    document={document}
-                                    registry={registry}
-                                    selectedNodeId={selectedNodeId}
-                                    dropTargetId={dropTargetId}
-                                    onSelect={onSelectNode}
-                                    onStartDrag={onStartDragNode}
-                                    onDragOverNode={onDragOverNode}
-                                    onDropNode={onDropNode}
-                                    onEndDrag={onEndDragNode}
-                                    canDropOnNode={canDropOnNode}
-                                    showHeader={false}
-                                />
-                            </div>
-                        </div>
-                    </div>
-                ) : (
-                    /* Single Tab Mode: 100% Full Height */
-                    <div className="h-full">
+                <div className="h-full">
                         {tab === 'elements' ? (
                             <BuilderElementsPanel
                                 definitions={definitions}
@@ -258,7 +188,6 @@ export function BuilderLeftPanel({
                             />
                         ) : null}
                     </div>
-                )}
             </div>
         </aside>
     );

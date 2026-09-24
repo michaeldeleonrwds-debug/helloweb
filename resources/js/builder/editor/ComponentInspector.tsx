@@ -1299,37 +1299,37 @@ function CompactDimensionInput({
                     </button>
                 ) : null}
             </div>
-            <div className="flex items-center gap-1">
-                <div className="relative min-w-0 flex-1">
-                    <input
-                        type="text"
-                        aria-label={label}
-                        className={`border-input bg-background focus:border-ring focus:ring-ring/20 h-7 w-full rounded border px-2 text-xs outline-none focus:ring-1 ${
-                            isOverridden ? 'border-primary/50 font-medium' : ''
-                        }`}
-                        placeholder={placeholder}
-                        value={parsed.isEmpty ? '' : String(parsed.value)}
-                        onChange={(e) => {
-                            const val = e.target.value.trim();
-                            if (val === '') {
-                                onClear(propKey);
-                            } else if (val === 'auto' || val === 'none') {
-                                onChange(propKey, val);
+            <div
+                className={`border-input bg-background focus-within:border-ring focus-within:ring-ring/20 relative flex h-7 items-center overflow-hidden rounded border transition focus-within:ring-1 ${
+                    isOverridden ? 'border-primary/50 font-medium' : ''
+                }`}
+            >
+                <input
+                    type="text"
+                    aria-label={label}
+                    className="h-full min-w-0 flex-1 bg-transparent px-2 text-xs outline-none"
+                    placeholder={placeholder}
+                    value={parsed.isEmpty ? '' : String(parsed.value)}
+                    onChange={(e) => {
+                        const val = e.target.value.trim();
+                        if (val === '') {
+                            onClear(propKey);
+                        } else if (val === 'auto' || val === 'none') {
+                            onChange(propKey, val);
+                        } else {
+                            const num = Number(val);
+                            if (!isNaN(num)) {
+                                const unit = parsed.unit === 'auto' || parsed.unit === 'none' ? 'px' : parsed.unit;
+                                onChange(propKey, { value: num, unit: unit as LengthValue['unit'] });
                             } else {
-                                const num = Number(val);
-                                if (!isNaN(num)) {
-                                    const unit = parsed.unit === 'auto' || parsed.unit === 'none' ? 'px' : parsed.unit;
-                                    onChange(propKey, { value: num, unit: unit as LengthValue['unit'] });
-                                } else {
-                                    onChange(propKey, val);
-                                }
+                                onChange(propKey, val);
                             }
-                        }}
-                    />
-                </div>
+                        }
+                    }}
+                />
                 <select
                     aria-label={`${label} unit`}
-                    className="border-input bg-background focus:border-ring focus:ring-ring/20 h-7 w-14 shrink-0 rounded border px-1 text-[10px] outline-none focus:ring-1"
+                    className="border-input/60 bg-muted/20 text-muted-foreground hover:bg-muted/40 hover:text-foreground h-full w-10 shrink-0 cursor-pointer border-l px-0.5 text-center text-[10px] font-medium outline-none transition"
                     value={parsed.unit}
                     onChange={(e) => {
                         const newUnit = e.target.value;
@@ -1376,7 +1376,8 @@ function DimensionsControl({
     const hasMaxHeight = caps.includes('maxHeight');
     const hasOverflow = caps.includes('overflow');
 
-    const hasAnyConstraint = hasMinWidth || hasMaxWidth || hasMinHeight || hasMaxHeight;
+    const hasAnyMainDimension = hasWidth || hasMaxWidth || hasHeight || hasMinHeight;
+    const hasMoreConstraints = hasMinWidth || hasMaxHeight;
 
     const dimKeys: StylePropertyKey[] = (
         ['width', 'height', 'minWidth', 'maxWidth', 'minHeight', 'maxHeight', 'overflow'] as const
@@ -1388,7 +1389,7 @@ function DimensionsControl({
         dimKeys.forEach((k) => onClear(k));
     };
 
-    if (!hasWidth && !hasHeight && !hasAnyConstraint && !hasOverflow) return null;
+    if (!hasAnyMainDimension && !hasMoreConstraints && !hasOverflow) return null;
 
     const currentOverflow = inheritedStyleValue(node, definition, breakpoint, 'overflow').value;
 
@@ -1412,7 +1413,7 @@ function DimensionsControl({
             </div>
 
             <div className="bg-muted/30 space-y-2.5 rounded-md border p-2.5">
-                {hasWidth || hasHeight ? (
+                {hasAnyMainDimension ? (
                     <div className="grid grid-cols-2 gap-2">
                         {hasWidth ? (
                             <CompactDimensionInput
@@ -1425,6 +1426,19 @@ function DimensionsControl({
                                 onClear={onClear}
                                 defaultUnit="px"
                                 placeholder="auto"
+                            />
+                        ) : null}
+                        {hasMaxWidth ? (
+                            <CompactDimensionInput
+                                label="Max Width (Max W)"
+                                propKey="maxWidth"
+                                node={node}
+                                definition={definition}
+                                breakpoint={breakpoint}
+                                onChange={onChange}
+                                onClear={onClear}
+                                defaultUnit="px"
+                                placeholder="none"
                             />
                         ) : null}
                         {hasHeight ? (
@@ -1440,51 +1454,71 @@ function DimensionsControl({
                                 placeholder="auto"
                             />
                         ) : null}
+                        {hasMinHeight ? (
+                            <CompactDimensionInput
+                                label="Min Height (Min H)"
+                                propKey="minHeight"
+                                node={node}
+                                definition={definition}
+                                breakpoint={breakpoint}
+                                onChange={onChange}
+                                onClear={onClear}
+                                defaultUnit="px"
+                                placeholder="0px"
+                            />
+                        ) : null}
                     </div>
                 ) : null}
 
                 {hasWidth ? (
-                    <div className="flex items-center gap-1">
-                        <span className="text-muted-foreground mr-1 text-[10px]">Width:</span>
-                        <button
-                            type="button"
-                            className="border-border hover:bg-muted text-muted-foreground hover:text-foreground h-5 rounded border px-1.5 text-[10px] font-medium transition"
-                            onClick={() => onChange('width', '100%')}
-                        >
-                            100%
-                        </button>
-                        <button
-                            type="button"
-                            className="border-border hover:bg-muted text-muted-foreground hover:text-foreground h-5 rounded border px-1.5 text-[10px] font-medium transition"
-                            onClick={() => onChange('width', 'auto')}
-                        >
-                            Auto
-                        </button>
-                        <button
-                            type="button"
-                            className="border-border hover:bg-muted text-muted-foreground hover:text-foreground h-5 rounded border px-1.5 text-[10px] font-medium transition"
-                            onClick={() => onChange('width', { value: 320, unit: 'px' })}
-                        >
-                            320px
-                        </button>
-                        <button
-                            type="button"
-                            className="border-border hover:bg-muted text-muted-foreground hover:text-foreground h-5 rounded border px-1.5 text-[10px] font-medium transition"
-                            onClick={() => onChange('width', { value: 640, unit: 'px' })}
-                        >
-                            640px
-                        </button>
+                    <div className="space-y-1 pt-0.5">
+                        <span className="text-muted-foreground text-[10px] font-medium">Width Presets</span>
+                        <div className="grid w-full grid-cols-4 gap-1">
+                            <button
+                                type="button"
+                                className="border-border hover:bg-muted text-muted-foreground hover:text-foreground flex h-6 items-center justify-center truncate rounded border text-[10px] font-medium transition"
+                                onClick={() => onChange('width', '100%')}
+                            >
+                                100%
+                            </button>
+                            <button
+                                type="button"
+                                className="border-border hover:bg-muted text-muted-foreground hover:text-foreground flex h-6 items-center justify-center truncate rounded border text-[10px] font-medium transition"
+                                onClick={() => onChange('width', 'auto')}
+                            >
+                                Auto
+                            </button>
+                            <button
+                                type="button"
+                                className="border-border hover:bg-muted text-muted-foreground hover:text-foreground flex h-6 items-center justify-center truncate rounded border text-[10px] font-medium transition"
+                                onClick={() => onChange('width', { value: 320, unit: 'px' })}
+                            >
+                                320px
+                            </button>
+                            <button
+                                type="button"
+                                className="border-border hover:bg-muted text-muted-foreground hover:text-foreground flex h-6 items-center justify-center truncate rounded border text-[10px] font-medium transition"
+                                onClick={() => onChange('width', { value: 640, unit: 'px' })}
+                            >
+                                640px
+                            </button>
+                        </div>
                     </div>
                 ) : null}
 
-                {hasAnyConstraint ? (
+                {hasMoreConstraints ? (
                     <div className="border-border/60 border-t pt-2">
                         <button
                             type="button"
                             className="text-muted-foreground hover:text-foreground flex w-full items-center justify-between text-[11px] font-medium transition"
                             onClick={() => setShowConstraints((prev) => !prev)}
                         >
-                            <span>Min / Max Constraints</span>
+                            <span className="flex items-center gap-1.5">
+                                <span>Min Width / Max Height</span>
+                                {(node.styles[breakpoint]?.['minWidth'] !== undefined || node.styles[breakpoint]?.['maxHeight'] !== undefined) && (
+                                    <span className="bg-primary size-1.5 rounded-full" />
+                                )}
+                            </span>
                             <ChevronDown className={`size-3 transition-transform ${showConstraints ? 'rotate-180' : ''}`} />
                         </button>
 
@@ -1494,32 +1528,6 @@ function DimensionsControl({
                                     <CompactDimensionInput
                                         label="Min Width"
                                         propKey="minWidth"
-                                        node={node}
-                                        definition={definition}
-                                        breakpoint={breakpoint}
-                                        onChange={onChange}
-                                        onClear={onClear}
-                                        defaultUnit="px"
-                                        placeholder="0px"
-                                    />
-                                ) : null}
-                                {hasMaxWidth ? (
-                                    <CompactDimensionInput
-                                        label="Max Width"
-                                        propKey="maxWidth"
-                                        node={node}
-                                        definition={definition}
-                                        breakpoint={breakpoint}
-                                        onChange={onChange}
-                                        onClear={onClear}
-                                        defaultUnit="px"
-                                        placeholder="none"
-                                    />
-                                ) : null}
-                                {hasMinHeight ? (
-                                    <CompactDimensionInput
-                                        label="Min Height"
-                                        propKey="minHeight"
                                         node={node}
                                         definition={definition}
                                         breakpoint={breakpoint}
