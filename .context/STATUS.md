@@ -124,5 +124,5 @@ All checks below were actually run on 2026-09-25 for the CodeEditor, Inspector r
 ## Git
 
 Branch: master
-Latest verified commit: a274bbe - Progress Update
-Dirty files: long-running uncommitted WIP across builder editor/renderer/persistence plus effects controls and Custom Code changes (ComponentInspector, style.ts, compose-effects.ts, built-ins TS/PHP, CustomCodeRenderer, BuiltInRendererDefinitions, public-site, StyleSchema, EffectsComposer, StyleResolver, registries, DocumentPersistenceValidator, tests, scripts/builder-editor-tests.ts)
+Latest verified commit: 5286197 - feat(builder): redesign left panel, inspector controls, and fix effect toggling
+Dirty files: none
