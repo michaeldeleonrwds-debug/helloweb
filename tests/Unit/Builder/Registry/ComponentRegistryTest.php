@@ -83,15 +83,30 @@ class ComponentRegistryTest extends TestCase
         $registry = BuiltInComponentDefinitions::registry();
 
         $section = $registry->get('layout.section');
+        $row = $registry->get('layout.row');
         $container = $registry->get('layout.container');
         $heading = $registry->get('content.heading');
 
         $this->assertTrue($section->supports('canAcceptChildren'));
         $this->assertContains('layout.container', $section->childRules()['allowedTypes']);
+        $this->assertContains('code.customcode', $section->childRules()['allowedTypes']);
+        $this->assertContains('layout.column', $row->childRules()['allowedTypes']);
+        $this->assertContains('code.customcode', $row->childRules()['allowedTypes']);
         $this->assertContains('content.heading', $container->childRules()['allowedTypes']);
         $this->assertTrue($heading->supports('supportsText'));
         $this->assertFalse($heading->supports('canAcceptChildren'));
         $this->assertSame([], $heading->childRules()['allowedTypes']);
+    }
+
+    public function test_custom_code_defaults_to_invisible_style_and_script_example(): void
+    {
+        $registry = BuiltInComponentDefinitions::registry();
+        $defaultCode = $registry->get('code.customcode')->defaultProps()['code'];
+
+        $this->assertIsString($defaultCode);
+        $this->assertStringNotContainsString('<div', $defaultCode);
+        $this->assertStringContainsString('<style>', $defaultCode);
+        $this->assertStringContainsString('<script>', $defaultCode);
     }
 
     public function test_registry_does_not_mutate_through_returned_definition_arrays(): void

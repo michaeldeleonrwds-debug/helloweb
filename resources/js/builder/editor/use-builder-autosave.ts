@@ -55,7 +55,6 @@ export function useBuilderAutosave(builderDocument: BuilderPageDocument, pageId:
                 const validationMessage = Object.values(payload.errors ?? {})
                     .flat()
                     .join(' ');
-                console.error('Builder save rejected', response.status, payload);
                 throw new Error(validationMessage || payload.message || 'Unable to save the document.');
             }
 

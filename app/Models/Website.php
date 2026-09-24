@@ -11,7 +11,7 @@ class Website extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['user_id', 'name', 'slug', 'status'];
+    protected $fillable = ['user_id', 'name', 'site_title', 'tagline', 'favicon_url', 'slug', 'status', 'homepage_page_id'];
 
     /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
@@ -23,5 +23,11 @@ class Website extends Model
     public function pages(): HasMany
     {
         return $this->hasMany(Page::class);
+    }
+
+    /** @return BelongsTo<Page, $this> */
+    public function homepage(): BelongsTo
+    {
+        return $this->belongsTo(Page::class, 'homepage_page_id');
     }
 }

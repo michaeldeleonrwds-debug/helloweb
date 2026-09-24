@@ -1,6 +1,8 @@
 import type { JsonValue } from '../document';
 import type { RenderResult } from '../renderer/render-result';
 
+export { hasVisibleCodeContent } from '../code-content';
+
 export function getRenderResultNodeId(result: RenderResult): string | null {
     return result.attributes['data-builder-id'] ?? result.attributes['data-builder-node-id'] ?? null;
 }
@@ -24,11 +26,5 @@ export function renderStyleToReactStyle(styles: Record<string, JsonValue>): Reac
 }
 
 function isStructuredLength(value: JsonValue): value is { value: number; unit: string } {
-    return (
-        typeof value === 'object' &&
-        value !== null &&
-        !Array.isArray(value) &&
-        typeof value.value === 'number' &&
-        typeof value.unit === 'string'
-    );
+    return typeof value === 'object' && value !== null && !Array.isArray(value) && typeof value.value === 'number' && typeof value.unit === 'string';
 }

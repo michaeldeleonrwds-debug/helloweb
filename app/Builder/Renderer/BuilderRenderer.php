@@ -37,7 +37,17 @@ final readonly class BuilderRenderer
             $node['children'],
         );
 
-        return $renderer->render($node, $definition, $this->context, $children);
+        $result = $renderer->render($node, $definition, $this->context, $children);
+        $customCss = ElementCustomCss::read($node);
+
+        if ($customCss === null) {
+            return $result;
+        }
+
+        return RenderResult::fragment([
+            new RenderResult(tag: 'style', text: ElementCustomCss::wrap($node['id'], $customCss)),
+            $result,
+        ]);
     }
 
     /**

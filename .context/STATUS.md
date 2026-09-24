@@ -1,16 +1,19 @@
 # Project Status
 
-Updated: 2026-09-23
-Agent: Codex
-Phase: Page-first composition correction
+Updated: 2026-09-25
+Agent: opencode
+Phase: Custom Code element (D-024), Figma-style effects controls (D-023)
 Status: complete
 
 ## Current Objective
 
-The page-first Builder composition correction is complete: PAGE -> SECTION -> ROW -> COLUMN -> CONTENT. The next exact milestone remains PHASE 10 — PREVIEW AND PUBLISHING.
+The `code.customcss` palette element is removed and replaced by `code.customcode` ("Custom Code"): raw HTML with `<style>` and `<script>` support, rendered verbatim through the `html` channel, executed on the public site, inert in the editor canvas, with load-time migration for legacy node types. Figma-style effects controls (D-023) remain complete. The next exact milestone remains PHASE 10 — PREVIEW AND PUBLISHING.
 
 ## Completed
 
+- Redesigned left-hand builder controls (D-028): unified the left panel (`BuilderLeftPanel.tsx`, `BuilderElementsPanel.tsx`, `BuilderLayersPanel.tsx`) with Google M3 tabs (`Elements`, `Layers`, `Library`, `Media`) and a one-click Split View toggle (stacked vs full-height). Cleaned unwanted uppercase header clutter ("INSERT", "STRUCTURE") and colliding tabs. Built Google M3 search with category filter chips (`All`, `Layout`, `Content`, `Media`, `Code`, `Marketing`), high-density element cards with soft-tinted icon containers, and a rich layer tree with component-specific colored icons (`component-icons.tsx`), text snippet previews, depth nesting guides, and expand/collapse actions.
+- Redesigned right-hand inspector (D-027): organized all element settings into high-density, card-based controls. Built `DimensionsControl` (compact 2-col W/H, presets, collapsible constraints, overflow), `FlexLayoutControl` (segmented direction, alignment, justification, gap, wrap, grid cols), `PositionControl` (type selector, 2x2 coordinate grid, z-index), `TypographyGroupControl` (searchable family, size/weight presets, line height/letter spacing, text alignment, color picker, transform/decoration), `BackgroundColorControl` (color picker, swatches, hex input), and `ResponsiveVisibilityControl`. Preserved approved Spacing (margin/padding) and Border (stroke/radius) controls, formatted Content props with icons and segmented pills, and eliminated redundant nested accordions and sprawling overrides.
+- Integrated a real dark IDE CodeEditor component (`CodeEditor.tsx`) across all builder code surfaces: Custom Code element (`code.customcode`), Global Head & Footer code modal (`BuilderEditor.tsx`), and Element Custom CSS (`ComponentInspector.tsx` More tab). Features syntax highlighting (HTML, embedded CSS/JS, standalone CSS/JS), line numbers gutter with active-line highlight, Tab / Shift+Tab indentation, auto-indent on Enter, bracket/quote auto-closing/wrapping, line & column status bar, copy to clipboard with feedback, and full-screen modal expansion.
 - Corrected Builder workspace presentation: stable side panels, a shrinkable center scroll container, webpage-as-canvas rendering, viewport-independent zoom, measured fit-to-workspace behavior, natural page minimum height, and independent vertical/horizontal workspace scrolling.
 
 - Audited project structure, dependency versions, routes, models, migrations, React pages/components, tests, and ContextOS.
@@ -80,10 +83,22 @@ The page-first Builder composition correction is complete: PAGE -> SECTION -> RO
 - Added aligned PHP/TypeScript component metadata and renderer registrations with child rules and style capabilities.
 - Added HelloWeb design tokens, property-aware color/enum/number/length inspector controls, and inline text editing through tree mutations.
 - Recorded D-016 for registry-driven component library expansion.
+- Added element Custom CSS (D-022): inspector More-tab textarea below CSS classes, `metadata.customCss` storage, `data-builder-css-scope` attribute emission, sibling scoped `<style>` fragment injection in TS and PHP renderers, raw style text in both HTML serializers, and mirrored helper modules.
+- Added 4 PHP renderer tests and TS metadata/render assertions for Custom CSS; repaired pre-existing stale test expectations that blocked the suites (TS structural paths for `root > section > row > column > heading`, duplicate-placement path, `Select an element` empty-state copy; PHP default-style expectations `72rem` -> `900px` and exact-HTML sample).
+- Added `storage` to `eslint.config.js` ignores (generated test bundle was being linted) and fixed 3 pre-existing lint errors (unused expression in BuilderEditor, unused `_label`/`name` destructures).
+- Added row default content width `1140px` in TS/PHP registries and corrected the inspector label to show `1140px content width`.
+- Added Figma-style effects controls (D-023): 19 new effect style keys in `style.ts`/`StyleSchema.php` (group `effects`), mirrored composers `compose-effects.ts`/`EffectsComposer.php` (TS wired at the end of `applyBackgroundStyles` so the glass sheen survives solid-background handling; PHP wired at the end of `StyleResolver::resolve`), `containerRenderer` now runs background/effects composition too, effect keys appended to every `boxShadow`-capable component in both registries, and a dedicated inspector `EffectsControl` (presets plus toggle sections with sliders for drop/inner shadow, layer blur, background blur, and glass) replacing the preset-only panel while the generic `StyleControl` filter excludes the composed keys.
+- Added 2 PHP renderer tests (`effects compose into shadow filter and backdrop filter`, `inner and glass shadow layers chain with existing box shadow`) and mirrored TS render assertions for composition output, backdrop chaining, sheen prepending, and virtual-key removal; ran Pint on the touched PHP files.
+- Replaced the `code.customcss` palette element with `code.customcode` (Custom Code, D-024): registry rename in TS/PHP (allowed-children lists included), `CustomCodeRenderer` (raw `html` channel inside a `<div>`, `CustomCssRenderer` deleted), inspector textarea relabeled "Custom code" with example placeholder and `spellCheck={false}`, load-time type migration in `DocumentPersistenceValidator`, and public-site `useExecutableHtml` mounting template content with `executableNode()` script re-creation so `<script>` tags execute on public pages while staying inert in the editor canvas.
+- Added 1 PHP raw-render test (`custom code element renders raw html style and script`), a new `DocumentPersistenceValidatorTest` (legacy migration + current-type validation), and TS render assertions for raw html/style/script passthrough with no escaping and no remaining `code.customcss` references.
+- Added builder-only clickability for Custom Code (D-024): `hasVisibleCodeContent()` in `render-result-utils.ts` detects code that renders nothing visible (empty/comments/style/script/meta only), and `CanvasNode` then applies an editor-only `min-height: 56px` plus a non-interactive dashed "Custom code" placeholder chip (`data-builder-code-placeholder`) so the element is selectable on canvas. Preview and production render through `public-site.tsx`/`PublicRenderNode`, which never emits the placeholder — verified by assertions that editor markup contains it and rendered HTML does not.
+- Changed the `code.customcode` default `code` prop (TS + PHP registries) from `<div>Custom code</div>` to a comment-only `<style>` + `<script>` example, so a new element has no visible content leaking into preview; the editor chip covers clickability instead. Covered by a new PHP registry test and TS assertions (default has style/script, no div, is invisible per `hasVisibleCodeContent`, renders no "Custom code" text, and still shows the canvas chip).
+- Fixed Custom Code placement (D-024): added `code.customcode` to `childRules.allowedTypes` of `layout.section` and `layout.row` in both registries, so the element can be dragged/inserted/moved directly into a Section or Row, not only Column (and the existing Container/Stack/Flex/Grid/Columns/Card lists already included it). Since drag/drop, insert, move, and `DocumentPersistenceValidator` all read the registry, one definition change covers every path; covered by TS `canAcceptChild` + `engine.move` assertions and PHP registry/engine tests.
+- Made empty Custom Code layout-neutral in preview/production (D-024): both renderers now emit the wrapper `<div>` with `display: contents` when `hasVisibleCodeContent()` is false (helper moved to shared `builder/code-content.ts`, PHP mirror `App\Builder\Renderer\CodeContent`), removing the wrapper's box and its flex-gap slot (the extra height/width the user saw in preview) — unless the wrapper carries `metadata.className` or `metadata.customCss`, which keeps the box so author styles apply. The editor canvas forces `display: block` on the placeholder branch in `CanvasNode`, so the builder chip/min-height design is unchanged; verified by TS render + editor-markup assertions and a PHP `empty custom code wrapper is layout neutral` test.
 
 ## In Progress
 
-- Browser and PHP validation are pending local environment access.
+- None.
 
 ## Blocked
 
@@ -95,22 +110,19 @@ Start PHASE 10 — PREVIEW AND PUBLISHING. Do not implement deployment, domains,
 
 ## Validation
 
-Focused editor tests: failed - bundle runs, but `scripts/builder-editor-tests.ts:40` reports expected 2 children and received 1; this assertion is in document-operation coverage outside the canvas presentation change.
-Focused Phase 9 tests: pass - `vendor\bin\phpunit.bat --filter "TemplateMediaReusableTest|BuilderPersistenceTest"` - 16 tests, 57 assertions
-Full PHPUnit suite: pass - `vendor\bin\phpunit.bat` passed with 115 tests and 288 assertions
-Typecheck: pass - `npx tsc --noEmit`
-Frontend builder formatting: pass for touched files - `npx prettier --check resources/js/builder/editor/BuilderBottomBar.tsx resources/js/builder/editor/BuilderCanvas.tsx resources/js/builder/editor/BuilderEditor.tsx`
-Formatting: fail only on pre-existing `resources/js/components/app-header.tsx` and `resources/js/ssr.jsx` - `npm run format:check`
-PHP style: pass for Phase 9 files; the requested broad check reports only pre-existing starter auth files and `tests/Pest.php`
-Unit: pass - focused Phase 9 tests and `npm run test:builder-editor`
-Integration: not-run
-E2E: not-run
-Build: pass - `npm run build` with broader filesystem access.
-Browser: not-run - no browser surface is exposed in the current tool environment.
-Production: n/a
+All checks below were actually run on 2026-09-25 for the CodeEditor, Inspector redesign, and Custom Code milestones:
+
+- Focused editor tests: pass - `npm run test:builder-editor` (editor markup, inspector empty state, and tree operations all pass)
+- Focused builder unit tests: pass - `php artisan test tests/Unit/Builder` - 89 tests, 234 assertions pass
+- Typecheck: pass - `npx tsc --noEmit` (0 errors)
+- Lint: pass - `npm run lint` - 0 errors, 3 pre-existing `react-hooks/exhaustive-deps` warnings
+- Build: pass - `npm run build` (vite v6.1.1 built in 3.27s)
+- Full PHPUnit suite: not-run this session (earlier sessions reported pass at 115 tests)
+- Integration / E2E / Browser: not-run
+- Production: n/a
 
 ## Git
 
 Branch: master
-Latest verified commit: 6e213cd - initial website builder framework
-Dirty files: Phase 5 added/updated `resources/js/builder/editor`, `resources/js/builder/index.ts`, `scripts/builder-editor-tests.ts`, `package.json`, builder PHP formatting, and `.context/*.md`
+Latest verified commit: a274bbe - Progress Update
+Dirty files: long-running uncommitted WIP across builder editor/renderer/persistence plus effects controls and Custom Code changes (ComponentInspector, style.ts, compose-effects.ts, built-ins TS/PHP, CustomCodeRenderer, BuiltInRendererDefinitions, public-site, StyleSchema, EffectsComposer, StyleResolver, registries, DocumentPersistenceValidator, tests, scripts/builder-editor-tests.ts)

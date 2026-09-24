@@ -17,10 +17,17 @@ final readonly class ConfiguredRenderer implements ComponentRenderer
 
     public function render(array $node, ComponentDefinition $definition, RenderContext $context, array $children): RenderResult
     {
+        $styles = $this->styleResolver->resolve($node, $definition, $context->breakpoint());
+        if ($node['type'] === 'layout.row' && ($node['props']['fullWidth'] ?? false) === true) {
+            $styles['maxWidth'] = 'none';
+            $styles['width'] = '100%';
+            $styles['margin'] = '0';
+        }
+
         return new RenderResult(
             tag: $this->tag,
             attributes: $this->attributes($node),
-            styles: $this->styleResolver->resolve($node, $definition, $context->breakpoint()),
+            styles: $styles,
             children: $children,
         );
     }
@@ -28,6 +35,6 @@ final readonly class ConfiguredRenderer implements ComponentRenderer
     /** @return array<string, string> */
     private function attributes(array $node): array
     {
-        return ['data-builder-id' => $node['id'], 'data-builder-type' => $node['type']];
+        return NodeAttributes::for($node);
     }
 }

@@ -1,232 +1,220 @@
-import { Blocks, GripVertical, Image, LayoutTemplate, Search, Shapes, Type } from 'lucide-react';
-import type { ReactNode } from 'react';
+import {
+    Plus,
+    Search,
+    X,
+} from 'lucide-react';
 import { useMemo, useState } from 'react';
 
 import type { ComponentDefinition } from '../component/definition';
 import type { ComponentType } from '../document';
 import type { MediaAsset } from '../persistence';
 import type { ReusableComponentDefinition } from '../reusable';
+import { getCategoryBadge, getComponentVisual } from './component-icons';
 
-interface BuilderElementsPanelProps {
+export interface BuilderElementsPanelProps {
     definitions: ComponentDefinition[];
-    templates: { id: number; name: string; description?: string | null }[];
-    reusableDefinitions: ReusableComponentDefinition[];
-    mediaAssets: MediaAsset[];
     onInsert: (type: ComponentType) => void;
     onStartDrag: (type: ComponentType) => void;
-    onInsertTemplate: (id: number) => void;
-    onInsertReusable: (id: number) => void;
+    templates?: { id: number; name: string; description?: string | null }[];
+    reusableDefinitions?: ReusableComponentDefinition[];
+    mediaAssets?: MediaAsset[];
+    onInsertTemplate?: (id: number) => void;
+    onInsertReusable?: (id: number) => void;
+    showHeader?: boolean;
+    className?: string;
 }
 
-type PanelTab = 'elements' | 'templates' | 'components' | 'media';
-
-function BuilderElementsPanel({
+export function BuilderElementsPanel({
     definitions,
-    templates,
-    reusableDefinitions,
-    mediaAssets,
     onInsert,
     onStartDrag,
-    onInsertTemplate,
-    onInsertReusable,
+    showHeader = false,
+    className = '',
 }: BuilderElementsPanelProps) {
-    const [tab, setTab] = useState<PanelTab>('elements');
     const [query, setQuery] = useState('');
-    const filtered = useMemo(() => {
+    const [selectedCategory, setSelectedCategory] = useState<string>('all');
+
+    // Extract available categories
+    const categories = useMemo(() => {
+        const unique = Array.from(new Set(definitions.map((def) => def.category)));
+        // Order logically: layout first, then content, media, code, marketing, others
+        const priority = ['layout', 'content', 'media', 'code', 'marketing'];
+        return unique.sort((a, b) => {
+            const indexA = priority.indexOf(a);
+            const indexB = priority.indexOf(b);
+            if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+            if (indexA !== -1) return -1;
+            if (indexB !== -1) return 1;
+            return a.localeCompare(b);
+        });
+    }, [definitions]);
+
+    // Filter elements
+    const filteredDefinitions = useMemo(() => {
         const normalized = query.trim().toLowerCase();
-        return definitions.filter(
-            (definition) =>
-                !normalized || `${definition.name} ${definition.description ?? ''} ${definition.category}`.toLowerCase().includes(normalized),
-        );
-    }, [definitions, query]);
-    const categories = Array.from(new Set(filtered.map((definition) => definition.category)));
+        return definitions.filter((definition) => {
+            const matchesCategory = selectedCategory === 'all' || definition.category === selectedCategory;
+            if (!matchesCategory) return false;
+
+            if (!normalized) return true;
+            const searchTarget = `${definition.name} ${definition.description ?? ''} ${definition.category} ${definition.type}`.toLowerCase();
+            return searchTarget.includes(normalized);
+        });
+    }, [definitions, query, selectedCategory]);
+
+    // Active categories in filtered list
+    const activeCategories = useMemo(() => {
+        const set = new Set(filteredDefinitions.map((def) => def.category));
+        return categories.filter((cat) => set.has(cat));
+    }, [filteredDefinitions, categories]);
 
     return (
-        <aside
-            className="border-border bg-card text-card-foreground flex h-1/2 min-h-0 w-[276px] shrink-0 flex-col border-r"
-            aria-label="Builder elements"
-        >
-            <div className="border-border border-b px-4 pt-4 pb-3">
-                <div className="mb-3 flex items-center justify-between">
-                    <div>
-                        <p className="text-muted-foreground text-[10px] font-semibold tracking-[0.16em] uppercase">Build</p>
-                        <h2 className="mt-1 text-sm font-semibold">Elements</h2>
-                    </div>
-                    <Shapes className="text-muted-foreground size-4" />
+        <div className={`flex h-full min-h-0 w-full flex-col overflow-hidden bg-card text-card-foreground ${className}`} aria-label="Builder elements">
+            {showHeader ? (
+                <div className="flex h-11 shrink-0 items-center justify-between border-b border-border px-3.5">
+                    <span className="text-xs font-semibold tracking-tight text-foreground">Elements</span>
+                    <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                        {definitions.length}
+                    </span>
                 </div>
-                <label className="relative block">
-                    <Search className="text-muted-foreground pointer-events-none absolute top-2.5 left-2.5 size-3.5" />
-                    <span className="sr-only">Search elements</span>
+            ) : null}
+
+            {/* Google M3 Search & Category Filter Section */}
+            <div className="shrink-0 space-y-2 border-b border-border p-3">
+                <div className="relative">
+                    <Search className="pointer-events-none absolute top-2.5 left-3 size-3.5 text-muted-foreground" />
                     <input
                         value={query}
-                        onChange={(event) => setQuery(event.target.value)}
+                        onChange={(e) => setQuery(e.target.value)}
                         placeholder="Search elements..."
-                        className="border-input bg-background placeholder:text-muted-foreground focus:border-ring focus:ring-ring/20 h-8 w-full rounded-md border pr-3 pl-8 text-xs transition outline-none focus:ring-2"
+                        className="h-8 w-full rounded-full border border-input bg-muted/50 pr-8 pl-8 text-xs text-foreground placeholder:text-muted-foreground transition outline-none focus:border-primary focus:bg-card focus:ring-2 focus:ring-primary/20"
                     />
-                </label>
-            </div>
-            <div className="border-border flex border-b px-2 pt-2">
-                {(
-                    [
-                        ['elements', 'Elements'],
-                        ['templates', 'Templates'],
-                        ['components', 'Components'],
-                        ['media', 'Media'],
-                    ] as const
-                ).map(([id, label]) => (
+                    {query ? (
+                        <button
+                            type="button"
+                            onClick={() => setQuery('')}
+                            className="absolute top-2 right-2.5 flex size-4 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+                            title="Clear search"
+                        >
+                            <X className="size-3" />
+                        </button>
+                    ) : null}
+                </div>
+
+                {/* Category Filter Chips */}
+                <div className="no-scrollbar flex items-center gap-1.5 overflow-x-auto pt-0.5 pb-1">
                     <button
-                        key={id}
                         type="button"
-                        className={`flex-1 border-b-2 px-1 pb-2 text-[11px] font-medium transition ${tab === id ? 'border-foreground text-foreground' : 'text-muted-foreground hover:text-foreground border-transparent'}`}
-                        onClick={() => setTab(id)}
+                        onClick={() => setSelectedCategory('all')}
+                        className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium transition ${
+                            selectedCategory === 'all'
+                                ? 'bg-primary text-primary-foreground shadow-2xs font-semibold'
+                                : 'bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground'
+                        }`}
                     >
-                        {label}
+                        All ({definitions.length})
                     </button>
-                ))}
+                    {categories.map((cat) => {
+                        const count = definitions.filter((def) => def.category === cat).length;
+                        const badge = getCategoryBadge(cat);
+                        const isSelected = selectedCategory === cat;
+                        return (
+                            <button
+                                key={cat}
+                                type="button"
+                                onClick={() => setSelectedCategory(cat)}
+                                className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium transition ${
+                                    isSelected
+                                        ? 'bg-primary text-primary-foreground shadow-2xs font-semibold'
+                                        : 'bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground'
+                                }`}
+                            >
+                                {badge.label} ({count})
+                            </button>
+                        );
+                    })}
+                </div>
             </div>
-            <div className="min-h-0 flex-1 overflow-y-auto p-3">
-                {tab === 'elements' ? (
-                    <ElementList definitions={filtered} categories={categories} onInsert={onInsert} onStartDrag={onStartDrag} />
-                ) : null}
-                {tab === 'templates' ? <DefinitionList empty="No templates available." items={templates} onSelect={onInsertTemplate} /> : null}
-                {tab === 'components' ? (
-                    <DefinitionList empty="No reusable components yet." items={reusableDefinitions} onSelect={onInsertReusable} />
-                ) : null}
-                {tab === 'media' ? <MediaList assets={mediaAssets} /> : null}
+
+            {/* Elements Grid List */}
+            <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
+                {filteredDefinitions.length === 0 ? (
+                    <div className="flex min-h-36 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border px-4 text-center text-xs text-muted-foreground">
+                        <div className="flex size-9 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                            <Search className="size-4" />
+                        </div>
+                        <p className="font-medium text-foreground">No elements found</p>
+                        <p className="text-[11px] text-muted-foreground">No elements match &quot;{query}&quot;</p>
+                        {query || selectedCategory !== 'all' ? (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setQuery('');
+                                    setSelectedCategory('all');
+                                }}
+                                className="mt-1 text-[11px] font-medium text-primary hover:underline"
+                            >
+                                Reset filters
+                            </button>
+                        ) : null}
+                    </div>
+                ) : (
+                    <div className="space-y-4">
+                        {activeCategories.map((category) => {
+                            const categoryElements = filteredDefinitions.filter((def) => def.category === category);
+                            const badge = getCategoryBadge(category);
+                            return (
+                                <section key={category} className="space-y-2">
+                                    <div className="flex items-center gap-2 px-0.5">
+                                        <h3 className="text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
+                                            {badge.label}
+                                        </h3>
+                                        <div className="h-px flex-1 bg-border/60" />
+                                        <span className="text-[10px] font-normal text-muted-foreground/70">
+                                            {categoryElements.length}
+                                        </span>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {categoryElements.map((definition) => {
+                                            const visual = getComponentVisual(definition.type);
+                                            return (
+                                                <button
+                                                    key={definition.type}
+                                                    type="button"
+                                                    draggable
+                                                    onDragStart={() => onStartDrag(definition.type)}
+                                                    onClick={() => onInsert(definition.type)}
+                                                    className="group relative flex cursor-grab flex-col items-center justify-center gap-2 rounded-xl border border-border/80 bg-card p-2.5 text-center shadow-2xs transition-all hover:border-primary/50 hover:bg-muted/40 hover:shadow-xs active:scale-[0.98] active:cursor-grabbing"
+                                                    title={definition.description ?? `Click to insert ${definition.name} or drag to position`}
+                                                >
+                                                    {/* Hover plus hint */}
+                                                    <span className="absolute top-1.5 right-1.5 flex size-4 items-center justify-center rounded-full bg-primary/10 text-primary opacity-0 transition-opacity group-hover:opacity-100">
+                                                        <Plus className="size-2.5" />
+                                                    </span>
+
+                                                    {/* Icon container */}
+                                                    <span
+                                                        className={`flex size-8 items-center justify-center rounded-lg ${visual.bgColor} ${visual.textColor} transition-transform duration-150 group-hover:scale-110`}
+                                                    >
+                                                        {visual.icon('size-4')}
+                                                    </span>
+
+                                                    {/* Label */}
+                                                    <span className="max-w-full truncate text-xs font-medium text-foreground">
+                                                        {definition.name}
+                                                    </span>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </section>
+                            );
+                        })}
+                    </div>
+                )}
             </div>
-        </aside>
+        </div>
     );
 }
 
 export default BuilderElementsPanel;
-
-function ElementList({
-    definitions,
-    categories,
-    onInsert,
-    onStartDrag,
-}: {
-    definitions: ComponentDefinition[];
-    categories: string[];
-    onInsert: (type: ComponentType) => void;
-    onStartDrag: (type: ComponentType) => void;
-}) {
-    if (definitions.length === 0) return <EmptyPanel icon={<Search className="size-4" />} text="No matching elements." />;
-    return (
-        <div className="space-y-5">
-            {categories.map((category) => (
-                <section key={category}>
-                    <h3 className="text-muted-foreground mb-2 px-1 text-[10px] font-semibold tracking-[0.14em] uppercase">
-                        {categoryLabel(category)}
-                    </h3>
-                    <div className="space-y-1.5">
-                        {definitions
-                            .filter((definition) => definition.category === category)
-                            .map((definition) => (
-                                <button
-                                    key={definition.type}
-                                    type="button"
-                                    className="group hover:border-border hover:bg-muted/60 flex w-full items-center gap-2.5 rounded-lg border border-transparent px-2.5 py-2 text-left transition"
-                                    draggable
-                                    onDragStart={() => onStartDrag(definition.type)}
-                                    onClick={() => onInsert(definition.type)}
-                                >
-                                    <span className="bg-muted text-muted-foreground group-hover:bg-background group-hover:text-foreground flex size-7 items-center justify-center rounded-md">
-                                        {iconFor(definition.type)}
-                                    </span>
-                                    <span className="min-w-0 flex-1">
-                                        <span className="block truncate text-xs font-medium">{definition.name}</span>
-                                        <span className="text-muted-foreground block truncate text-[10px]">
-                                            {definition.description ?? 'Add to your page'}
-                                        </span>
-                                    </span>
-                                    <GripVertical className="text-muted-foreground/50 size-3.5" />
-                                </button>
-                            ))}
-                    </div>
-                </section>
-            ))}
-        </div>
-    );
-}
-
-function DefinitionList({
-    items,
-    empty,
-    onSelect,
-}: {
-    items: { id: number; name: string; description?: string | null }[];
-    empty: string;
-    onSelect: (id: number) => void;
-}) {
-    if (items.length === 0) return <EmptyPanel icon={<LayoutTemplate className="size-4" />} text={empty} />;
-    return (
-        <div className="space-y-1.5">
-            {items.map((item) => (
-                <button
-                    key={item.id}
-                    type="button"
-                    className="group hover:border-border hover:bg-muted/60 flex w-full items-center gap-2.5 rounded-lg border border-transparent px-2.5 py-2 text-left transition"
-                    onClick={() => onSelect(item.id)}
-                >
-                    <span className="bg-muted text-muted-foreground group-hover:bg-background group-hover:text-foreground flex size-7 items-center justify-center rounded-md">
-                        <LayoutTemplate className="size-3.5" />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                        <span className="block truncate text-xs font-medium">{item.name}</span>
-                        <span className="text-muted-foreground block truncate text-[10px]">{item.description ?? 'Insert into the current page'}</span>
-                    </span>
-                    <span className="text-muted-foreground text-[10px] font-medium">Add</span>
-                </button>
-            ))}
-        </div>
-    );
-}
-
-function MediaList({ assets }: { assets: MediaAsset[] }) {
-    return (
-        <div>
-            {assets.length === 0 ? (
-                <EmptyPanel icon={<Image className="size-4" />} text="No media assets yet." />
-            ) : (
-                <div className="grid grid-cols-2 gap-2">
-                    {assets.map((asset) => (
-                        <div key={asset.id} className="border-border bg-muted/30 overflow-hidden rounded-lg border">
-                            <div className="bg-muted text-muted-foreground flex aspect-square items-center justify-center">
-                                {asset.url ? (
-                                    <img src={asset.url} alt={asset.altText ?? asset.originalFilename} className="size-full object-cover" />
-                                ) : (
-                                    <Image className="size-5" />
-                                )}
-                            </div>
-                            <div className="truncate px-2 py-1.5 text-[10px]" title={asset.originalFilename}>
-                                {asset.originalFilename}
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            )}
-        </div>
-    );
-}
-
-function EmptyPanel({ icon, text }: { icon: ReactNode; text: string }) {
-    return (
-        <div className="border-border text-muted-foreground flex min-h-32 flex-col items-center justify-center gap-2 rounded-lg border border-dashed px-4 text-center text-xs">
-            {icon}
-            <span>{text}</span>
-        </div>
-    );
-}
-function categoryLabel(category: string): string {
-    return category.replace(/[-_.]/g, ' ');
-}
-function iconFor(type: string): ReactNode {
-    return type.startsWith('layout.') ? (
-        <LayoutTemplate className="size-3.5" />
-    ) : type.includes('heading') ? (
-        <Type className="size-3.5" />
-    ) : (
-        <Blocks className="size-3.5" />
-    );
-}

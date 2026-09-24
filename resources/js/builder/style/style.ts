@@ -9,8 +9,8 @@ export type LengthValue = {
     unit: Exclude<LengthUnit, 'auto'>;
 };
 export type StyleValue = string | number | LengthValue;
-export type StylePropertyType = 'length' | 'color' | 'number' | 'enum';
-export type StyleGroup = 'layout' | 'flex' | 'position' | 'background' | 'border' | 'text';
+export type StylePropertyType = 'length' | 'color' | 'number' | 'enum' | 'string';
+export type StyleGroup = 'layout' | 'flex' | 'position' | 'background' | 'border' | 'effects' | 'text';
 
 export interface StyleDefinition {
     key: StylePropertyKey;
@@ -38,6 +38,10 @@ export const STYLE_PROPERTY_DEFINITIONS: readonly StyleDefinition[] = [
     { key: 'minHeight', label: 'Minimum height', group: 'layout', type: 'length', responsive: true },
     { key: 'maxHeight', label: 'Maximum height', group: 'layout', type: 'length', responsive: true },
     { key: 'margin', label: 'Margin', group: 'layout', type: 'length', responsive: true },
+    { key: 'marginTop', label: 'Margin top', group: 'layout', type: 'length', responsive: true },
+    { key: 'marginRight', label: 'Margin right', group: 'layout', type: 'length', responsive: true },
+    { key: 'marginBottom', label: 'Margin bottom', group: 'layout', type: 'length', responsive: true },
+    { key: 'marginLeft', label: 'Margin left', group: 'layout', type: 'length', responsive: true },
     { key: 'padding', label: 'Padding', group: 'layout', type: 'length', responsive: true },
     { key: 'paddingTop', label: 'Padding top', group: 'layout', type: 'length', responsive: true },
     { key: 'paddingRight', label: 'Padding right', group: 'layout', type: 'length', responsive: true },
@@ -92,7 +96,88 @@ export const STYLE_PROPERTY_DEFINITIONS: readonly StyleDefinition[] = [
     { key: 'left', label: 'Left', group: 'position', type: 'length', responsive: true },
     { key: 'zIndex', label: 'Z index', group: 'position', type: 'number', responsive: true },
     { key: 'backgroundColor', label: 'Background color', group: 'background', type: 'color', responsive: true },
+    {
+        key: 'backgroundType',
+        label: 'Background type',
+        group: 'background',
+        type: 'enum',
+        options: ['solid', 'gradient', 'image', 'video'],
+        responsive: true,
+    },
+    { key: 'backgroundGradient', label: 'Gradient', group: 'background', type: 'string', responsive: true },
+    { key: 'backgroundImage', label: 'Background image', group: 'background', type: 'string', responsive: true },
+    { key: 'backgroundVideo', label: 'Background video', group: 'background', type: 'string', responsive: true },
+    {
+        key: 'backgroundSize',
+        label: 'Background size',
+        group: 'background',
+        type: 'enum',
+        options: ['cover', 'contain', 'auto', '100% 100%'],
+        responsive: true,
+    },
+    { key: 'backgroundPosition', label: 'Background position', group: 'background', type: 'string', responsive: true },
+    {
+        key: 'backgroundRepeat',
+        label: 'Background repeat',
+        group: 'background',
+        type: 'enum',
+        options: ['no-repeat', 'repeat', 'repeat-x', 'repeat-y', 'space', 'round'],
+        responsive: true,
+    },
+    {
+        key: 'backgroundAttachment',
+        label: 'Background attachment',
+        group: 'background',
+        type: 'enum',
+        options: ['scroll', 'fixed', 'local'],
+        responsive: true,
+    },
+    {
+        key: 'backgroundOrigin',
+        label: 'Background origin',
+        group: 'background',
+        type: 'enum',
+        options: ['border-box', 'padding-box', 'content-box'],
+        responsive: true,
+    },
+    {
+        key: 'backgroundClip',
+        label: 'Background clip',
+        group: 'background',
+        type: 'enum',
+        options: ['border-box', 'padding-box', 'content-box', 'text'],
+        responsive: true,
+    },
+    {
+        key: 'backgroundBlendMode',
+        label: 'Blend mode',
+        group: 'background',
+        type: 'enum',
+        options: [
+            'normal',
+            'multiply',
+            'screen',
+            'overlay',
+            'darken',
+            'lighten',
+            'color-dodge',
+            'color-burn',
+            'hard-light',
+            'soft-light',
+            'difference',
+            'exclusion',
+            'hue',
+            'saturation',
+            'color',
+            'luminosity',
+        ],
+        responsive: true,
+    },
     { key: 'borderWidth', label: 'Border width', group: 'border', type: 'length', responsive: true },
+    { key: 'borderTopWidth', label: 'Top border width', group: 'border', type: 'length', responsive: true },
+    { key: 'borderRightWidth', label: 'Right border width', group: 'border', type: 'length', responsive: true },
+    { key: 'borderBottomWidth', label: 'Bottom border width', group: 'border', type: 'length', responsive: true },
+    { key: 'borderLeftWidth', label: 'Left border width', group: 'border', type: 'length', responsive: true },
     {
         key: 'borderStyle',
         label: 'Border style',
@@ -103,6 +188,10 @@ export const STYLE_PROPERTY_DEFINITIONS: readonly StyleDefinition[] = [
     },
     { key: 'borderColor', label: 'Border color', group: 'border', type: 'color', responsive: true },
     { key: 'borderRadius', label: 'Border radius', group: 'border', type: 'length', responsive: true },
+    { key: 'borderTopLeftRadius', label: 'Top left radius', group: 'border', type: 'length', responsive: true },
+    { key: 'borderTopRightRadius', label: 'Top right radius', group: 'border', type: 'length', responsive: true },
+    { key: 'borderBottomRightRadius', label: 'Bottom right radius', group: 'border', type: 'length', responsive: true },
+    { key: 'borderBottomLeftRadius', label: 'Bottom left radius', group: 'border', type: 'length', responsive: true },
     { key: 'color', label: 'Color', group: 'text', type: 'color', responsive: true },
     {
         key: 'fontFamily',
@@ -136,12 +225,48 @@ export const STYLE_PROPERTY_DEFINITIONS: readonly StyleDefinition[] = [
     {
         key: 'boxShadow',
         label: 'Shadow',
-        group: 'border',
+        group: 'effects',
         type: 'enum',
-        options: ['none', '0 1px 2px rgba(0,0,0,.08)', '0 8px 24px rgba(0,0,0,.12)'],
+        options: [
+            'none',
+            '0 1px 2px rgba(0,0,0,.08)',
+            '0 8px 24px rgba(0,0,0,.12)',
+            '0 18px 50px rgba(15,23,42,.18)',
+            '0 24px 80px rgba(15,23,42,.28)',
+            'inset 0 1px 0 rgba(255,255,255,.35), 0 18px 50px rgba(15,23,42,.18)',
+        ],
         responsive: true,
     },
-    { key: 'opacity', label: 'Opacity', group: 'background', type: 'number', responsive: true },
+    { key: 'opacity', label: 'Opacity', group: 'effects', type: 'number', responsive: true },
+    { key: 'filter', label: 'Filter', group: 'effects', type: 'string', responsive: true },
+    { key: 'backdropFilter', label: 'Backdrop filter', group: 'effects', type: 'string', responsive: true },
+    {
+        key: 'mixBlendMode',
+        label: 'Blend',
+        group: 'effects',
+        type: 'enum',
+        options: ['normal', 'multiply', 'screen', 'overlay', 'darken', 'lighten', 'difference', 'exclusion', 'color', 'luminosity'],
+        responsive: true,
+    },
+    { key: 'dropShadowX', label: 'Drop shadow X', group: 'effects', type: 'number', responsive: true },
+    { key: 'dropShadowY', label: 'Drop shadow Y', group: 'effects', type: 'number', responsive: true },
+    { key: 'dropShadowBlur', label: 'Drop shadow blur', group: 'effects', type: 'number', responsive: true },
+    { key: 'dropShadowSpread', label: 'Drop shadow spread', group: 'effects', type: 'number', responsive: true },
+    { key: 'dropShadowColor', label: 'Drop shadow color', group: 'effects', type: 'color', responsive: true },
+    { key: 'innerShadowX', label: 'Inner shadow X', group: 'effects', type: 'number', responsive: true },
+    { key: 'innerShadowY', label: 'Inner shadow Y', group: 'effects', type: 'number', responsive: true },
+    { key: 'innerShadowBlur', label: 'Inner shadow blur', group: 'effects', type: 'number', responsive: true },
+    { key: 'innerShadowSpread', label: 'Inner shadow spread', group: 'effects', type: 'number', responsive: true },
+    { key: 'innerShadowColor', label: 'Inner shadow color', group: 'effects', type: 'color', responsive: true },
+    { key: 'layerBlur', label: 'Layer blur', group: 'effects', type: 'number', responsive: true },
+    { key: 'backgroundBlur', label: 'Background blur', group: 'effects', type: 'number', responsive: true },
+    { key: 'glassRefraction', label: 'Refraction', group: 'effects', type: 'number', responsive: true },
+    { key: 'glassDepth', label: 'Depth', group: 'effects', type: 'number', responsive: true },
+    { key: 'glassDispersion', label: 'Dispersion', group: 'effects', type: 'number', responsive: true },
+    { key: 'glassFrost', label: 'Frost', group: 'effects', type: 'number', responsive: true },
+    { key: 'glassSplay', label: 'Splay', group: 'effects', type: 'number', responsive: true },
+    { key: 'glassLightDegree', label: 'Light degree', group: 'effects', type: 'number', responsive: true },
+    { key: 'glassOpacity', label: 'Glass opacity', group: 'effects', type: 'number', responsive: true },
     { key: 'objectFit', label: 'Object fit', group: 'layout', type: 'enum', options: ['contain', 'cover', 'fill', 'none'], responsive: true },
 ] as const;
 
@@ -154,6 +279,10 @@ export type StylePropertyKey =
     | 'minHeight'
     | 'maxHeight'
     | 'margin'
+    | 'marginTop'
+    | 'marginRight'
+    | 'marginBottom'
+    | 'marginLeft'
     | 'padding'
     | 'gap'
     | 'overflow'
@@ -173,10 +302,29 @@ export type StylePropertyKey =
     | 'paddingLeft'
     | 'gridTemplateColumns'
     | 'backgroundColor'
+    | 'backgroundType'
+    | 'backgroundGradient'
+    | 'backgroundImage'
+    | 'backgroundVideo'
+    | 'backgroundSize'
+    | 'backgroundPosition'
+    | 'backgroundRepeat'
+    | 'backgroundAttachment'
+    | 'backgroundOrigin'
+    | 'backgroundClip'
+    | 'backgroundBlendMode'
     | 'borderWidth'
+    | 'borderTopWidth'
+    | 'borderRightWidth'
+    | 'borderBottomWidth'
+    | 'borderLeftWidth'
     | 'borderStyle'
     | 'borderColor'
     | 'borderRadius'
+    | 'borderTopLeftRadius'
+    | 'borderTopRightRadius'
+    | 'borderBottomRightRadius'
+    | 'borderBottomLeftRadius'
     | 'color'
     | 'fontFamily'
     | 'fontSize'
@@ -188,6 +336,28 @@ export type StylePropertyKey =
     | 'textDecoration'
     | 'boxShadow'
     | 'opacity'
+    | 'filter'
+    | 'backdropFilter'
+    | 'mixBlendMode'
+    | 'dropShadowX'
+    | 'dropShadowY'
+    | 'dropShadowBlur'
+    | 'dropShadowSpread'
+    | 'dropShadowColor'
+    | 'innerShadowX'
+    | 'innerShadowY'
+    | 'innerShadowBlur'
+    | 'innerShadowSpread'
+    | 'innerShadowColor'
+    | 'layerBlur'
+    | 'backgroundBlur'
+    | 'glassRefraction'
+    | 'glassDepth'
+    | 'glassDispersion'
+    | 'glassFrost'
+    | 'glassSplay'
+    | 'glassLightDegree'
+    | 'glassOpacity'
     | 'objectFit';
 
 export type BuilderStyleProperties = Partial<Record<StylePropertyKey, StyleValue>>;
@@ -213,7 +383,16 @@ export function validateStylePatch(definition: ComponentDefinition, patch: Recor
             return;
         }
         const property = getStyleDefinition(key);
-        if (!property || !allowed.has(key as StylePropertyKey)) {
+        const supportsShorthand = key.startsWith('margin')
+            ? allowed.has('margin')
+            : key.startsWith('padding')
+              ? allowed.has('padding')
+              : key.startsWith('border') && key.endsWith('Width')
+                ? allowed.has('borderWidth')
+                : key.startsWith('border') && key.endsWith('Radius')
+                  ? allowed.has('borderRadius')
+                  : false;
+        if (!property || (!allowed.has(key as StylePropertyKey) && !supportsShorthand)) {
             throw new Error(`Style property [${key}] is not supported by component [${definition.type}].`);
         }
         if (!isValidStyleValue(property, value)) {
@@ -255,7 +434,9 @@ function isValidStyleValue(definition: StyleDefinition, value: JsonValue): boole
             (typeof value === 'string' &&
                 /^(auto|(?:-?\d+(?:\.\d+)?)(px|rem|em|%|vw|vh))(\s+(?:-?\d+(?:\.\d+)?)(px|rem|em|%|vw|vh)){0,3}$/.test(value))
         );
-    return typeof value === 'string' && /^(#[0-9a-f]{3,8}|rgba?\([^)]*\)|hsla?\([^)]*\)|[a-z]+)$/i.test(value);
+    if (definition.type === 'string') return typeof value === 'string';
+    if (definition.type === 'color') return typeof value === 'string' && /^(#[0-9a-f]{3,8}|rgba?\([^)]*\)|hsla?\([^)]*\)|[a-z]+)$/i.test(value);
+    return false;
 }
 
 function kebabCase(value: string): string {
@@ -283,11 +464,19 @@ function isStructuredLength(value: JsonValue): value is LengthValue {
     );
 }
 
-export function clearStyleOverride(styles: BuilderResponsiveStyles, breakpoint: BuilderBreakpoint, key: StylePropertyKey): BuilderResponsiveStyles {
+export function clearStyleOverride(
+    styles: BuilderResponsiveStyles,
+    breakpoint: BuilderBreakpoint,
+    key: StylePropertyKey | StylePropertyKey[],
+): BuilderResponsiveStyles {
     const next = structuredClone(styles);
-    if (next[breakpoint]) {
-        delete next[breakpoint][key];
-        if (Object.keys(next[breakpoint]).length === 0) delete next[breakpoint];
+    const currentBreakpointStyles = next[breakpoint];
+    if (currentBreakpointStyles) {
+        const keys = Array.isArray(key) ? key : [key];
+        keys.forEach((k) => {
+            delete currentBreakpointStyles[k];
+        });
+        if (Object.keys(currentBreakpointStyles).length === 0) delete next[breakpoint];
     }
     return next;
 }

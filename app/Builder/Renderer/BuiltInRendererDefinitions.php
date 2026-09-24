@@ -4,6 +4,7 @@ namespace App\Builder\Renderer;
 
 use App\Builder\Renderer\BuiltIn\ConfiguredRenderer;
 use App\Builder\Renderer\BuiltIn\ContainerRenderer;
+use App\Builder\Renderer\BuiltIn\CustomCodeRenderer;
 use App\Builder\Renderer\BuiltIn\HeadingRenderer;
 use App\Builder\Renderer\BuiltIn\ImageRenderer;
 use App\Builder\Renderer\BuiltIn\LinkRenderer;
@@ -37,6 +38,7 @@ final class BuiltInRendererDefinitions
             'content.button' => new LinkRenderer,
             'content.link' => new LinkRenderer,
             'media.image' => new ImageRenderer,
+            'code.customcode' => new CustomCodeRenderer,
             'marketing.card' => new ConfiguredRenderer('article'),
             'reusable.instance' => new ReusableInstanceRenderer,
         ];

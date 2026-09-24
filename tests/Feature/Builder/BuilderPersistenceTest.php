@@ -183,10 +183,13 @@ class BuilderPersistenceTest extends TestCase
         $document['root']['children'][0]['children'][0]['children'][0]['children'][] = [
             'id' => 'image-test',
             'type' => 'media.image',
-            'props' => ['src' => '/storage/builder/'.$owner->id.'/hero.png', 'alt' => 'Hero'],
+            'props' => ['src' => '/storage/builder/'.$owner->id.'/hero.png', 'alt' => null],
             'styles' => [],
             'children' => [],
         ];
+        $document['root']['children'][0]['children'][0]['styles']['desktop']['margin'] = '0 auto';
+        $document['root']['children'][0]['styles']['desktop']['backgroundType'] = 'image';
+        $document['root']['children'][0]['styles']['desktop']['backgroundImage'] = ['url' => '/storage/builder/'.$owner->id.'/hero.png', 'id' => 1];
 
         $this->actingAs($owner)->patchJson(route('builder.pages.document.update', $page), [
             'document' => $document,

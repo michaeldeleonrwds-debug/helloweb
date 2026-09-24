@@ -35,7 +35,7 @@ final readonly class BuilderPagePersistenceService
     {
         $document = $this->defaultDocuments->create();
 
-        return $website->pages()->create([
+        $page = $website->pages()->create([
             'title' => $title,
             'slug' => $slug,
             'status' => 'draft',
@@ -43,6 +43,12 @@ final readonly class BuilderPagePersistenceService
             'document_schema_version' => $document->schemaVersion(),
             'document_version' => 0,
         ]);
+
+        if ($website->homepage_page_id === null) {
+            $website->forceFill(['homepage_page_id' => $page->id])->save();
+        }
+
+        return $page;
     }
 
     public function loadDocument(Page $page): BuilderDocument

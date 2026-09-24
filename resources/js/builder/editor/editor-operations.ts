@@ -1,4 +1,4 @@
-import type { BuilderBreakpoint, BuilderRecord, ComponentType, JsonValue } from '../document';
+import type { BuilderBreakpoint, BuilderComponentNode, BuilderRecord, ComponentType, JsonValue } from '../document';
 import { ComponentTreeEngine } from '../engine/component-tree-engine';
 import type { TreeInsertPosition } from '../engine/tree-position';
 import type { ComponentRegistry } from '../registry/component-registry';
@@ -20,6 +20,36 @@ export function insertEditorComponent(
 
 export function moveEditorNode(state: BuilderEditorState, engine: ComponentTreeEngine, nodeId: string, target: EditorDropTarget): BuilderEditorState {
     return setDocument(state, engine.move(state.document, nodeId, target.parentId, target.position));
+}
+
+export function moveEditorNodeSibling(
+    state: BuilderEditorState,
+    engine: ComponentTreeEngine,
+    nodeId: string,
+    direction: 'up' | 'down',
+): BuilderEditorState {
+    return setDocument(state, engine.moveSibling(state.document, nodeId, direction));
+}
+
+export function pasteEditorNode(
+    state: BuilderEditorState,
+    engine: ComponentTreeEngine,
+    parentId: string,
+    source: BuilderComponentNode,
+): BuilderEditorState {
+    const document = engine.paste(state.document, parentId, source);
+    const parent = findNode(document, parentId);
+    const pasted = parent?.children[parent.children.length - 1];
+    return pasted ? selectInsertedNode(setDocument(state, document), pasted.id) : setDocument(state, document);
+}
+
+export function updateEditorMetadata(
+    state: BuilderEditorState,
+    engine: ComponentTreeEngine,
+    nodeId: string,
+    patch: Record<string, JsonValue | undefined>,
+): BuilderEditorState {
+    return setDocument(state, engine.updateMetadata(state.document, nodeId, patch));
 }
 
 export function duplicateEditorNode(state: BuilderEditorState, engine: ComponentTreeEngine, nodeId: string): BuilderEditorState {
@@ -68,7 +98,7 @@ export function clearEditorStyleOverride(
     engine: ComponentTreeEngine,
     nodeId: string,
     breakpoint: BuilderBreakpoint,
-    key: StylePropertyKey,
+    key: StylePropertyKey | StylePropertyKey[],
 ): BuilderEditorState {
     return setDocument(state, engine.clearStyleOverride(state.document, nodeId, breakpoint, key));
 }

@@ -15,6 +15,7 @@ final readonly class RenderResult
         private array $styles = [],
         private array $children = [],
         private ?string $text = null,
+        private ?string $html = null,
     ) {}
 
     public static function fragment(array $children): self
@@ -56,13 +57,25 @@ final readonly class RenderResult
         return $this->text;
     }
 
+    public function html(): ?string
+    {
+        return $this->html;
+    }
+
     public function toHtml(): string
     {
         $children = implode('', array_map(
             static fn (RenderResult $child): string => $child->toHtml(),
             $this->children,
         ));
-        $text = $this->text === null ? '' : htmlspecialchars($this->text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+
+        if ($this->text === null) {
+            $text = '';
+        } elseif ($this->tag === 'style') {
+            $text = $this->text;
+        } else {
+            $text = htmlspecialchars($this->text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        }
 
         if ($this->tag === null) {
             return $text.$children;
@@ -72,7 +85,7 @@ final readonly class RenderResult
             '<%s%s>%s%s</%s>',
             $this->tag,
             $this->serializeAttributes(),
-            $text,
+            $text.$this->html,
             $children,
             $this->tag,
         );
@@ -88,6 +101,7 @@ final readonly class RenderResult
             'attributes' => $this->attributes,
             'styles' => $this->styles,
             'text' => $this->text,
+            'html' => $this->html,
             'children' => array_map(
                 static fn (RenderResult $child): array => $child->toArray(),
                 $this->children,

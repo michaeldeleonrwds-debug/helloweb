@@ -18,12 +18,14 @@ final readonly class TextContentRenderer implements ComponentRenderer
     public function render(array $node, ComponentDefinition $definition, RenderContext $context, array $children): RenderResult
     {
         $props = array_replace($definition->defaultProps(), $node['props']);
+        $colorSegments = TextColorSegments::render($props['colorSegments'] ?? null);
 
         return new RenderResult(
             tag: $this->tag,
-            attributes: ['data-builder-id' => $node['id'], 'data-builder-type' => $node['type']],
+            attributes: NodeAttributes::for($node),
             styles: $this->styleResolver->resolve($node, $definition, $context->breakpoint()),
-            text: (string) ($props['text'] ?? ''),
+            text: $colorSegments === null ? (string) ($props['text'] ?? '') : null,
+            html: $colorSegments,
             children: $children,
         );
     }

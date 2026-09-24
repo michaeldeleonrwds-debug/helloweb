@@ -19,6 +19,7 @@ final readonly class HeadingRenderer implements ComponentRenderer
     {
         $props = array_replace($definition->defaultProps(), $node['props']);
         $level = $props['level'] ?? 2;
+        $colorSegments = TextColorSegments::render($props['colorSegments'] ?? null);
 
         if (! is_int($level) || $level < 1 || $level > 6) {
             throw RendererException::invalidNode('Heading level must be an integer between 1 and 6.');
@@ -26,12 +27,10 @@ final readonly class HeadingRenderer implements ComponentRenderer
 
         return new RenderResult(
             tag: "h{$level}",
-            attributes: [
-                'data-builder-id' => $node['id'],
-                'data-builder-type' => $node['type'],
-            ],
+            attributes: NodeAttributes::for($node),
             styles: $this->styleResolver->resolve($node, $definition, $context->breakpoint()),
-            text: (string) ($props['text'] ?? ''),
+            text: $colorSegments === null ? (string) ($props['text'] ?? '') : null,
+            html: $colorSegments,
         );
     }
 }

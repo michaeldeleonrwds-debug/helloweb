@@ -4,15 +4,14 @@ use App\Http\Controllers\BuilderPageController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\MediaAssetController;
 use App\Http\Controllers\PageController;
+use App\Http\Controllers\PublicSiteController;
 use App\Http\Controllers\ReusableComponentController;
 use App\Http\Controllers\TemplateController;
 use App\Http\Controllers\WebsiteController;
 use Illuminate\Support\Facades\Route;
-use Inertia\Inertia;
 
-Route::get('/', function () {
-    return Inertia::render('welcome');
-})->name('home');
+Route::get('/', [PublicSiteController::class, 'home'])->name('home');
+Route::get('preview/pages/{page}', [PublicSiteController::class, 'preview'])->name('preview.pages.show');
 
 Route::middleware(['auth'])->group(function () {
     Route::get('dashboard', DashboardController::class)->name('dashboard');

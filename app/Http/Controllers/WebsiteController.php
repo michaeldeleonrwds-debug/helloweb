@@ -18,6 +18,7 @@ final class WebsiteController extends Controller
                 'name' => $website->name,
                 'slug' => $website->slug,
                 'status' => $website->status,
+                'homepageId' => $website->homepage_page_id,
                 'pagesCount' => $website->pages_count,
                 'updatedAt' => $website->updated_at?->toISOString(),
             ])->values()->all(),

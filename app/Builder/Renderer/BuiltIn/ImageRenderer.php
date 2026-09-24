@@ -20,7 +20,7 @@ final readonly class ImageRenderer implements ComponentRenderer
 
         return new RenderResult(
             tag: 'img',
-            attributes: ['data-builder-id' => $node['id'], 'data-builder-type' => $node['type'], 'src' => (string) ($props['src'] ?? ''), 'alt' => (string) ($props['alt'] ?? '')],
+            attributes: NodeAttributes::for($node, ['src' => (string) ($props['src'] ?? ''), 'alt' => (string) ($props['alt'] ?? '')]),
             styles: $this->styleResolver->resolve($node, $definition, $context->breakpoint()),
             children: $children,
         );

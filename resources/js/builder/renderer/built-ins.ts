@@ -1,4 +1,8 @@
+import { hasVisibleCodeContent } from '../code-content';
+import type { ResolvedStyle } from '../style/style';
 import type { ComponentRenderer } from './component-renderer';
+import { composeEffectsStyles } from './compose-effects';
+import { ELEMENT_CUSTOM_CSS_SCOPE_ATTRIBUTE, readElementCustomCss } from './element-custom-css';
 import type { RenderResult } from './render-result';
 import { fragment } from './render-result';
 import type { ComponentRendererRegistry } from './renderer-registry';
@@ -13,14 +17,52 @@ export const rootRenderer: ComponentRenderer = {
 
 export const sectionRenderer: ComponentRenderer = {
     render(node, definition, context, children) {
+        const styles = resolveStyles(node, definition, context.breakpoint);
+        const backgroundType = String(styles.backgroundType ?? 'solid');
+        const backgroundVideo = String(styles.backgroundVideo ?? '');
+        const renderedStyles = applyBackgroundStyles(styles);
+
+        const content =
+            backgroundType === 'video' && backgroundVideo
+                ? {
+                      tag: 'div',
+                      attributes: { 'data-builder-background-content': 'true' },
+                      styles: { position: 'relative', zIndex: 1 },
+                      children,
+                  }
+                : null;
+
         return {
             tag: 'section',
-            attributes: {
-                'data-builder-id': node.id,
-                'data-builder-type': node.type,
-            },
-            styles: resolveStyles(node, definition, context.breakpoint),
-            children,
+            attributes: nodeAttributes(node),
+            styles: renderedStyles,
+            children:
+                backgroundType === 'video' && backgroundVideo
+                    ? [
+                          {
+                              tag: 'video',
+                              attributes: {
+                                  src: backgroundVideo,
+                                  autoplay: 'true',
+                                  muted: 'true',
+                                  loop: 'true',
+                                  playsinline: 'true',
+                                  'aria-hidden': 'true',
+                              },
+                              styles: {
+                                  position: 'absolute',
+                                  inset: 0,
+                                  width: '100%',
+                                  height: '100%',
+                                  objectFit: String(styles.backgroundSize ?? 'cover'),
+                                  objectPosition: String(styles.backgroundPosition ?? 'center'),
+                                  zIndex: 0,
+                              },
+                              children: [],
+                          },
+                          content!,
+                      ]
+                    : children,
         };
     },
 };
@@ -29,11 +71,8 @@ export const containerRenderer: ComponentRenderer = {
     render(node, definition, context, children) {
         return {
             tag: 'div',
-            attributes: {
-                'data-builder-id': node.id,
-                'data-builder-type': node.type,
-            },
-            styles: resolveStyles(node, definition, context.breakpoint),
+            attributes: nodeAttributes(node),
+            styles: applyBackgroundStyles(resolveStyles(node, definition, context.breakpoint)),
             children,
         };
     },
@@ -43,6 +82,7 @@ export const headingRenderer: ComponentRenderer = {
     render(node, definition, context) {
         const props = { ...(definition.defaultProps ?? {}), ...node.props };
         const level = props.level ?? 2;
+        const colorSegments = renderColorSegments(props.colorSegments);
 
         if (!Number.isInteger(level) || Number(level) < 1 || Number(level) > 6) {
             throw RendererError.invalidNode('Heading level must be an integer between 1 and 6.');
@@ -50,12 +90,10 @@ export const headingRenderer: ComponentRenderer = {
 
         return {
             tag: `h${level}`,
-            attributes: {
-                'data-builder-id': node.id,
-                'data-builder-type': node.type,
-            },
+            attributes: nodeAttributes(node),
             styles: resolveStyles(node, definition, context.breakpoint),
-            text: String(props.text ?? ''),
+            text: colorSegments ? undefined : String(props.text ?? ''),
+            html: colorSegments ?? undefined,
             children: [],
         };
     },
@@ -70,10 +108,16 @@ export const reusableInstanceRenderer: ComponentRenderer = {
 function blockRenderer(tag: string): ComponentRenderer {
     return {
         render(node, definition, context, children) {
+            const styles = resolveStyles(node, definition, context.breakpoint);
+            if (node.type === 'layout.row' && node.props.fullWidth === true) {
+                styles.maxWidth = 'none';
+                styles.width = '100%';
+                styles.margin = '0';
+            }
             const emptyImage: RenderResult = {
                 tag,
-                attributes: { 'data-builder-id': node.id, 'data-builder-type': node.type },
-                styles: resolveStyles(node, definition, context.breakpoint),
+                attributes: nodeAttributes(node),
+                styles: applyBackgroundStyles(styles),
                 children,
             };
             return emptyImage;
@@ -81,19 +125,75 @@ function blockRenderer(tag: string): ComponentRenderer {
     };
 }
 
+function applyBackgroundStyles(styles: ResolvedStyle): ResolvedStyle {
+    const renderedStyles = { ...styles };
+    const backgroundType = String(styles.backgroundType ?? 'solid');
+
+    delete renderedStyles.backgroundType;
+    delete renderedStyles.backgroundGradient;
+    delete renderedStyles.backgroundVideo;
+
+    if (backgroundType === 'gradient' && styles.backgroundGradient) {
+        renderedStyles.backgroundImage = String(styles.backgroundGradient);
+    } else if (backgroundType === 'image' && styles.backgroundImage) {
+        renderedStyles.backgroundImage = `url(${JSON.stringify(String(styles.backgroundImage))})`;
+    } else if (backgroundType !== 'image') {
+        delete renderedStyles.backgroundImage;
+    }
+
+    return composeEffectsStyles(renderedStyles);
+}
+
 function textRenderer(tag = 'p'): ComponentRenderer {
     return {
         render(node, definition, context, children) {
             const props = { ...(definition.defaultProps ?? {}), ...node.props };
+            const colorSegments = renderColorSegments(props.colorSegments);
+
             return {
                 tag,
-                attributes: { 'data-builder-id': node.id, 'data-builder-type': node.type },
-                styles: resolveStyles(node, definition, context.breakpoint),
-                text: String(props.text ?? ''),
+                attributes: nodeAttributes(node),
+                styles: applyBackgroundStyles(resolveStyles(node, definition, context.breakpoint)),
+                text: colorSegments ? undefined : String(props.text ?? ''),
+                html: colorSegments ?? undefined,
                 children,
             };
         },
     };
+}
+
+function renderColorSegments(value: unknown): string | null {
+    if (!Array.isArray(value) || value.length === 0) return null;
+
+    const html = value
+        .map((segment) => {
+            if (!isColorSegment(segment)) return '';
+            const text = escapeHtml(segment.text);
+            if (text === '') return '';
+
+            return `<span style="color: ${escapeHtml(segment.color)}">${text}</span>`;
+        })
+        .join('');
+
+    return html === '' ? null : html;
+}
+
+function isColorSegment(value: unknown): value is { text: string; color: string } {
+    return (
+        typeof value === 'object' &&
+        value !== null &&
+        typeof (value as { text?: unknown }).text === 'string' &&
+        typeof (value as { color?: unknown }).color === 'string' &&
+        isSafeColor((value as { color: string }).color)
+    );
+}
+
+function isSafeColor(value: string): boolean {
+    return /^(#[0-9a-f]{3,8}|rgba?\([^)]*\)|hsla?\([^)]*\)|[a-z]+)$/i.test(value);
+}
+
+function escapeHtml(value: string): string {
+    return value.replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll("'", '&#039;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
 }
 
 const linkRenderer: ComponentRenderer = {
@@ -101,7 +201,7 @@ const linkRenderer: ComponentRenderer = {
         const props = { ...(definition.defaultProps ?? {}), ...node.props };
         return {
             tag: 'a',
-            attributes: { 'data-builder-id': node.id, 'data-builder-type': node.type, href: String(props.href ?? '#') },
+            attributes: { ...nodeAttributes(node), href: String(props.href ?? '#') },
             styles: resolveStyles(node, definition, context.breakpoint),
             text: String(props.text ?? ''),
             children,
@@ -117,7 +217,7 @@ const imageRenderer: ComponentRenderer = {
         if (!src) {
             const emptyImage: RenderResult = {
                 tag: 'div',
-                attributes: { 'data-builder-id': node.id, 'data-builder-type': node.type, 'data-builder-empty-image': 'true' },
+                attributes: { ...nodeAttributes(node), 'data-builder-empty-image': 'true' },
                 styles: {
                     ...resolveStyles(node, definition, context.breakpoint),
                     minHeight: '180px',
@@ -132,8 +232,25 @@ const imageRenderer: ComponentRenderer = {
         }
         return {
             tag: 'img',
-            attributes: { 'data-builder-id': node.id, 'data-builder-type': node.type, src, alt },
+            attributes: { ...nodeAttributes(node), src, alt },
             styles: resolveStyles(node, definition, context.breakpoint),
+            children: [],
+        };
+    },
+};
+
+const customCodeRenderer: ComponentRenderer = {
+    render(node) {
+        const code = typeof node.props.code === 'string' ? node.props.code : '';
+        const className = node.metadata?.className;
+        const stylableWrapper = (typeof className === 'string' && className.trim() !== '') || readElementCustomCss(node) !== null;
+        const styles: ResolvedStyle = stylableWrapper || hasVisibleCodeContent(code) ? {} : { display: 'contents' };
+
+        return {
+            tag: 'div',
+            attributes: nodeAttributes(node),
+            styles,
+            html: code,
             children: [],
         };
     },
@@ -158,6 +275,23 @@ export function registerBuiltInRenderers(registry: ComponentRendererRegistry): C
         .register('content.button', linkRenderer)
         .register('content.link', linkRenderer)
         .register('media.image', imageRenderer)
+        .register('code.customcode', customCodeRenderer)
         .register('marketing.card', blockRenderer('article'))
         .register('reusable.instance', reusableInstanceRenderer);
+}
+
+function nodeAttributes(node: { id: string; type: string; metadata?: Record<string, unknown> }): Record<string, string> {
+    const attributes: Record<string, string> = {
+        'data-builder-id': node.id,
+        'data-builder-type': node.type,
+    };
+    const className = node.metadata?.className;
+    if (typeof className === 'string' && className.trim() !== '') {
+        attributes.class = className;
+    }
+    if (readElementCustomCss(node) !== null) {
+        attributes[ELEMENT_CUSTOM_CSS_SCOPE_ATTRIBUTE] = node.id;
+    }
+
+    return attributes;
 }

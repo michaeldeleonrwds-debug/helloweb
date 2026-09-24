@@ -294,3 +294,116 @@ The authoritative page composition model is `layout.root -> layout.section -> la
 # D-018: Validated drag insertion
 
 Drag/drop proposals are checked through registry capabilities and ComponentTreeEngine before targets are highlighted or drops are committed. Editor insertion controls and indicators remain outside public rendering.
+
+# D-022: Element custom CSS is metadata scoped by attribute selector
+
+Status: Accepted
+Date: 2026-09-25
+
+Decision:
+Element-level Custom CSS is stored as `node.metadata.customCss` (freeform string, same persistence pattern as `metadata.className`). At render time the element receives `data-builder-css-scope="<nodeId>"` (only when customCss is non-empty) and a sibling `<style>` fragment wrapping the authored CSS as `[data-builder-css-scope="<nodeId>"] { ... }`, implemented as mirrored helpers in TypeScript (`resources/js/builder/renderer/element-custom-css.ts`) and PHP (`app/Builder/Renderer/ElementCustomCss.php`).
+
+Reason:
+Metadata needs no schema or validation changes. An attribute selector is required because reusable-instance ids contain `:` (`instanceId:nodeId`), which breaks bare id selectors; the public renderer strips only `data-builder-id` and `data-builder-type`, so the scope attribute survives to the public DOM. A sibling fragment (not a child) avoids void-element child-dropping and contaminating `editableTextContent`, which is safe because text-bearing components disallow children. `<style>` text must bypass entity escaping in both HTML serializers so `&` and `>` in authored CSS survive.
+
+Implication:
+Plain CSS relies on native CSS nesting; panel/design-tab styles are inline, so overriding them requires `!important` (documented in the inspector hint). Any change to the scoping contract must land in both the TS and PHP helpers and their renderer injection points.
+
+# D-023: Effects are composed style primitives, not raw CSS passthrough
+
+Status: Accepted
+Date: 2026-09-25
+
+Decision:
+Figma-style effect controls (drop shadow, inner shadow, layer blur, background blur, glass: refraction/depth/dispersion/frost/splay/light degree/opacity) are stored as typed numeric/color style keys in the shared style catalog (group `effects`, `type: number|color`), and are composed into real CSS (`box-shadow`, `filter`, `backdrop-filter`, `background-image` sheen) at render time by mirrored composers: `resources/js/builder/renderer/compose-effects.ts` (invoked at the end of `applyBackgroundStyles`) and `app/Builder/Renderer/EffectsComposer.php` (invoked at the end of `StyleResolver::resolve`). Virtual keys are always consumed before serialization so invalid properties never reach the DOM.
+
+Reason:
+Virtual effect keys are inspector-facing inputs, not CSS properties. Composition must run after background handling (a solid background deletes `backgroundImage`, so the glass sheen would otherwise be dropped) and must chain with an existing `boxShadow` enum value instead of replacing it. Keeping composition in one mirrored module per side preserves the D-022-style TS/PHP parity contract and keeps the style catalog data-driven (D-010) rather than teaching every renderer about shadows.
+
+Implication:
+New effect keys must be appended to `STYLE_PROPERTY_DEFINITIONS` (TS), `StyleSchema::definitions()` (PHP), and to `styleCapabilities` of every `boxShadow`-capable component on both sides, and must stay excluded from the generic inspector `StyleControl` rendering (the dedicated EffectsControl owns them). Any change to composition output must land in both composers plus their tests.
+
+# D-024: Custom Code element renders verbatim HTML with executable scripts on public pages
+
+Status: Accepted
+Date: 2026-09-25
+
+Decision:
+The palette `code.customcss` element is removed and replaced by `code.customcode` ("Custom Code"): a single `code` prop holding raw author HTML that may contain markup, `<style>`, and `<script>` tags. Its registry `defaultProps.code` is a `<style>` + `<script>` example with comments only — never a visible `<div>` — so a freshly inserted element renders nothing visible in preview or production and relies on the editor chip below for clickability. Placement: `code.customcode` is an allowed child of Section, Row, Column, Container, Stack, Flex, Grid, Columns, and Card via `childRules.allowedTypes` in both registries (Section/Row list it explicitly alongside their structural children), so drag/drop, insert, move, and persistence validation all accept it outside Column. Preview/production layout neutrality: when the authored code renders nothing visible (`hasVisibleCodeContent()` in `resources/js/builder/code-content.ts`, mirrored by `App\Builder\Renderer\CodeContent`), both renderers emit the wrapper `<div>` with `display: contents`, so the element contributes no box — no height, no width, and no flex-gap slot inside Sections/Rows/Columns — unless the wrapper is stylable (`metadata.className` or `metadata.customCss` present), in which case the box is kept so author styling still applies. The editor canvas always forces `display: block` on the placeholder branch in `CanvasNode`, so the chip/min-height builder design is unchanged. Both renderers emit it verbatim through the `RenderResult.html` channel inside a `<div>` wrapper (TS `customCodeRenderer`, PHP `CustomCodeRenderer`; `CustomCssRenderer` deleted). `DocumentPersistenceValidator` migrates legacy `code.customcss` node types to `code.customcode` on load/save. On the client-rendered public site, `public-site.tsx` mounts `html` content via a template + `executableNode()` re-creation so `<script>` elements actually execute; the editor canvas keeps its inert `dangerouslySetInnerHTML` span, so `<style>` applies live but scripts never run inside the editor. Builder-only clickability lives in `CanvasNode`: when `hasVisibleCodeContent()` (editor util in `render-result-utils.ts`) decides the authored code produces no visible content (empty, comments, style/script/meta markup only), the editor gives the wrapper a `min-height` and a non-interactive dashed placeholder chip labeled "Custom code" (`data-builder-code-placeholder`) so the element is clickable on canvas. Preview (`preview.pages.show` → `public-site`) and production share `PublicRenderNode`, which never renders editor chrome, so placeholder/min-height are absent from both.
+
+Reason:
+A raw-code element must not be escaped or wrapped as CSS text; authors expect HTML/style/script to behave exactly as authored. Scripts inserted through innerHTML are inert by browser rule, so the public renderer must re-create script nodes (the same pattern already used for `globalHeadCode`/`globalFooterCode`). Keeping scripts inert in the editor protects the builder session from author code, while `<style>` preview stays consistent with how scoped Custom CSS already renders in-canvas. The old element type was never part of a committed release, but a load-time type migration keeps any locally persisted node renderable.
+
+Implication:
+`code.customcode` renders through the raw `html` channel only (never `text`), so serializers must not escape it; editors show it through the existing html span. The clickable placeholder and its `min-height` are editor presentation concerns owned by `CanvasNode`/`render-result-utils.ts` only — never the renderers or `public-site.tsx` — so preview and production HTML stay byte-identical apart from the authored code. When content is visible, no placeholder is drawn and the normal hover/selection overlays provide the affordance. Any future sanitization, sandboxing, or script policy decision must land in both the renderers and `public-site.tsx`, and the per-element Custom CSS feature (D-022, `metadata.customCss`) remains separate and unchanged.
+
+# D-025: Clean Google Workspace / Figma inspector architecture
+
+Status: Accepted
+Date: 2026-09-25
+
+Decision:
+The right-hand component inspector adopts Google Workspace / Figma style controls:
+1. Header: Removes noisy metadata (uppercase "DESIGN" tag and raw node ID like `node_5`). Displays an icon badge, component name, and direct element action buttons (duplicate, delete).
+2. Spacing controls (Margin & Padding): Replaces the clunky 3x3 layout and four repetitive unit dropdowns with modern Linked (single input with quick presets and unit picker) and Sides (compact 4-column T/R/B/L layout) modes, with a one-click horizontal centering helper for margin (`margin: 0 auto`) and reset override buttons.
+3. Border and Stroke controls: Replaces bulky side-by-side selects with unified Stroke (linked/sides, integrated borderStyle select and borderColor color swatch picker) and Corner Radius (linked/corners with quick radius presets including Pill/round) controls.
+
+Reason:
+Visual builders require high information density, fast ergonomics, and minimal visual noise. The old 3x3 layout consumed excessive vertical space with empty boxes and cut-off dropdowns. The new design matches modern design tools while preserving full underlying style schema contracts and responsive cascading.
+
+# D-027: High-density card-based component inspector redesign
+
+Status: Accepted
+Date: 2026-09-25
+
+Decision:
+The entire right sidebar inspector (`ComponentInspector.tsx`) is redesigned into high-density, card-based groups across all tabs (`Layout`, `Style`, `Content`, and `More`), replacing vertically sprawling generic inputs, redundant nested accordions, and line-breaking text links:
+1. Card Architecture: Each tab renders dedicated, self-contained cards with consistent headers (title on left, breakpoint badge on right, and an inline `RotateCcw` reset button whenever any property in the card is overridden on the active breakpoint).
+2. Layout Tab:
+   - `ResponsiveVisibilityControl`: Replaces plain checkbox with a status toggle card (`Eye` / `EyeOff` icons, `Visible on Desktop [Visible]` / `[Hidden]`).
+   - `DimensionsControl`: 2-column compact inputs for Width and Height with unit selectors, quick width presets (`100%`, `Auto`, `320px`, `640px`), collapsible min/max constraints (Min W, Max W, Min H, Max H), and overflow selector.
+   - `FlexLayoutControl`: Segmented icon buttons for Direction (Horizontal `ArrowRight` vs Vertical `ArrowDown`), 4-button align items group (`Start`, `Center`, `End`, `Stretch`), 6-button justify content group (`Start`, `Center`, `End`, `Between`, `Around`, `Evenly`), compact gap input with unit picker, wrap toggle (`No wrap` / `Wrap`), and grid columns presets.
+   - `BoxModelControl`: Preserved approved Spacing (Margin & Padding) linked/sides controls.
+   - `PositionControl`: Mode selector (Static, Relative, Absolute, Fixed, Sticky) with 2x2 grid for Top/Right/Bottom/Left and Z-Index input when non-static.
+3. Style Tab:
+   - `TypographyGroupControl`: Searchable Font Family picker with recent fonts, 2-column Size & Weight with quick size presets (`14`, `16`, `20`, `24`, `32`, `48`), 2-column Line Height & Letter Spacing, segmented text alignment icon buttons (`AlignLeft`, `AlignCenter`, `AlignRight`, `AlignJustify`), compact color picker with hex and swatches, and segmented style buttons (Transform `Aa`/`TT`/`Abc`, Decoration `None`/`Underline`/`Strike`).
+   - `BackgroundColorControl`: Dedicated card with color swatch, hex input, recent colors, and theme tokens.
+   - `BorderGeometryControl`: Preserved approved Stroke & Corner Radius controls.
+   - `EffectsControl`: Standardized into consistent card shell for shadows, blurs, and glass effects.
+4. Content Tab:
+   - `PropControls`: Formatted human-friendly labels ("Heading Text", "Button Label", "Link Destination", "Alt Text") with context icons (`Type`, `LinkIcon`), segmented `H1`–`H6` pills for heading levels, and multiline textareas for paragraphs/richtext.
+5. Inline Override Action: Replaces duplicate, line-breaking `"Clear override"` text links with an inline `RotateCcw` reset button next to each property label across all controls.
+
+Reason:
+The inspector is the primary authoring workspace in the visual builder. Stacked single-line inputs with duplicate unit selects and text links consumed excessive vertical scrolling. The new card-based architecture matches modern design tools (Figma, Google Workspace), provides instant visual recognition, and maintains high density while strictly preserving responsive cascading and schema contracts.
+
+# D-028: Google M3 and Figma-grade left-hand builder controls redesign
+
+Status: Accepted
+Date: 2026-09-25
+
+Decision:
+The left-hand sidebar controls (`BuilderLeftPanel.tsx`, `BuilderElementsPanel.tsx`, `BuilderLayersPanel.tsx`) are redesigned into a unified Google M3 navigation surface:
+1. Navigation Bar & View Modes:
+   - Unified Google M3 top tab bar: `Elements` (Catalog), `Layers` (Tree with dynamic node count badge), `Library` (Templates & Reusable Components with clean sub-filter), and `Media` (Assets with upload dropzone).
+   - One-click Split View toggle (`Rows2` / `SplitSquareVertical`): Supports both Single View (100% full height for whichever tab is active, eliminating the cramped 50/50 cutoff) and Split View (stacked Elements and Layers with clean collapsible headers for direct drag-and-drop from elements into specific layers). Default initialized to Split View to preserve simultaneous catalog and tree visibility while enabling full-height single views on demand.
+2. Elements Catalog (`BuilderElementsPanel.tsx`):
+   - Removed header clutter (unwanted green uppercase "INSERT" label, redundant giant "Elements" title, and shape circle icon).
+   - Search & Filter: Google-style rounded pill search with instant clear button (`×`) and Google M3 category filter chips (`All`, `Layout`, `Content`, `Media`, `Code`, `Marketing`) with dynamic count badges.
+   - High-Density Cards: 2-column grid of compact cards with rounded corners (`rounded-xl`), soft tinted icon containers matching component category (blue for layout, violet for content, rose for media, amber for code, emerald for marketing), crisp 12px labels, tactile hover elevation, drag affordance, and click-to-insert.
+3. Layers Tree & Navigator (`BuilderLayersPanel.tsx`):
+   - Removed header clutter (unwanted green uppercase "STRUCTURE" label, redundant giant "Layers" title, folder circle icon, and non-functional "Layers vs Outline" sub-tabs).
+   - Component-Specific Visuals: Replaced generic monochrome folder/file icons with distinctive colored icons mapped directly to each component type (`component-icons.tsx`).
+   - Content Snippet Previews: Displays formatted text preview snippets (e.g. `Heading "Welcome to HelloWeb"`, `Button "Get Started"`) directly beside the node name, dramatically improving tree scannability.
+   - Visual Hierarchy & Indentation: Crisp nesting guide lines (`border-l border-border/40`), smooth rotating chevrons, Google M3 subtle active selection indicator (`bg-primary/10 text-primary border-l-2 border-primary`), and header actions (Expand All / Collapse All and tree filter search).
+4. Library & Media Tabs:
+   - Unified Library: Replaces colliding "Templates Components" tabs with a clean sub-segmented filter (`All`, `Page Templates`, `Components`), search input, and one-click insert cards.
+   - Media Hub: Direct drag-and-drop file upload zone with `UploadCloud` icon, file type indicators, and 2-column thumbnail gallery with click-to-insert.
+
+Reason:
+The previous left-hand panel was vertically split 50/50 between two cramped panels, had duplicate uppercase category badges, colliding tab labels ("Templates Components"), generic monochrome tree icons, and heavy boxy cards. The new Google M3 and Figma-grade design maximizes vertical workspace, eliminates clutter, provides instant visual element recognition, and gives users both full-height focus and split-view flexibility.
+
+Implication:
+All tree operations, drag-and-drop handlers, insertion paths, and test contracts (`scripts/builder-editor-tests.ts`, `data-layer-node-id`) remain 100% preserved. Backward-compatible standalone exports of `BuilderElementsPanel` and `BuilderLayersPanel` are retained.
+
+

@@ -6,6 +6,7 @@ export interface RenderResult {
     attributes: Record<string, string>;
     styles: Record<string, JsonValue>;
     text?: string;
+    html?: string;
     children: RenderResult[];
 }
 
@@ -21,7 +22,8 @@ export function fragment(children: RenderResult[]): RenderResult {
 }
 
 export function renderResultToHtml(result: RenderResult): string {
-    const text = escapeHtml(result.text ?? '');
+    const text = result.tag === 'style' ? (result.text ?? '') : escapeHtml(result.text ?? '');
+    const html = result.html ?? '';
     const children = result.children.map(renderResultToHtml).join('');
 
     if (result.tag === null) {
@@ -32,7 +34,7 @@ export function renderResultToHtml(result: RenderResult): string {
         return `<${result.tag}${serializeAttributes(result)}>`;
     }
 
-    return `<${result.tag}${serializeAttributes(result)}>${text}${children}</${result.tag}>`;
+    return `<${result.tag}${serializeAttributes(result)}>${text}${html}${children}</${result.tag}>`;
 }
 
 function serializeAttributes(result: RenderResult): string {

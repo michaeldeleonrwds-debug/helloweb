@@ -146,6 +146,27 @@ class ComponentTreeEngineTest extends TestCase
         $this->engine()->move($this->document(), 'node_heading_1', 'node_column_1', TreeInsertPosition::before('node_heading_1'));
     }
 
+    public function test_custom_code_can_be_placed_in_section_and_row(): void
+    {
+        $code = [
+            'id' => 'node_code_1',
+            'type' => 'code.customcode',
+            'props' => ['code' => "<style></style>\n<script></script>\n"],
+            'styles' => [],
+            'children' => [],
+            'metadata' => [],
+        ];
+
+        $inSection = $this->engine()->insert($this->document(), 'node_section_1', $code);
+        $this->assertSame('node_section_1', $this->engine()->findParent($inSection, 'node_code_1')['id']);
+
+        $inRow = $this->engine()->insert($this->document(), 'node_row_1', $code);
+        $this->assertSame('node_row_1', $this->engine()->findParent($inRow, 'node_code_1')['id']);
+
+        $movedToRow = $this->engine()->move($inSection, 'node_code_1', 'node_row_1');
+        $this->assertSame('node_row_1', $this->engine()->findParent($movedToRow, 'node_code_1')['id']);
+    }
+
     public function test_update_props_preserves_other_node_data_and_is_immutable(): void
     {
         $updated = $this->engine()->updateProps($this->document(), 'node_heading_1', ['text' => 'Changed', 'level' => 3]);

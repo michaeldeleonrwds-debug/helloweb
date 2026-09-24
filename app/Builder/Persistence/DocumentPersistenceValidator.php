@@ -26,7 +26,7 @@ final readonly class DocumentPersistenceValidator
      * Legacy pages used Section -> Container (or direct content). Preserve their
      * content while upgrading the persisted shape to Section -> Row -> Column.
      *
-     * @param array<string, mixed> $data
+     * @param  array<string, mixed>  $data
      * @return array<string, mixed>
      */
     private function normalizeLegacyComposition(array $data): array
@@ -44,7 +44,47 @@ final readonly class DocumentPersistenceValidator
     /** @param array<string, mixed> $node */
     private function normalizeNode(array $node): array
     {
+        if (($node['type'] ?? null) === 'code.customcss') {
+            $node['type'] = 'code.customcode';
+        }
+
         $children = array_map(fn (array $child): array => $this->normalizeNode($child), $node['children'] ?? []);
+
+        if (($node['type'] ?? null) === 'layout.column') {
+            $children = array_map(function (array $child): array {
+                if (($child['type'] ?? null) === 'layout.row') {
+                    $child['type'] = 'layout.flex';
+                    unset($child['props']['fullWidth']);
+                }
+
+                return $child;
+            }, $children);
+        }
+
+        if (($node['type'] ?? null) === 'layout.flex') {
+            unset($node['props']['fullWidth']);
+        }
+
+        if (($node['type'] ?? null) === 'media.image' && is_array($node['props'] ?? null)) {
+            $node['props']['src'] ??= '';
+            $node['props']['alt'] ??= '';
+        }
+
+        foreach ($node['styles'] ?? [] as $breakpoint => $styles) {
+            if (! is_array($styles) || ! array_key_exists('backgroundImage', $styles)) {
+                continue;
+            }
+
+            if (is_array($styles['backgroundImage'])) {
+                $node['styles'][$breakpoint]['backgroundImage'] = $styles['backgroundImage']['src']
+                    ?? $styles['backgroundImage']['url']
+                    ?? '';
+            } elseif ($styles['backgroundImage'] !== null && ! is_string($styles['backgroundImage'])) {
+                $node['styles'][$breakpoint]['backgroundImage'] = is_scalar($styles['backgroundImage'])
+                    ? (string) $styles['backgroundImage']
+                    : '';
+            }
+        }
 
         if (($node['type'] ?? null) === 'layout.root') {
             $node['children'] = array_map(function (array $child, int $index): array {
@@ -85,8 +125,12 @@ final readonly class DocumentPersistenceValidator
             return $node;
         }
 
-        $node['children'] = array_map(function (array $child, int $index): array {
-            if (in_array($child['type'] ?? null, ['layout.row', 'layout.container'], true)) {
+        $allowedTypes = $this->registry->get('layout.section')->childRules()['allowedTypes'] ?? [];
+
+        $node['children'] = array_map(function (array $child, int $index) use ($allowedTypes): array {
+            $child = $this->unwrapMigrationWrapper($child, $allowedTypes);
+
+            if (in_array($child['type'] ?? null, $allowedTypes, true)) {
                 return $child;
             }
 
@@ -108,6 +152,33 @@ final readonly class DocumentPersistenceValidator
         }, $children, array_keys($children));
 
         return $node;
+    }
+
+    /**
+     * @param  array<string, mixed>  $child
+     * @param  array<int, string>  $allowedTypes
+     * @return array<string, mixed>
+     */
+    private function unwrapMigrationWrapper(array $child, array $allowedTypes): array
+    {
+        $current = $child;
+        $peeled = false;
+
+        while (
+            str_contains($current['id'] ?? '', '-migration-')
+            && count($current['children'] ?? []) === 1
+            && ($current['props'] ?? []) === []
+            && ($current['styles'] ?? []) === []
+        ) {
+            $current = $current['children'][0];
+            $peeled = true;
+        }
+
+        if ($peeled && in_array($current['type'] ?? null, $allowedTypes, true)) {
+            return $current;
+        }
+
+        return $child;
     }
 
     /** @param array<string, mixed> $node */
@@ -148,7 +219,14 @@ final readonly class DocumentPersistenceValidator
             }
 
             foreach ($properties as $key => $_value) {
-                if (! in_array($key, $definition->styleCapabilities(), true)) {
+                $supportsShorthand = str_starts_with($key, 'margin')
+                    ? in_array('margin', $definition->styleCapabilities(), true)
+                    : (str_starts_with($key, 'padding')
+                        ? in_array('padding', $definition->styleCapabilities(), true)
+                        : (str_starts_with($key, 'border') && str_ends_with($key, 'Width')
+                            ? in_array('borderWidth', $definition->styleCapabilities(), true)
+                            : str_starts_with($key, 'border') && str_ends_with($key, 'Radius') && in_array('borderRadius', $definition->styleCapabilities(), true)));
+                if (! in_array($key, $definition->styleCapabilities(), true) && ! $supportsShorthand) {
                     throw new InvalidArgumentException("Style property [{$key}] is not supported by component [{$type}].");
                 }
             }
@@ -173,8 +251,14 @@ final readonly class DocumentPersistenceValidator
             if ($type === 'string' && ! is_string($value)) {
                 throw new InvalidArgumentException("Property [{$name}] must be a string.");
             }
+            if ($type === 'boolean' && ! is_bool($value)) {
+                throw new InvalidArgumentException("Property [{$name}] must be a boolean.");
+            }
             if ($type === 'integer' && ! is_int($value)) {
                 throw new InvalidArgumentException("Property [{$name}] must be an integer.");
+            }
+            if ($type === 'array' && ! is_array($value)) {
+                throw new InvalidArgumentException("Property [{$name}] must be an array.");
             }
             if (isset($schema['min']) && is_int($value) && $value < $schema['min']) {
                 throw new InvalidArgumentException("Property [{$name}] is below its minimum.");

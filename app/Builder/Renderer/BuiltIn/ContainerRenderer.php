@@ -18,10 +18,7 @@ final readonly class ContainerRenderer implements ComponentRenderer
     {
         return new RenderResult(
             tag: 'div',
-            attributes: [
-                'data-builder-id' => $node['id'],
-                'data-builder-type' => $node['type'],
-            ],
+            attributes: NodeAttributes::for($node),
             styles: $this->styleResolver->resolve($node, $definition, $context->breakpoint()),
             children: $children,
         );

@@ -20,7 +20,7 @@ final readonly class LinkRenderer implements ComponentRenderer
 
         return new RenderResult(
             tag: 'a',
-            attributes: ['data-builder-id' => $node['id'], 'data-builder-type' => $node['type'], 'href' => (string) ($props['href'] ?? '#')],
+            attributes: NodeAttributes::for($node, ['href' => (string) ($props['href'] ?? '#')]),
             styles: $this->styleResolver->resolve($node, $definition, $context->breakpoint()),
             text: (string) ($props['text'] ?? ''),
             children: $children,

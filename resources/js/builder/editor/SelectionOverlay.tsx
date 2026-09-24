@@ -11,7 +11,7 @@ export function SelectionOverlay({ nodeId, label }: SelectionOverlayProps) {
             data-builder-selection-for={nodeId}
         >
             {label ? (
-                <span className="bg-primary text-primary-foreground absolute -top-5 left-0 rounded-t-md px-1.5 py-0.5 text-[10px] leading-4 font-medium shadow-sm">
+                <span className="bg-primary text-primary-foreground absolute -top-6 left-0 rounded-full px-2 py-0.5 text-[10px] leading-4 font-medium tracking-wide capitalize shadow-xs">
                     {label}
                 </span>
             ) : null}

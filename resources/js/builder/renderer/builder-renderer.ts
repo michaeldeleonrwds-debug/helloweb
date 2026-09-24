@@ -1,6 +1,7 @@
 import type { BuilderComponentNode, BuilderPageDocument } from '../document';
+import { readElementCustomCss, wrapElementCustomCss } from './element-custom-css';
 import type { RenderContext } from './render-context';
-import type { RenderResult } from './render-result';
+import { fragment, type RenderResult } from './render-result';
 import { RendererError } from './renderer-registry';
 
 export class BuilderRenderer {
@@ -20,8 +21,23 @@ export class BuilderRenderer {
         const definition = this.context.componentRegistry.get(node.type);
         const renderer = this.context.rendererRegistry.get(node.type);
         const children = node.children.map((child) => this.renderNode(child));
+        const result = renderer.render(node, definition, this.context, children);
+        const customCss = readElementCustomCss(node);
 
-        return renderer.render(node, definition, this.context, children);
+        if (customCss === null) {
+            return result;
+        }
+
+        return fragment([
+            {
+                tag: 'style',
+                attributes: {},
+                styles: {},
+                text: wrapElementCustomCss(node.id, customCss),
+                children: [],
+            },
+            result,
+        ]);
     }
 }
 

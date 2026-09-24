@@ -30,6 +30,8 @@ final class StyleResolver
             }
         }
 
+        $styles = (new EffectsComposer)->apply($styles);
+
         ksort($styles);
 
         return $styles;

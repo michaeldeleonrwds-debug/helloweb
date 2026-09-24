@@ -170,6 +170,47 @@ export class ComponentTreeEngine {
         return nextDocument;
     }
 
+    moveSibling(document: BuilderPageDocument, nodeId: string, direction: 'up' | 'down'): BuilderPageDocument {
+        const parent = this.findParent(document, nodeId);
+        if (!parent) throw TreeOperationError.invalidRootOperation('move');
+
+        const index = parent.children.findIndex((child) => child.id === nodeId);
+        const sibling = direction === 'up' ? parent.children[index - 1] : parent.children[index + 1];
+        if (!sibling) return document;
+
+        return this.move(document, nodeId, parent.id, {
+            mode: direction === 'up' ? 'before' : 'after',
+            siblingId: sibling.id,
+        });
+    }
+
+    paste(document: BuilderPageDocument, parentId: string, source: BuilderComponentNode): BuilderPageDocument {
+        const nextDocument = cloneDocument(document);
+        const existingIds = collectIds(nextDocument.root);
+        this.assertParentAccepts(nextDocument, parentId, source.type);
+        const pasted = this.duplicateNode(source, existingIds);
+        if (!insertIntoNode(nextDocument.root, parentId, pasted, { mode: 'append' })) {
+            throw TreeOperationError.parentNotFound(parentId);
+        }
+
+        return nextDocument;
+    }
+
+    updateMetadata(document: BuilderPageDocument, nodeId: string, patch: Record<string, JsonValue | undefined>): BuilderPageDocument {
+        const nextDocument = cloneDocument(document);
+        const node = findInNode(nextDocument.root, nodeId);
+        if (!node) throw TreeOperationError.nodeNotFound(nodeId);
+
+        node.metadata = { ...(node.metadata ?? {}) };
+        Object.entries(patch).forEach(([key, value]) => {
+            if (value === undefined) delete node.metadata?.[key];
+            else node.metadata![key] = structuredClone(value);
+        });
+
+        if (Object.keys(node.metadata).length === 0) delete node.metadata;
+        return nextDocument;
+    }
+
     duplicate(document: BuilderPageDocument, nodeId: string): BuilderPageDocument {
         const nextDocument = cloneDocument(document);
 
@@ -323,6 +364,10 @@ function assertValidProp(nodeType: string, name: string, value: BuilderRecord[st
 
     if (type === 'string' && typeof value !== 'string') {
         throw TreeOperationError.invalidProp(nodeType, name, 'expected a string.');
+    }
+
+    if (type === 'boolean' && typeof value !== 'boolean') {
+        throw TreeOperationError.invalidProp(nodeType, name, 'expected a boolean.');
     }
 
     if (type === 'integer' && (!Number.isInteger(value) || typeof value !== 'number')) {
