@@ -15,7 +15,7 @@ final readonly class ComponentTreeEngine
     public function __construct(
         private ComponentRegistry $registry,
         private NodeIdGenerator $idGenerator = new SequentialNodeIdGenerator,
-        private array $rootAllowedTypes = ['layout.section'],
+        private array $rootAllowedTypes = ['layout.section', 'layout.navbar'],
     ) {}
 
     /**

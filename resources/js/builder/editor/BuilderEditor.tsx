@@ -13,9 +13,11 @@ import { BuilderLeftPanel } from './BuilderLeftPanel';
 import { BuilderToolbar } from './BuilderToolbar';
 import { CodeEditor } from './CodeEditor';
 import { ComponentInspector } from './ComponentInspector';
+import { LayoutTemplatesModal, type LayoutTemplateItem, type LayoutTemplateType } from './LayoutTemplatesModal';
 import { MediaManager } from './MediaManager';
 import { PanelResizeHandle } from './PanelResizeHandle';
 import { UnsavedChangesModal } from './UnsavedChangesModal';
+import { ImportModal } from '@/components/ImportModal';
 import {
     clearEditorStyleOverride,
     duplicateEditorNode,
@@ -29,7 +31,7 @@ import {
     updateEditorStyles,
 } from './editor-operations';
 import { editorReducer } from './editor-reducer';
-import { createEditorState, getSelectedNode, setDocument } from './editor-state';
+import { createEditorState, findNode, getSelectedNode, setDocument } from './editor-state';
 import { useBuilderAutosave } from './use-builder-autosave';
 
 interface BuilderEditorProps {
@@ -42,6 +44,8 @@ interface BuilderEditorProps {
     mediaAssets?: MediaAsset[];
     websiteName?: string;
     pageName?: string;
+    pageStatus?: string;
+    pageSlug?: string;
 }
 
 export function BuilderEditor({
@@ -54,18 +58,28 @@ export function BuilderEditor({
     mediaAssets = [],
     websiteName = 'Website',
     pageName = 'Page',
+    pageStatus = 'draft',
+    pageSlug,
 }: BuilderEditorProps) {
     const registry = useMemo(() => createBuiltInComponentRegistry(), []);
     const engine = useMemo(() => new ComponentTreeEngine(registry), [registry]);
     const [state, dispatch] = useReducer(editorReducer, document, createEditorState);
+    const [currentStatus, setCurrentStatus] = useState<string>(pageStatus);
+    const [isPublishing, setIsPublishing] = useState(false);
+    const [publishNotice, setPublishNotice] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [availableMediaAssets, setAvailableMediaAssets] = useState(mediaAssets);
+    const [availableReusable, setAvailableReusable] = useState<ReusableComponentDefinition[]>(reusableDefinitions);
+    const [availableTemplates, setAvailableTemplates] = useState(templates);
     const [activeBreakpoint, setActiveBreakpoint] = useState<BuilderBreakpoint>(breakpoint);
     const [elementPickerParentId, setElementPickerParentId] = useState<string | null>(null);
     const [elementsOpen, setElementsOpen] = useState(true);
     const [inspectorOpen, setInspectorOpen] = useState(true);
-    const [mediaManagerTarget, setMediaManagerTarget] = useState<{ kind: 'image' | 'background'; nodeId: string } | null>(null);
+    const [mediaManagerTarget, setMediaManagerTarget] = useState<{ kind: string; nodeId: string; itemIndex?: number } | null>(null);
     const [codeSettingsOpen, setCodeSettingsOpen] = useState(false);
+    const [importModalOpen, setImportModalOpen] = useState(false);
+    const [layoutModalOpen, setLayoutModalOpen] = useState(false);
+    const [layoutModalType, setLayoutModalType] = useState<LayoutTemplateType>('columns');
     const [leftPanelWidth, setLeftPanelWidth] = useState(300);
     const [rightPanelWidth, setRightPanelWidth] = useState(340);
     const [zoomLevel, setZoomLevel] = useState<number>(80);
@@ -105,10 +119,57 @@ export function BuilderEditor({
     const handleSaveAndLeave = async () => {
         setIsLeavingWithSave(true);
         try {
-            await save.saveNow();
-            window.location.href = '/dashboard';
+            const saved = await save.saveNow();
+            if (saved) {
+                window.location.href = '/dashboard';
+            } else {
+                setIsLeavingWithSave(false);
+            }
         } catch {
             setIsLeavingWithSave(false);
+        }
+    };
+
+    const handlePublish = async () => {
+        if (!pageId || isPublishing) return;
+        setIsPublishing(true);
+        try {
+            // Cancel any pending debounced autosave to prevent race condition with publish
+            save.cancelPending();
+
+            const response = await fetch(route('builder.pages.publish', pageId), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
+                    'X-CSRF-TOKEN': window.document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? '',
+                },
+                body: JSON.stringify({ document: state.document }),
+            });
+
+            const data = (await response.json()) as {
+                message?: string;
+                save?: { status?: string; version?: number };
+                page?: { version?: number };
+            };
+
+            if (!response.ok) {
+                throw new Error(data.message ?? 'Failed to publish page.');
+            }
+
+            // Sync the saved version so autosave knows the document is saved at the latest DB version
+            const newVersion = data.save?.version ?? data.page?.version;
+            if (typeof newVersion === 'number') {
+                save.sync(state.document, newVersion);
+            }
+
+            setCurrentStatus('published');
+            setPublishNotice('Page published successfully! Public website is updated.');
+            setTimeout(() => setPublishNotice(null), 5000);
+        } catch (err) {
+            alert(err instanceof Error ? err.message : 'Unable to publish page.');
+        } finally {
+            setIsPublishing(false);
         }
     };
 
@@ -119,6 +180,52 @@ export function BuilderEditor({
         } else {
             setZoomLevel(100);
         }
+    };
+
+    const handleSelectLayoutTemplate = (template: LayoutTemplateItem) => {
+        run(() => {
+            let currentDoc = state.document;
+            let targetSectionId: string | null = null;
+            if (
+                selectedNode &&
+                (selectedNode.type === 'layout.section' ||
+                    engine.findParent(currentDoc, selectedNode.id)?.type === 'layout.section')
+            ) {
+                targetSectionId =
+                    selectedNode.type === 'layout.section'
+                        ? selectedNode.id
+                        : engine.findParent(currentDoc, selectedNode.id)!.id;
+            } else {
+                const firstSection = currentDoc.root.children.find((c) => c.type === 'layout.section');
+                if (firstSection) {
+                    targetSectionId = firstSection.id;
+                } else {
+                    currentDoc = engine.insertComponent(currentDoc, currentDoc.root.id, 'layout.section');
+                    const newSection = currentDoc.root.children[currentDoc.root.children.length - 1];
+                    targetSectionId = newSection.id;
+                }
+            }
+
+            const existingIds = new Set<string>();
+            const collect = (n: BuilderComponentNode) => {
+                existingIds.add(n.id);
+                n.children.forEach(collect);
+            };
+            collect(currentDoc.root);
+            let count = 1;
+            const genId = (t: string) => {
+                let candidate = `${t.replace('.', '_')}_${Date.now()}_${count++}`;
+                while (existingIds.has(candidate)) {
+                    candidate = `${t.replace('.', '_')}_${Date.now()}_${count++}`;
+                }
+                existingIds.add(candidate);
+                return candidate;
+            };
+
+            const templateNode = template.buildNode(genId);
+            const nextDoc = engine.insert(currentDoc, targetSectionId, templateNode);
+            return setDocument(state, nextDoc);
+        });
     };
     const commitDocument = (nextState: ReturnType<typeof createEditorState>) => {
         undoStack.current.push(state.document);
@@ -146,11 +253,57 @@ export function BuilderEditor({
         setAvailableMediaAssets(mediaAssets);
     }, [mediaAssets]);
 
+    useEffect(() => {
+        setAvailableReusable(reusableDefinitions);
+    }, [reusableDefinitions]);
+
+    useEffect(() => {
+        setAvailableTemplates(templates);
+    }, [templates]);
+
+    const refreshReusableDefinitions = async () => {
+        try {
+            const res = await fetch(route('builder.reusable.index'), {
+                headers: { Accept: 'application/json' },
+            });
+            if (res.ok) {
+                const data = await res.json();
+                if (Array.isArray(data.components)) {
+                    setAvailableReusable(data.components);
+                }
+            }
+        } catch {
+            // Silently fail if network issue
+        }
+    };
+
+    const refreshTemplateDefinitions = async () => {
+        try {
+            const res = await fetch(route('builder.templates.index'), {
+                headers: { Accept: 'application/json' },
+            });
+            if (res.ok) {
+                const data = await res.json();
+                if (Array.isArray(data.templates)) {
+                    setAvailableTemplates(
+                        data.templates.map((t: any) => ({
+                            id: t.id,
+                            name: t.name,
+                            description: t.description,
+                        }))
+                    );
+                }
+            }
+        } catch {
+            // Silently fail if network issue
+        }
+    };
+
     const selectedNode = getSelectedNode(state);
     const selectedDefinition = selectedNode ? registry.get(selectedNode.type) : null;
     const registeredDefinitions = registry
         .all()
-        .filter((definition) => !['layout.root', 'layout.container', 'reusable.instance'].includes(definition.type));
+        .filter((definition) => !['layout.root', 'layout.container', 'reusable.instance', 'layout.flex'].includes(definition.type));
     const insertionParentIdFor = (type: `${string}.${string}`) => findInsertionParentId(type, selectedNode?.id ?? state.document.root.id);
     const canMoveNode = (nodeId: string, direction: 'up' | 'down') => {
         const parent = engine.findParent(state.document, nodeId);
@@ -406,6 +559,10 @@ export function BuilderEditor({
                 onSave={save.saveNow}
                 onNavigateBack={handleNavigateBack}
                 onOpenCodeSettings={() => setCodeSettingsOpen(true)}
+                onOpenImport={() => setImportModalOpen(true)}
+                pageStatus={currentStatus}
+                onPublish={handlePublish}
+                isPublishing={isPublishing}
             />
             <div className="flex min-h-0 flex-1">
                 {elementsOpen ? (
@@ -416,13 +573,18 @@ export function BuilderEditor({
                         >
                             <BuilderLeftPanel
                                 definitions={registeredDefinitions}
-                                templates={templates}
-                                reusableDefinitions={reusableDefinitions}
+                                templates={availableTemplates}
+                                reusableDefinitions={availableReusable}
                                 mediaAssets={availableMediaAssets}
                                 onInsert={(type) => run(() => insertEditorComponent(state, engine, insertionParentIdFor(type), type))}
                                 onStartDrag={(type) => dispatch({ type: 'startComponentDrag', componentType: type })}
+                                onOpenLayoutTemplates={(type) => {
+                                    setLayoutModalType(type);
+                                    setLayoutModalOpen(true);
+                                }}
                                 onInsertTemplate={(id) => void insertPersistedDefinition('template', id)}
                                 onInsertReusable={(id) => void insertPersistedDefinition('reusable', id)}
+                                onOpenImport={() => setImportModalOpen(true)}
                                 onUploadMedia={uploadImage}
                                 document={state.document}
                                 registry={registry}
@@ -468,13 +630,13 @@ export function BuilderEditor({
                         dropTargetId={
                             state.dropTarget
                                 ? state.dropTarget.position.mode === 'append'
-                                    ? state.dropTarget.parentId
-                                    : state.dropTarget.position.siblingId
+                                ? state.dropTarget.parentId
+                                : state.dropTarget.position.siblingId
                                 : null
                         }
                         dropTargetMode={state.dropTarget?.position.mode ?? null}
                         zoom={zoomLevel}
-                        reusableDefinitions={reusableDefinitions}
+                        reusableDefinitions={availableReusable}
                         onInlineTextChange={(nodeId, text) => {
                             run(() => updateEditorProps(state, engine, nodeId, { text }));
                             dispatch({ type: 'endInlineEdit' });
@@ -518,8 +680,8 @@ export function BuilderEditor({
                             else if (node?.type === 'layout.section') run(() => insertEditorComponent(state, engine, nodeId, 'layout.row'));
                             else setElementPickerParentId(nodeId);
                         }}
-                        onOpenMediaManager={(target = 'image', nodeId = selectedNode?.id) => {
-                            if (nodeId) setMediaManagerTarget({ kind: target, nodeId });
+                        onOpenMediaManager={(target = 'image', nodeId = selectedNode?.id, payload?: any) => {
+                            if (nodeId) setMediaManagerTarget({ kind: target, nodeId, itemIndex: payload?.itemIndex });
                         }}
                         onEditNode={(nodeId) => dispatch({ type: 'startInlineEdit', nodeId })}
                     />
@@ -550,8 +712,8 @@ export function BuilderEditor({
                             onDuplicate={() => selectedNode && run(() => duplicateEditorNode(state, engine, selectedNode.id))}
                             onRemove={() => selectedNode && run(() => removeEditorNode(state, engine, selectedNode.id))}
                             onAddChild={(type) => selectedNode && run(() => insertEditorComponent(state, engine, selectedNode.id, type))}
-                            onOpenMediaManager={(target = 'image') => {
-                                if (selectedNode) setMediaManagerTarget({ kind: target, nodeId: selectedNode.id });
+                            onOpenMediaManager={(target = 'image', payload?: any) => {
+                                if (selectedNode) setMediaManagerTarget({ kind: target, nodeId: selectedNode.id, itemIndex: payload?.itemIndex });
                             }}
                         />
                     </>
@@ -584,7 +746,12 @@ export function BuilderEditor({
                                         type="button"
                                         className="border-border hover:border-primary/50 hover:bg-primary/5 text-foreground group flex items-center justify-between rounded-xl border p-2.5 text-left text-xs font-medium transition"
                                         onClick={() => {
-                                            run(() => insertEditorComponent(state, engine, elementPickerParentId, definition.type));
+                                            const actualParent = findInsertionParentId(definition.type, elementPickerParentId);
+                                            // Navbar should be prepended at the top of root's children
+                                            const position = definition.type === 'layout.navbar' && state.document.root.children.length > 0
+                                                ? { mode: 'before' as const, siblingId: state.document.root.children[0].id }
+                                                : { mode: 'append' as const };
+                                            run(() => insertEditorComponent(state, engine, actualParent, definition.type, position));
                                             setElementPickerParentId(null);
                                         }}
                                     >
@@ -601,16 +768,60 @@ export function BuilderEditor({
                     assets={availableMediaAssets}
                     onUpload={uploadImage}
                     onSelect={(asset) => {
+                        const url = String(asset.url ?? '');
+                        const alt = String(asset.altText ?? asset.originalFilename ?? '');
+
                         if (mediaManagerTarget.kind === 'background') {
                             run(() =>
                                 updateEditorStyles(state, engine, mediaManagerTarget.nodeId, activeBreakpoint, {
                                     backgroundType: 'image',
-                                    backgroundImage: String(asset.url ?? ''),
+                                    backgroundImage: url,
                                 }),
                             );
+                        } else if (mediaManagerTarget.kind === 'brandLogo') {
+                            run(() =>
+                                updateEditorProps(state, engine, mediaManagerTarget.nodeId, {
+                                    brandLogo: url,
+                                }),
+                            );
+                        } else if (mediaManagerTarget.kind === 'imagefeature') {
+                            run(() =>
+                                updateEditorProps(state, engine, mediaManagerTarget.nodeId, {
+                                    imageSrc: url,
+                                    imageAlt: alt,
+                                }),
+                            );
+                        } else if (mediaManagerTarget.kind === 'gallery') {
+                            const node = findNode(state.document, mediaManagerTarget.nodeId);
+                            const currentImages = Array.isArray(node?.props?.images) ? [...(node.props.images as any[])] : [];
+                            currentImages.push({
+                                src: url,
+                                caption: alt || 'Gallery Image',
+                            });
+                            run(() =>
+                                updateEditorProps(state, engine, mediaManagerTarget.nodeId, {
+                                    images: currentImages,
+                                }),
+                            );
+                        } else if (mediaManagerTarget.kind === 'gallery-replace' && typeof mediaManagerTarget.itemIndex === 'number') {
+                            const node = findNode(state.document, mediaManagerTarget.nodeId);
+                            const currentImages = Array.isArray(node?.props?.images) ? [...(node.props.images as any[])] : [];
+                            const idx = mediaManagerTarget.itemIndex;
+                            if (currentImages[idx]) {
+                                currentImages[idx] = {
+                                    ...currentImages[idx],
+                                    src: url,
+                                    caption: currentImages[idx].caption || alt,
+                                };
+                                run(() =>
+                                    updateEditorProps(state, engine, mediaManagerTarget.nodeId, {
+                                        images: currentImages,
+                                    }),
+                                );
+                            }
                         } else {
                             run(() =>
-                                updateEditorProps(state, engine, mediaManagerTarget.nodeId, { src: asset.url ?? '', alt: asset.altText ?? '' }),
+                                updateEditorProps(state, engine, mediaManagerTarget.nodeId, { src: url, alt }),
                             );
                         }
                         setMediaManagerTarget(null);
@@ -625,6 +836,24 @@ export function BuilderEditor({
                     onClose={() => setCodeSettingsOpen(false)}
                 />
             ) : null}
+            <LayoutTemplatesModal
+                open={layoutModalOpen}
+                initialType={layoutModalType}
+                onClose={() => setLayoutModalOpen(false)}
+                onSelectTemplate={handleSelectLayoutTemplate}
+            />
+            <ImportModal
+                open={importModalOpen}
+                onOpenChange={setImportModalOpen}
+                onSuccess={(result) => {
+                    if (result.type === 'component') {
+                        void refreshReusableDefinitions();
+                        void insertPersistedDefinition('reusable', result.id);
+                    } else if (result.type === 'template') {
+                        void refreshTemplateDefinitions();
+                    }
+                }}
+            />
             <UnsavedChangesModal
                 open={unsavedLeaveDialogOpen}
                 onClose={() => setUnsavedLeaveDialogOpen(false)}
@@ -632,10 +861,31 @@ export function BuilderEditor({
                 onSaveAndLeave={handleSaveAndLeave}
                 isSaving={isLeavingWithSave || save.status === 'saving'}
             />
+            {publishNotice ? (
+                <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 rounded-2xl bg-neutral-900 px-4 py-3 text-xs font-semibold text-white shadow-2xl border border-neutral-800 animate-in fade-in slide-in-from-bottom-2">
+                    <span className="flex size-2 rounded-full bg-emerald-400 animate-pulse" />
+                    <span>{publishNotice}</span>
+                    {pageSlug ? (
+                        <a
+                            href={pageSlug === 'home' ? '/' : `/${pageSlug}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="underline text-emerald-400 hover:text-emerald-300 ml-1 font-bold"
+                        >
+                            View Live ↗
+                        </a>
+                    ) : null}
+                </div>
+            ) : null}
         </div>
     );
 
     function findInsertionParentId(type: `${string}.${string}`, preferredParentId: string): string {
+        // Navbar must always be a direct child of root, never inside a section
+        if (type === 'layout.navbar') {
+            return state.document.root.id;
+        }
+
         if (engine.canAcceptChild(state.document, preferredParentId, type)) {
             return preferredParentId;
         }

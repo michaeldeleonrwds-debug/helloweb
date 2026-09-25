@@ -45,7 +45,7 @@ interface CanvasNodeProps {
     isNodeFullWidth?: (nodeId: string) => boolean;
     onAddColumn?: (nodeId: string) => void;
     onAddElement?: (nodeId: string) => void;
-    onOpenMediaManager?: (target?: 'image' | 'background', nodeId?: string) => void;
+    onOpenMediaManager?: (target?: string, nodeId?: string, payload?: any) => void;
     onEditNode?: (nodeId: string) => void;
 }
 
@@ -280,6 +280,17 @@ export function CanvasNode({
         style,
         onClick: nodeId
             ? (event: MouseEvent<HTMLElement>) => {
+                  const target = event.target as HTMLElement | null;
+                  const navToggle = target?.closest<HTMLElement>('[data-hw-nav-toggle]');
+                  if (navToggle) {
+                      const header = navToggle.closest('header, nav, [data-builder-type="layout.navbar"]');
+                      const menu = header?.querySelector<HTMLElement>('[data-hw-nav-menu]');
+                      if (menu) {
+                          menu.classList.toggle('is-open');
+                          const isOpen = menu.classList.contains('is-open');
+                          menu.style.display = isOpen ? 'flex' : 'none';
+                      }
+                  }
                   event.stopPropagation();
                   onSelectNode(nodeId);
               }
@@ -329,11 +340,12 @@ export function CanvasNode({
         onDragEnd: onEndDrag,
     };
 
-    if (result.tag === 'img') {
+    if (result.tag === 'img' || result.tag === 'hr') {
+        const isInline = result.tag === 'img';
         return createElement(
             'div',
-            { ...elementProps, style: { position: 'relative', display: 'inline-block' } },
-            createElement('img', { ...attributes, style }),
+            { ...elementProps, style: { position: 'relative', display: isInline ? 'inline-block' : 'block', width: isInline ? undefined : '100%' } },
+            createElement(result.tag, { ...attributes, style }),
             ...overlays,
         );
     }
@@ -343,7 +355,13 @@ export function CanvasNode({
             {overlay}
         </span>
     ));
-    const htmlChild = result.html ? <span key="builder-html-content" dangerouslySetInnerHTML={{ __html: result.html }} /> : null;
+    const htmlChild = result.html ? (
+        result.tag === 'p' ? (
+            <span key="builder-html-content" dangerouslySetInnerHTML={{ __html: result.html }} />
+        ) : (
+            <div key="builder-html-content" className="w-full contents" dangerouslySetInnerHTML={{ __html: result.html }} />
+        )
+    ) : null;
     const codePlaceholder = showCodePlaceholder ? (
         <span
             key="builder-code-placeholder"
@@ -356,7 +374,19 @@ export function CanvasNode({
             Custom code
         </span>
     ) : null;
-    const elementChildren = [htmlChild ?? result.text, ...children, ...overlayChildren, codePlaceholder];
+    const emptySectionGuide =
+        componentType === 'layout.section' && children.length === 0 ? (
+            <span
+                key="builder-empty-section-guide"
+                aria-hidden="true"
+                contentEditable={false}
+                suppressContentEditableWarning
+                className="pointer-events-none flex min-h-[50px] w-full items-center justify-center rounded border border-dashed border-slate-300 bg-slate-50/60 p-2 text-center text-xs font-medium text-slate-400"
+            >
+                Empty Section — Drag elements here or click to add a Row
+            </span>
+        ) : null;
+    const elementChildren = [htmlChild ?? result.text, ...children, ...overlayChildren, codePlaceholder, emptySectionGuide];
 
     return createElement(result.tag, elementProps, ...elementChildren);
 

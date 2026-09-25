@@ -179,7 +179,7 @@ class BuilderRendererTest extends TestCase
         $html = $this->renderer('tablet')->renderDocument($this->document())->toHtml();
 
         $this->assertSame(
-            '<section data-builder-id="node_section_1" data-builder-type="layout.section" style="background-color: white; display: block; margin: 0 auto; padding: 10px; padding-bottom: 10px; padding-left: 0px; padding-right: 0px; padding-top: 3rem; position: relative; width: 100%"><div data-builder-id="node_container_1" data-builder-type="layout.container" style="background-color: transparent; display: block; margin: 0 auto; max-width: 64rem; padding: 10px; width: 100%"><h2 data-builder-id="node_heading_1" data-builder-type="content.heading" style="font-size: 2.5rem">Hello builder</h2></div></section>',
+            '<section data-builder-id="node_section_1" data-builder-type="layout.section" style="background-color: transparent; display: block; margin: 0 auto; min-height: 50px; padding: 10px; padding-bottom: 10px; padding-left: 0px; padding-right: 0px; padding-top: 3rem; position: relative; width: 100%"><div data-builder-id="node_container_1" data-builder-type="layout.container" style="background-color: transparent; display: block; margin: 0 auto; max-width: 64rem; padding: 10px; width: 100%"><h2 data-builder-id="node_heading_1" data-builder-type="content.heading" style="font-size: 2.5rem">Hello builder</h2></div></section>',
             $html,
         );
     }
@@ -289,6 +289,24 @@ class BuilderRendererTest extends TestCase
         $this->assertStringNotContainsString('glass-refraction', $html);
     }
 
+    public function test_rgba_background_color_with_blur_renders_transparent_background(): void
+    {
+        $data = $this->documentArray();
+        $data['root']['children'][0]['styles']['desktop'] = array_merge(
+            $data['root']['children'][0]['styles']['desktop'],
+            [
+                'backgroundColor' => 'rgba(255, 255, 255, 0.55)',
+                'backgroundBlur' => 8,
+            ],
+        );
+
+        $html = $this->renderer()->renderDocument(BuilderDocument::fromArray($data))->toHtml();
+
+        $this->assertStringContainsString('background-color: rgba(255, 255, 255, 0.55)', $html);
+        $this->assertStringContainsString('backdrop-filter: blur(8px)', $html);
+        $this->assertStringNotContainsString('background-color: white', $html);
+    }
+
     public function test_inner_and_glass_shadow_layers_chain_with_existing_box_shadow(): void
     {
         $data = $this->documentArray();
@@ -367,7 +385,7 @@ class BuilderRendererTest extends TestCase
         $html = $this->renderer()->renderDocument(BuilderDocument::fromArray($data))->toHtml();
 
         $this->assertStringContainsString('display: contents', $html);
-        $this->assertStringNotContainsString('min-height', $html);
+        $this->assertStringNotContainsString('min-height: 56px', $html);
 
         $classed = $this->documentArray();
         $classed['root']['children'][0]['children'][0]['children'][] = [

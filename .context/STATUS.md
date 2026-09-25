@@ -1,20 +1,177 @@
 # Project Status
 
-Updated: 2026-09-25
+Updated: 2026-09-26
 Agent: opencode
-Phase: Custom Code element (D-024), Figma-style effects controls (D-023)
+Phase: Search & Delete Controls Across Resource Management Pages (D-044)
 Status: complete
 
 ## Current Objective
 
-The `code.customcss` palette element is removed and replaced by `code.customcode` ("Custom Code"): raw HTML with `<style>` and `<script>` support, rendered verbatim through the `html` channel, executed on the public site, inert in the editor canvas, with load-time migration for legacy node types. Figma-style effects controls (D-023) remain complete. The next exact milestone remains PHASE 10 — PREVIEW AND PUBLISHING.
+All admin resource management screens (Reusable Blocks, Templates, Media Assets, Pages, Websites) now feature real-time search with clear buttons (`X`) and safe delete/archive actions with confirmation prompts. Next exact milestone remains PHASE 10 — PREVIEW AND PUBLISHING.
 
 ## Completed
 
+- Comprehensive Search & Delete Controls Across Admin Resources (D-044):
+  - **Reusable Blocks (`resources/js/pages/reusable-components/index.tsx`)**:
+    - Added one-click clear button (`X`) inside the search input.
+    - Added `Trash2` archive/delete action button on each component card header with browser confirmation prompt.
+    - Integrated with `builder.reusable.archive` endpoint with real-time Inertia partial reload (`only: ['components']`).
+  - **Templates (`resources/js/pages/templates/index.tsx`)**:
+    - Added one-click clear button (`X`) inside the search input.
+    - Added `Trash2` archive/delete action button in the template card footer with confirmation prompt.
+    - Integrated with `builder.templates.archive` endpoint with real-time Inertia partial reload (`only: ['templates']`).
+  - **Media Library (`resources/js/pages/media/index.tsx`)**:
+    - Added one-click clear button (`X`) inside the search bar.
+    - Added `Trash2` delete action buttons on the image thumbnail hover overlay and in the card metadata action row.
+    - Integrated with `builder.media.archive` endpoint with real-time Inertia partial reload (`only: ['assets']`).
+  - **Pages & Websites (`resources/js/pages/pages/index.tsx`, `resources/js/pages/websites/index.tsx`)**:
+    - Added one-click clear button (`X`) inside the search inputs for smooth query resetting.
+  - Verification: `npm run build` succeeds (6.85s); all 92 PHP tests pass (606 assertions).
+
+- Visual Builder Navigation Streamlining & Reusable Component Sync (D-043):
+  - Streamlined Launch Builder Triggers:
+    - Removed redundant bottom "Visual Studio" promo card from `resources/js/components/app-sidebar.tsx`.
+    - Removed redundant "Sparkles" `/builder` button from `resources/js/components/app-sidebar-header.tsx`.
+    - Cleaned up navigation flow so the user has an intentional, single primary action button at the top of the sidebar.
+  - In-Builder Reusable Component Real-Time Synchronization:
+    - In `resources/js/builder/editor/BuilderEditor.tsx`, managed `availableReusable` and `availableTemplates` in active component state with automatic prop synchronization.
+    - Added `refreshReusableDefinitions()` and `refreshTemplateDefinitions()` that query endpoints directly upon import completion.
+    - Updated `ImportModal.tsx` and `BuilderEditor.tsx` `onSuccess` hook to dynamically fetch and populate the left panel library without requiring a browser refresh or canvas unmount.
+  - Verification: `npm run build` succeeds cleanly in 4.34s; all 92 PHP tests pass (606 assertions).
+
+- Settings UI Redesign, Section Structure & Complete Dark Mode Fix (D-042):
+  - Settings Layout (`layout.tsx`):
+    - Redesigned with category groups (`ACCOUNT`, `WEBSITES & DEFAULTS`), expandable structure ready for future extensions.
+    - Each menu item features dedicated icon containers (`bg-muted/70` / `bg-primary`), item title, description sub-label, and active indicators.
+    - Fully dark-mode themed using `--card`, `--border`, `--foreground`, and `--muted-foreground` instead of hardcoded white/neutral.
+  - Profile Settings (`profile.tsx`):
+    - Added user avatar badge chip displaying user initials/avatar and email.
+    - Added input field icons (`User`, `Mail`) and rounded-xl input controls.
+    - Animated green check save confirmation.
+  - Password & Security (`password.tsx`):
+    - Added "Encrypted Storage" status badge.
+    - Added security icons (`KeyRound`, `Lock`) and styled password inputs with full dark mode contrast.
+  - Website Settings (`website.tsx`):
+    - Added "Live Configuration" badge.
+    - Added field icons for site name, browser tab title, description, favicon, and homepage.
+    - Live image preview for favicon URL.
+    - Modern styled select element that renders dark popover options in dark mode.
+  - Danger Zone / Delete Account (`delete-user.tsx`):
+    - Replaced bright pink/red container with a theme-aware destructive alert card (`border-destructive/20 bg-destructive/5 dark:bg-destructive/10`).
+    - Added `AlertTriangle` warning badge, clear typography, and rounded dialog modal.
+  - Verification: `npm run build` succeeds (4.10s); all settings tests pass; all 92 PHP tests pass (606 assertions).
+
+- External Design Import System (D-041):
+  - Architecture: Strict distinction between ONLY TWO import types (`Component` and `Template`).
+  - Backend Ingestion Pipeline (`app/Builder/Import/`):
+    - `ZipPackageExtractor`: Safely extracts archives with directory traversal protection, indexing HTML, CSS, JS, and image/media assets.
+    - `DependencyDetector`: Identifies and deduplicates Google Fonts, Font Awesome, Swiper, GSAP, etc., into page `globalHeadCode` or `globalFooterCode`.
+    - `CssScoper`: Isolates stylesheets to `[data-hw-component="{scopeId}"]` and rewrites asset `url(...)` to stored media URLs.
+    - `HtmlDomNormalizer`: Converts DOM nodes into authentic `BuilderComponentNode` document trees (sections, containers, headings, paragraphs, buttons, links, images, cards), extracts editable props, and formats styles according to framework schema.
+    - `DesignImportService`: Ingests assets into `MediaAsset`, persists components to `ReusableComponent` and templates to `Template`.
+    - `ImportController`: Exposes `builder.import.analyze`, `builder.import.component`, and `builder.import.template`.
+  - Frontend Modal & 5 User-Facing Entry Points:
+    - Unified `ImportModal.tsx` with type selector, drag-drop ZIP uploader, analysis inspection, editable properties count, external scripts check, and execution progress.
+    - Visual Builder Top Toolbar: Added "Import" button with `UploadCloud` icon.
+    - Visual Builder Left Library Panel: Added "Import Component / Template" dashed upload card.
+    - Main Navigation Sidebar (`app-sidebar.tsx`): Added dedicated "Import" menu item.
+    - Templates Index (`/templates`): Added "Import Template" button.
+    - Reusable Blocks Index (`/reusable-components`): Added "Import Component" button.
+    - Dashboard Overview (`/dashboard`): Added "Quick Import" header action button.
+  - Settings Appearance Cleanup:
+    - Removed redundant "Appearance" tab from `resources/js/layouts/settings/layout.tsx` sidebar navigation.
+  - Verification: `npm run build` succeeds cleanly; `tests/Feature/Builder/DesignImportTest.php` passing; all 92 PHP tests pass (606 assertions). All changes remain local.
+
+- Builder canvas breakpoint-driven navbar and image-feature responsiveness (D-039):
+  - Root cause: `navbarRenderer` and `imageFeatureRenderer` gated visibility/structure behind `@media (max-width: 768px)`, which evaluates against the builder browser window (always wide), so the 375px Mobile canvas still rendered desktop navigation and side-by-side image features; only preview/published showed the mobile layout.
+  - Fix: both renderers now branch on `context.breakpoint` (the framework responsiveness model, matching gallery from D-036) — at mobile, desktop links and header CTA get `display: none`, the hamburger gets `display: inline-flex`, and image-feature forces `flex-direction: column` with `gap: 24px`; the `@media` blocks are removed from both (gallery keeps its scoped public-site media queries per D-036).
+  - Drawer behavior unchanged: `CanvasNode.tsx` and `public-site.tsx` already toggle the menu by writing `menu.style.display` directly on hamburger click; the retained `.hw-navbar-mobile-menu.is-open` rule is now unconditional (non-viewport).
+  - Intentional alignment: preview at exactly 768px (iPad portrait) now shows desktop/tablet navigation instead of the hamburger, matching what the builder Tablet canvas already showed.
+  - Cleanup: removed dead `renderLucideSvg` (defined, never called — leftover from earlier uncommitted icon work) so `built-ins.ts` lints clean.
+  - Verification: `npx tsc --noEmit` clean; `npm run test:builder-editor` passed (new mobile/tablet/desktop navbar markup assertions and image-feature `row-reverse` vs `column` stacking assertions, all asserting no `@media` output); changed files lint clean; `npm run build` succeeded; all 92 PHP tests passed (592 assertions; 57 pre-existing PDO deprecations) — no PHP change needed since public pages render through TS only.
+
+- Background Transparency Color Editing with `react-best-gradient-color-picker` (D-038):
+  - Alpha is stored inside the existing `backgroundColor` string as `rgba(r, g, b, a)` — no new style key and no TS/PHP schema changes; both validators already accepted `rgba(...)`.
+  - New `BackgroundColorField` opens the picker from a swatch trigger (checkerboard chip + hex + alpha %) in a new Radix popover primitive (`components/ui/popover.tsx`); the picker is lazy-loaded so it never executes during SSR editor tests and splits into its own async Vite chunk.
+  - Advanced-background components bind solid/image/video modes to `backgroundColor` and gradient mode to `backgroundGradient` (the raw gradient text input is gone); the picker's internal Solid/Gradient buttons stay hidden so the Background type select remains the single mode controller.
+  - Shared helpers `parseColor` / `toRgbaString` / `toHexColor` / `alphaPercent` / `isGradientValue` added to `style.ts`; recent-colors moved to `recent-colors.ts` and extended to remember `rgba(...)`; fixed `normalizeColor` collapsing rgba to `#000000` and `normalizeHexInput` prefixing `#` onto `rgba(...)`.
+  - Picker dark mode pinned to the app `.dark` class (the library otherwise follows `prefers-color-scheme`).
+  - Verification: `npx tsc --noEmit` clean; `npm run test:builder-editor` passed (helper round-trips, rgba/gradient validation, navbar rgba + backdrop-blur render assertions); `npm run build` succeeded with the picker in a lazy chunk; all 92 PHP tests passed including the new rgba background + blur render test. Repo-wide `npm run lint` still reports 45 pre-existing problems that also fail at HEAD; every changed file lints clean. All changes remain local.
+
+
+- Document Autosave Conflict (409) & Publish Race Condition Fix (D-037):
+  - Root Cause:
+    - In `BuilderEditor.tsx`, `handlePublish` previously called `await save.saveNow()` followed immediately by `fetch(route('builder.pages.publish', pageId))`. Because `saveNow` used `schedule(0)` without returning a promise, `publish` ran concurrently with the scheduled `PATCH` request.
+    - The backend `publishPage` saved the draft and incremented `document_version` from $N$ to $N+1$. When the concurrent `PATCH` arrived with `expected_version: N`, `saveDraft` correctly rejected it with `StaleDocumentException` (409 Conflict).
+    - `use-builder-autosave.ts` did not capture the latest version returned in the 409 error payload (`payload.save.version`), causing subsequent `Retry` clicks to continue sending the stale expected version, locking the editor into a conflict loop.
+  - Solution:
+    - Updated `useBuilderAutosave` to synchronize `versionRef.current` and state `version` to `payload.save.version` whenever a 409 Conflict occurs.
+    - Updated `retry()` to immediately re-flush with the updated server version, clearing the error on retry.
+    - Made `flush()` and `saveNow()` return a `Promise<boolean>` that properly awaits in-flight saves before resolving, and added `cancelPending()` to cancel debounced timers.
+    - Updated `BuilderEditor.tsx`: `handlePublish` cancels pending autosaves, directly posts the document to `publish`, and uses `save.sync(state.document, newVersion)` with the returned version upon completion. `handleSaveAndLeave` awaits `saveNow()`.
+  - Verification: `npm run test:builder-editor` passed, `npm run build` succeeded in 3.71s, and all 90 PHP tests passed. All changes remain local.
+
+- Icon Pack System, Button/List/FeatureBox Icons, ImageFeature Layout & Card Container, and Gallery Device-Specific Columns (D-036):
+  - Icon Pack System (`icon-pack.ts`, `IconPicker.tsx`):
+    - Created an 80+ icon library categorized into Navigation, Actions, Communication, Business, Media, and UI with Lucide-compatible SVG vectors, searchable tags, and categories.
+    - Built an interactive `IconPicker` modal dialog featuring instant search, category pill filters, an icon grid with hover previews, and a dedicated "Custom Icon" tab supporting raw `<svg>` code and external image/icon URLs.
+  - Button Icons (`content.button`):
+    - Added `icon`, `customIcon`, `iconPosition` ('left' | 'right'), `iconSpacing`, `iconSize`, and `showIcon` to component prop schema in PHP (`BuiltInComponentDefinitions.php`) and TypeScript (`built-ins.ts`).
+    - Added dedicated Button inspector controls with Button Text, Link URL, `IconPicker`, Left/Right position toggle, and Size selection.
+    - Updated `buttonRenderer` in `built-ins.ts` and `LinkRenderer.php` to render inline-flex icons and text with clean spacing.
+  - List Icons (`content.list`):
+    - Added `listType` support for `'icon'` alongside `'check'`, `'bullet'`, and `'number'`. Added `icon`, `customIcon`, `iconColor`, and `iconSize` to schema.
+    - Integrated `IconPicker` into List inspector controls and updated `listRenderer` to render custom icons with customizable color and size.
+  - Feature Box (`marketing.blurb`):
+    - Upgraded Feature Box with `IconPicker` supporting all 80+ icons and custom SVG/URLs. Added `iconPosition` ('top' | 'left') and `iconShape` ('rounded' | 'circle' | 'square' | 'none') controls.
+  - Image Feature (`marketing.imagefeature`):
+    - Expanded `imagePosition` to support `left`, `right`, `top`, and `bottom` with segmented selector buttons in the inspector.
+    - Added "Display as Card Container" toggle (`cardStyle`) applying elegant card border, background, rounded corners, padding, and subtle shadow.
+    - Added show/hide toggle switches and editable inputs for each sub-element (Eyebrow / Badge, Heading, Description / Paragraph, and CTA Button) allowing users to easily hide or clear any element.
+  - Responsive Gallery Settings (`media.gallery`):
+    - Added device-specific columns (`columnsDesktop`, `columnsTablet`, `columnsMobile`) and gap (`gapDesktop`, `gapTablet`, `gapMobile`) to schema.
+    - Built responsive device grid controls in `ComponentInspector` that highlight the active device breakpoint (`desktop`, `tablet`, `mobile`).
+    - Updated `galleryRenderer` to use active breakpoint values in the builder canvas and scoped media queries (`@media (max-width: 1024px)` and `@media (max-width: 640px)`) on the public site so device changes don't overwrite user settings.
+  - All test suites run and verified passing: 90 PHP tests passed (588 assertions), TypeScript check (`npx tsc --noEmit`) passed with 0 errors, builder editor tests passed, and Vite production build (`npm run build`) succeeded in 3.63s. All changes remain strictly local per user instructions.
+
+- Document Validation, Media Manager Integration across All Image Elements, and Inspector Fixes (D-035):
+  - 422 Autosave Validation Fix (`BuiltInComponentDefinitions.php`, `built-ins.ts`, `DocumentPersistenceValidator.php`, `StyleSchema.php`, `style.ts`):
+    - Added missing `links` array schema to `layout.navbar`, `items` array schema to `content.list`, and `images` array schema to `media.gallery` across PHP and TypeScript component definitions to satisfy strict property validation in `DocumentPersistenceValidator`.
+    - Added directional border styles and colors (`borderTopStyle`, `borderRightStyle`, `borderBottomStyle`, `borderLeftStyle`, `borderTopColor`, `borderRightColor`, `borderBottomColor`, `borderLeftColor`) to `StyleSchema.php` and `style.ts`.
+    - Added shorthand expansion support for `borderStyle` and `borderColor` in `DocumentPersistenceValidator.php` and `validateStyles` in `style.ts` so all border side properties pass persistence validation.
+    - Updated `layout.root` allowed child types to include `layout.navbar` so website headers can be positioned directly at root level or within sections.
+    - Updated `marketing.blurb` and `content.list` `styleCapabilities` to include flex properties (`flexDirection`, `alignItems`, `justifyContent`, `gap`).
+  - Media Manager Integration Across All Image Elements (`BuilderEditor.tsx`, `ComponentInspector.tsx`, `NodeActionsOverlay.tsx`):
+    - Extended `mediaManagerTarget` to support `brandLogo`, `imagefeature`, `gallery`, and `gallery-replace`.
+    - Integrated "Choose from Media Manager" buttons and live preview thumbnails across `layout.navbar` (Brand Logo), `marketing.imagefeature` (Feature Image), `media.gallery` (both "+ Add from Media" and item-level replace), and any generic `src`/`imageSrc`/`brandLogo` inspector fields.
+    - Enhanced Canvas node action overlay to trigger media replacement for `marketing.imagefeature` nodes.
+  - Inspector Layout Overflow Fix (`ComponentInspector.tsx`):
+    - Fixed Navigation Links and Gallery image input overflow by applying `min-w-0 flex-1` and `shrink-0` to flex input rows, keeping all text inputs neatly within panel boundaries.
+  - All test suites run and verified passing: 90 PHP tests passed (588 assertions), TypeScript check (`npx tsc --noEmit`) passed with 0 errors, builder editor tests passed, and Vite production build (`npm run build`) succeeded in 3.46s. All changes remain strictly local per user instructions.
+
+- Void Element Safeguards, Pre-built Layout Templates Modal, and Essential Component Expansion (D-034):
+  - Void Element Safeguards (`CanvasNode.tsx`, `public-site.tsx`): `<hr>` (divider) and `<img>` (image) wrapped in container elements with overlay attachments to prevent React void element children errors. Non-paragraph HTML wrappers use `div.contents` rather than `span` to avoid hydration violations.
+  - Canvas Viewport Contrast & Empty Guide (`BuilderCanvas.tsx`, `CanvasNode.tsx`): Canvas background set to `#eaecf0` (`dark:bg-[#12151b]`), page container `min-h-fit`, bottom scroll padding added, and an empty section guide with dashed borders and instructions displayed for newly added sections. Removed `layout.flex` from the elements palette.
+  - Pre-built Layout Templates Modal (`LayoutTemplatesModal.tsx`, `BuilderEditor.tsx`, `BuilderLeftPanel.tsx`, `BuilderElementsPanel.tsx`): Clicking `Columns` or `Grid` opens a responsive template picker with 8 column layouts (50/50, 66/33, 33/66, 33/33/33, 25/50/25, 4-col, 5-col, 6-col) and 5 grid layouts (2x2 cards, 3-col cards, 4-col metrics, Bento 1+2, Bento banner+3). Safely creates or targets a section, generates collision-free node IDs, and commits through `run()` with undo/redo and autosave.
+  - 5 New Built-In Components (`built-ins.ts`, `BuiltInComponentDefinitions.php`, `built-ins.ts` (renderer), `BuiltInRendererDefinitions.php`, `component-icons.tsx`, `ComponentInspector.tsx`, `public-site.tsx`):
+    - `layout.navbar` (Header & Navigation): brand logo/name, desktop links, CTA button, mobile hamburger toggle, and collapsible drawer.
+    - `marketing.blurb` (Feature Box): icon badge (sparkles, zap, shield, star, heart, check, rocket, award), title, description, and link.
+    - `content.list` (Styled List): checkmarks, bullets, or numbers with custom colors and multi-line item editing.
+    - `marketing.imagefeature` (Image Feature): split layout with badge, heading, copy, CTA, and image (left/right position).
+    - `media.gallery` (Image Gallery): responsive CSS grid with interactive full-screen lightbox preview, captions, keyboard navigation, and close button.
+  - All test suites run and verified passing: 89 PHP tests passed (587 assertions), TypeScript check (`npx tsc --noEmit`) passed with 0 errors, builder editor tests passed, and Vite production build (`npm run build`) succeeded in 3.54s. All changes remain strictly local per user instructions.
+
+
+- Dynamic Homepage Routing, Draft vs. Published Separation, and Builder Publishing Controls (D-033):
+  - Dynamic Homepage & Public Routing (PublicSiteController.php, outes/web.php): configured GET / to dynamically load the website's designated homepage_page_id and render its published_document. Fallbacks safely handle unconfigured or deleted homepages. Added dynamic public slug routing (GET /{slug}) guarded with negative lookahead constraints against application routes.
+  - Draft vs. Published Separation (Page.php, 2026_09_25_000001_add_publishing_to_pages_table.php): separated draft_document from published_document, added published_at timestamp, and status helpers (isPublished(), hasUnpublishedChanges()). Builder edits affect draft only until published.
+  - Builder Publishing & Management Controls (BuilderToolbar.tsx, BuilderEditor.tsx, pages/index.tsx): added Save Draft and Publish action buttons and dynamic status indicator pill (Draft vs Published) to the Builder toolbar header without altering visual builder layout or inspector. Added Publish and Unpublish toggle actions and status badges to the Pages management UI (/pages).
+  - Auto-create & publish default Home page on website creation with clean HelloWeb hero and homepage_page_id link.
+  - All 89 PHP tests (including 9 end-to-end publishing tests) and frontend builder editor tests pass cleanly with zero regressions.
 - Clean light SaaS application redesign outside the visual builder (D-032):
   - Global CSS tokens & system (`resources/css/app.css`, `use-appearance.tsx`): soft off-white background (`#F4F6F9`), pure white card surfaces (`#FFFFFF`), deep forest green primary (`#134E35`), crisp borders, 18px radius (`rounded-[18px]`/`rounded-[22px]`), light mode default for non-builder application. Isolated `.builder-editor` styles completely.
-  - Global layout & shell (`app-sidebar.tsx`, `nav-main.tsx`, `app-sidebar-header.tsx`, `app-logo.tsx`, `user-info.tsx`): light white sidebar with `MENU` and `GENERAL` groupings, emerald icon badges, `+ Launch Builder` top CTA, bottom forest green Visual Studio banner, header search pill (`⌘ F`), quick builder button, notification bell with live ping, and user profile block.
-  - Rebuilt Dashboard (`dashboard.tsx`): deep forest green highlight KPI card with circular `↗` button, 3 clean white metric cards, weekly activity bar chart, spotlight project card with "Launch in Studio" action, clean projects list, recent pages table with direct 1-click builder edit, and circular SVG publishing health indicator.
+  - Global layout & shell (`app-sidebar.tsx`, `nav-main.tsx`, `app-sidebar-header.tsx`, `app-logo.tsx`, `user-info.tsx`): light white sidebar with `MENU` and `GENERAL` groupings, emerald icon badges, `+ Launch Builder` top CTA, bottom forest green Visual Studio banner, header search pill (`âŒ˜ F`), quick builder button, notification bell with live ping, and user profile block.
+  - Rebuilt Dashboard (`dashboard.tsx`): deep forest green highlight KPI card with circular `â†—` button, 3 clean white metric cards, weekly activity bar chart, spotlight project card with "Launch in Studio" action, clean projects list, recent pages table with direct 1-click builder edit, and circular SVG publishing health indicator.
   - Rebuilt Resource & Management pages (`websites/index.tsx`, `pages/index.tsx`, `templates/index.tsx`, `media/index.tsx`, `reusable-components/index.tsx`, `admin-resource-page.tsx`): clean white cards (`rounded-[20px]`/`rounded-[22px]`), filter pill tabs, search inputs, and live dot status badges.
   - Settings, Welcome & Auth: modernized `settings/layout.tsx`, `profile.tsx`, `password.tsx`, `website.tsx`, `welcome.tsx`, `auth-simple-layout.tsx`, and `auth-card-layout.tsx`.
   - Visual Builder boundary: 100% untouched. Builder components, canvas, inspector, toolbar, left panel, styles, and tests preserved with zero regressions.
@@ -112,10 +269,10 @@ The `code.customcss` palette element is removed and replaced by `code.customcode
 - Added 2 PHP renderer tests (`effects compose into shadow filter and backdrop filter`, `inner and glass shadow layers chain with existing box shadow`) and mirrored TS render assertions for composition output, backdrop chaining, sheen prepending, and virtual-key removal; ran Pint on the touched PHP files.
 - Replaced the `code.customcss` palette element with `code.customcode` (Custom Code, D-024): registry rename in TS/PHP (allowed-children lists included), `CustomCodeRenderer` (raw `html` channel inside a `<div>`, `CustomCssRenderer` deleted), inspector textarea relabeled "Custom code" with example placeholder and `spellCheck={false}`, load-time type migration in `DocumentPersistenceValidator`, and public-site `useExecutableHtml` mounting template content with `executableNode()` script re-creation so `<script>` tags execute on public pages while staying inert in the editor canvas.
 - Added 1 PHP raw-render test (`custom code element renders raw html style and script`), a new `DocumentPersistenceValidatorTest` (legacy migration + current-type validation), and TS render assertions for raw html/style/script passthrough with no escaping and no remaining `code.customcss` references.
-- Added builder-only clickability for Custom Code (D-024): `hasVisibleCodeContent()` in `render-result-utils.ts` detects code that renders nothing visible (empty/comments/style/script/meta only), and `CanvasNode` then applies an editor-only `min-height: 56px` plus a non-interactive dashed "Custom code" placeholder chip (`data-builder-code-placeholder`) so the element is selectable on canvas. Preview and production render through `public-site.tsx`/`PublicRenderNode`, which never emits the placeholder — verified by assertions that editor markup contains it and rendered HTML does not.
+- Added builder-only clickability for Custom Code (D-024): `hasVisibleCodeContent()` in `render-result-utils.ts` detects code that renders nothing visible (empty/comments/style/script/meta only), and `CanvasNode` then applies an editor-only `min-height: 56px` plus a non-interactive dashed "Custom code" placeholder chip (`data-builder-code-placeholder`) so the element is selectable on canvas. Preview and production render through `public-site.tsx`/`PublicRenderNode`, which never emits the placeholder â€” verified by assertions that editor markup contains it and rendered HTML does not.
 - Changed the `code.customcode` default `code` prop (TS + PHP registries) from `<div>Custom code</div>` to a comment-only `<style>` + `<script>` example, so a new element has no visible content leaking into preview; the editor chip covers clickability instead. Covered by a new PHP registry test and TS assertions (default has style/script, no div, is invisible per `hasVisibleCodeContent`, renders no "Custom code" text, and still shows the canvas chip).
 - Fixed Custom Code placement (D-024): added `code.customcode` to `childRules.allowedTypes` of `layout.section` and `layout.row` in both registries, so the element can be dragged/inserted/moved directly into a Section or Row, not only Column (and the existing Container/Stack/Flex/Grid/Columns/Card lists already included it). Since drag/drop, insert, move, and `DocumentPersistenceValidator` all read the registry, one definition change covers every path; covered by TS `canAcceptChild` + `engine.move` assertions and PHP registry/engine tests.
-- Made empty Custom Code layout-neutral in preview/production (D-024): both renderers now emit the wrapper `<div>` with `display: contents` when `hasVisibleCodeContent()` is false (helper moved to shared `builder/code-content.ts`, PHP mirror `App\Builder\Renderer\CodeContent`), removing the wrapper's box and its flex-gap slot (the extra height/width the user saw in preview) — unless the wrapper carries `metadata.className` or `metadata.customCss`, which keeps the box so author styles apply. The editor canvas forces `display: block` on the placeholder branch in `CanvasNode`, so the builder chip/min-height design is unchanged; verified by TS render + editor-markup assertions and a PHP `empty custom code wrapper is layout neutral` test.
+- Made empty Custom Code layout-neutral in preview/production (D-024): both renderers now emit the wrapper `<div>` with `display: contents` when `hasVisibleCodeContent()` is false (helper moved to shared `builder/code-content.ts`, PHP mirror `App\Builder\Renderer\CodeContent`), removing the wrapper's box and its flex-gap slot (the extra height/width the user saw in preview) â€” unless the wrapper carries `metadata.className` or `metadata.customCss`, which keeps the box so author styles apply. The editor canvas forces `display: block` on the placeholder branch in `CanvasNode`, so the builder chip/min-height design is unchanged; verified by TS render + editor-markup assertions and a PHP `empty custom code wrapper is layout neutral` test.
 
 ## In Progress
 
@@ -127,23 +284,23 @@ The `code.customcss` palette element is removed and replaced by `code.customcode
 
 ## Next Action
 
-Start PHASE 10 — PREVIEW AND PUBLISHING. Do not implement deployment, domains, plugins, themes, collaboration, or undo/redo outside that milestone.
+Start PHASE 10 â€” PREVIEW AND PUBLISHING. Do not implement deployment, domains, plugins, themes, collaboration, or undo/redo outside that milestone.
 
 ## Validation
 
-All checks below were actually run on 2026-09-25 for the CodeEditor, Inspector redesign, and Custom Code milestones:
+All checks below were actually run on 2026-09-26 for the D-039 responsiveness milestone (D-038 checks were run 2026-09-25):
 
-- Focused editor tests: pass - `npm run test:builder-editor` (editor markup, inspector empty state, and tree operations all pass)
-- Focused builder unit tests: pass - `php artisan test tests/Unit/Builder` - 89 tests, 234 assertions pass
+- Focused editor tests: pass - `npm run test:builder-editor` (includes new navbar mobile/tablet/desktop and image-feature stacking render assertions)
 - Typecheck: pass - `npx tsc --noEmit` (0 errors)
-- Lint: pass - `npm run lint` - 0 errors, 3 pre-existing `react-hooks/exhaustive-deps` warnings
-- Build: pass - `npm run build` (vite v6.1.1 built in 3.27s)
-- Full PHPUnit suite: not-run this session (earlier sessions reported pass at 115 tests)
+- Lint: pass on changed files (`resources/js/builder/renderer/built-ins.ts`, `scripts/builder-editor-tests.ts`) - repo-wide `npm run lint` still reports the 45 pre-existing problems that also fail at HEAD
+- Build: pass - `npm run build` (vite v6.1.1 built in 3.85s)
+- Full PHPUnit suite: pass - `php artisan test` - 92 tests, 592 assertions (57 pre-existing `PDO::MYSQL_ATTR_SSL_CA` deprecations)
 - Integration / E2E / Browser: not-run
 - Production: n/a
 
 ## Git
 
 Branch: master
-Latest verified commit: 5286197 - feat(builder): redesign left panel, inspector controls, and fix effect toggling
-Dirty files: none
+Latest verified commit: 8448998 - feat(ui): redesign entire HelloWeb non-builder application to clean light SaaS design system
+Dirty files: yes - all session work (D-038, D-039, and earlier milestones) remains uncommitted per the user's no-commit constraint
+

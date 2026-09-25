@@ -28,7 +28,16 @@ import { BuilderRenderer } from '../resources/js/builder/renderer/builder-render
 import { registerBuiltInRenderers } from '../resources/js/builder/renderer/built-ins';
 import { renderResultToHtml } from '../resources/js/builder/renderer/render-result';
 import { ComponentRendererRegistry } from '../resources/js/builder/renderer/renderer-registry';
-import { resolveStyles, serializeStyles } from '../resources/js/builder/style/style';
+import {
+    alphaPercent,
+    isGradientValue,
+    parseColor,
+    resolveStyles,
+    serializeStyles,
+    toHexColor,
+    toRgbaString,
+    validateStylePatch,
+} from '../resources/js/builder/style/style';
 
 const document = createSampleBuilderDocument();
 const registry = createBuiltInComponentRegistry();
@@ -111,6 +120,26 @@ const styledHeading = responsiveState.document.root.children[0].children[0].chil
 assert.equal(resolveStyles(styledHeading, registry.get('content.heading'), 'tablet').fontSize, '32px');
 assert.equal(resolveStyles(styledHeading, registry.get('content.heading'), 'mobile').fontSize, '22px');
 assert.equal(serializeStyles({ color: 'red', fontSize: '32px' }), 'color: red; font-size: 32px');
+
+assert.equal(toRgbaString('#fff'), 'rgba(255, 255, 255, 1)');
+assert.equal(toRgbaString('#ff0000'), 'rgba(255, 0, 0, 1)');
+assert.equal(toRgbaString('rgba(255, 255, 255, 0.55)'), 'rgba(255, 255, 255, 0.55)');
+assert.equal(toRgbaString('transparent'), 'rgba(0, 0, 0, 0)');
+assert.equal(toRgbaString('white'), 'rgba(255, 255, 255, 1)');
+assert.equal(toRgbaString('linear-gradient(90deg, #fff, #000)', 'rgba(0, 0, 0, 1)'), 'rgba(0, 0, 0, 1)');
+assert.equal(toHexColor('rgba(255, 0, 0, 0.5)'), '#ff0000');
+assert.equal(toHexColor('white'), '#ffffff');
+assert.equal(toHexColor('#ABC'), '#aabbcc');
+assert.equal(alphaPercent('#ff000080'), 50);
+assert.equal(alphaPercent('rgba(255,255,255,0.55)'), 55);
+assert.equal(alphaPercent('#ffffff'), 100);
+assert.equal(alphaPercent(undefined), 100);
+assert.deepEqual(parseColor('hsl(120, 100%, 50%)'), { r: 0, g: 255, b: 0, a: 1 });
+assert.deepEqual(parseColor('#ff000080'), { r: 255, g: 0, b: 0, a: 128 / 255 });
+assert.equal(parseColor('not-a-color'), null);
+assert.equal(isGradientValue('linear-gradient(90deg, #fff, #000)'), true);
+assert.equal(isGradientValue('radial-gradient(circle, #fff, #000)'), true);
+assert.equal(isGradientValue('rgba(0,0,0,1)'), false);
 assert.throws(() => engine.updateStyles(document, 'heading-1', 'desktop', { fontSize: 'banana' }));
 const backgroundImageState = updateEditorStyles(createEditorState(document), engine, 'section-1', 'desktop', {
     backgroundType: 'image',
@@ -118,6 +147,16 @@ const backgroundImageState = updateEditorStyles(createEditorState(document), eng
 });
 const backgroundSection = backgroundImageState.document.root.children[0];
 assert.equal(backgroundSection.styles.desktop?.backgroundImage, '/storage/builder/1/hero.png');
+
+assert.equal(
+    validateStylePatch(registry.get('layout.section'), { backgroundColor: 'rgba(255, 255, 255, 0.55)' }).backgroundColor,
+    'rgba(255, 255, 255, 0.55)',
+);
+assert.equal(
+    validateStylePatch(registry.get('layout.section'), { backgroundGradient: 'linear-gradient(135deg, rgba(17, 24, 39, 1), rgba(16, 185, 129, 1))' })
+        .backgroundGradient,
+    'linear-gradient(135deg, rgba(17, 24, 39, 1), rgba(16, 185, 129, 1))',
+);
 assert.equal(backgroundSection.styles.desktop?.backgroundType, 'image');
 const clearedState = clearEditorStyleOverride(responsiveState, engine, 'heading-1', 'mobile', 'fontSize');
 assert.equal(clearedState.document.root.children[0].children[0].children[0].children[0].styles.mobile, undefined);
@@ -191,6 +230,62 @@ const renderer = new BuilderRenderer({
 const rendered = renderer.renderDocument(document);
 const html = renderResultToHtml(rendered);
 assert.match(html, /Hello Builder/);
+
+const translucentNavbarDocument = structuredClone(document);
+translucentNavbarDocument.root.children[0].children.push({
+    id: 'navbar-1',
+    type: 'layout.navbar',
+    props: {},
+    styles: { desktop: { backgroundColor: 'rgba(255, 255, 255, 0.55)', backgroundBlur: 8 } },
+    children: [],
+    metadata: {},
+});
+const translucentNavbarHtml = renderResultToHtml(renderer.renderDocument(translucentNavbarDocument));
+assert.match(translucentNavbarHtml, /background-color: rgba\(255, 255, 255, 0\.55\)/);
+assert.match(translucentNavbarHtml, /backdrop-filter: blur\(8px\)/);
+
+const mobileRenderer = new BuilderRenderer({
+    breakpoint: 'mobile',
+    componentRegistry: createBuiltInComponentRegistry(),
+    rendererRegistry: registerBuiltInRenderers(new ComponentRendererRegistry()),
+});
+const tabletRenderer = new BuilderRenderer({
+    breakpoint: 'tablet',
+    componentRegistry: createBuiltInComponentRegistry(),
+    rendererRegistry: registerBuiltInRenderers(new ComponentRendererRegistry()),
+});
+
+assert.match(translucentNavbarHtml, /class="hw-navbar-desktop-links" style="display: flex;/);
+assert.match(translucentNavbarHtml, /class="hw-navbar-cta" style="display: inline-flex;/);
+assert.match(translucentNavbarHtml, /class="hw-navbar-toggle-btn"[^>]*style="display: none;/);
+assert.doesNotMatch(translucentNavbarHtml, /@media/);
+
+const tabletNavbarHtml = renderResultToHtml(tabletRenderer.renderDocument(translucentNavbarDocument));
+assert.match(tabletNavbarHtml, /class="hw-navbar-desktop-links" style="display: flex;/);
+assert.match(tabletNavbarHtml, /class="hw-navbar-toggle-btn"[^>]*style="display: none;/);
+assert.doesNotMatch(tabletNavbarHtml, /@media/);
+
+const mobileNavbarHtml = renderResultToHtml(mobileRenderer.renderDocument(translucentNavbarDocument));
+assert.match(mobileNavbarHtml, /class="hw-navbar-desktop-links" style="display: none;/);
+assert.match(mobileNavbarHtml, /class="hw-navbar-cta" style="display: none;/);
+assert.match(mobileNavbarHtml, /class="hw-navbar-toggle-btn"[^>]*style="display: inline-flex;/);
+assert.doesNotMatch(mobileNavbarHtml, /@media/);
+
+const imageFeatureDocument = structuredClone(document);
+imageFeatureDocument.root.children[0].children.push({
+    id: 'imagefeature-1',
+    type: 'marketing.imagefeature',
+    props: { imagePosition: 'left' },
+    styles: {},
+    children: [],
+    metadata: {},
+});
+const desktopImageFeatureHtml = renderResultToHtml(renderer.renderDocument(imageFeatureDocument));
+const mobileImageFeatureHtml = renderResultToHtml(mobileRenderer.renderDocument(imageFeatureDocument));
+assert.match(desktopImageFeatureHtml, /class="hw-image-feature[^>]*flex-direction: row-reverse;/);
+assert.match(mobileImageFeatureHtml, /class="hw-image-feature[^>]*flex-direction: column;/);
+assert.doesNotMatch(desktopImageFeatureHtml, /@media/);
+assert.doesNotMatch(mobileImageFeatureHtml, /@media/);
 
 const canvasMarkup = renderToStaticMarkup(createElement(BuilderCanvas, { document }));
 assert.match(canvasMarkup, /data-builder-canvas="true"/);
@@ -381,7 +476,7 @@ assert.doesNotMatch(invisibleCodePlaceholderMarkup, /display: contents/);
 
 const publicInvisibleCodeHtml = renderResultToHtml(renderer.renderDocument(invisibleCodeDocument));
 assert.doesNotMatch(publicInvisibleCodeHtml, /data-builder-code-placeholder/);
-assert.doesNotMatch(publicInvisibleCodeHtml, /min-height/);
+assert.doesNotMatch(publicInvisibleCodeHtml, /min-height:\s*56px/);
 assert.match(publicInvisibleCodeHtml, /display: contents/);
 
 const defaultCustomCode = String(registry.get('code.customcode').defaultProps.code);

@@ -87,8 +87,9 @@ final readonly class DocumentPersistenceValidator
         }
 
         if (($node['type'] ?? null) === 'layout.root') {
-            $node['children'] = array_map(function (array $child, int $index): array {
-                if (($child['type'] ?? null) === 'layout.section') {
+            $rootAllowed = $this->registry->get('layout.root')->childRules()['allowedTypes'] ?? ['layout.section'];
+            $node['children'] = array_map(function (array $child, int $index) use ($rootAllowed): array {
+                if (in_array($child['type'] ?? null, $rootAllowed, true)) {
                     return $child;
                 }
 
@@ -116,6 +117,28 @@ final readonly class DocumentPersistenceValidator
                 ];
             }, $children, array_keys($children));
 
+            // Hoist any navbars that were previously placed inside sections to root level
+            $hoisted = [];
+            foreach ($node['children'] as $child) {
+                if (($child['type'] ?? null) === 'layout.section') {
+                    $navbars = array_filter($child['children'] ?? [], fn (array $c): bool => ($c['type'] ?? null) === 'layout.navbar');
+                    $remaining = array_filter($child['children'] ?? [], fn (array $c): bool => ($c['type'] ?? null) !== 'layout.navbar');
+
+                    foreach ($navbars as $navbar) {
+                        $hoisted[] = $navbar;
+                    }
+
+                    if (count($remaining) > 0) {
+                        $child['children'] = array_values($remaining);
+                        $hoisted[] = $child;
+                    }
+                    // If section becomes empty after hoisting, drop it
+                } else {
+                    $hoisted[] = $child;
+                }
+            }
+            $node['children'] = $hoisted;
+
             return $node;
         }
 
@@ -125,7 +148,10 @@ final readonly class DocumentPersistenceValidator
             return $node;
         }
 
-        $allowedTypes = $this->registry->get('layout.section')->childRules()['allowedTypes'] ?? [];
+        $allowedTypes = array_values(array_diff(
+            $this->registry->get('layout.section')->childRules()['allowedTypes'] ?? [],
+            ['layout.container']
+        ));
 
         $node['children'] = array_map(function (array $child, int $index) use ($allowedTypes): array {
             $child = $this->unwrapMigrationWrapper($child, $allowedTypes);
@@ -225,7 +251,13 @@ final readonly class DocumentPersistenceValidator
                         ? in_array('padding', $definition->styleCapabilities(), true)
                         : (str_starts_with($key, 'border') && str_ends_with($key, 'Width')
                             ? in_array('borderWidth', $definition->styleCapabilities(), true)
-                            : str_starts_with($key, 'border') && str_ends_with($key, 'Radius') && in_array('borderRadius', $definition->styleCapabilities(), true)));
+                            : (str_starts_with($key, 'border') && str_ends_with($key, 'Radius')
+                                ? in_array('borderRadius', $definition->styleCapabilities(), true)
+                                : (str_starts_with($key, 'border') && str_ends_with($key, 'Style')
+                                    ? in_array('borderStyle', $definition->styleCapabilities(), true)
+                                    : (str_starts_with($key, 'border') && str_ends_with($key, 'Color')
+                                        ? in_array('borderColor', $definition->styleCapabilities(), true)
+                                        : false)))));
                 if (! in_array($key, $definition->styleCapabilities(), true) && ! $supportsShorthand) {
                     throw new InvalidArgumentException("Style property [{$key}] is not supported by component [{$type}].");
                 }
@@ -245,6 +277,10 @@ final readonly class DocumentPersistenceValidator
 
             if (! is_array($schema)) {
                 throw new InvalidArgumentException("Property [{$name}] is not supported by component [{$definition->type()}].");
+            }
+
+            if ($value === null) {
+                continue;
             }
 
             $type = $schema['type'] ?? null;

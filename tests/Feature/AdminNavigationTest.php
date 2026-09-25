@@ -41,7 +41,7 @@ class AdminNavigationTest extends TestCase
         $user = User::factory()->create();
         $service = app(BuilderPagePersistenceService::class);
         $website = $service->createWebsite($user, 'My Website', 'my-website');
-        $home = $service->createPage($website, 'Home', 'home');
+        $home = $website->homepage;
         $about = $service->createPage($website, 'About', 'about');
 
         $this->actingAs($user)->get(route('builder.pages.show', $home))->assertInertia(fn ($assertion) => $assertion

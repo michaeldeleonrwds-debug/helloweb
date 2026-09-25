@@ -512,3 +512,192 @@ All backend routes, Inertia controllers, builder unit tests, and editor tests re
 
 
 
+
+### D-033 - Dynamic Homepage Routing, Draft vs. Published Separation, and Builder Publishing Controls
+
+Status: Accepted
+Date: 2026-09-25
+
+Decision:
+1. Dynamic Homepage & Public Routing (PublicSiteController.php, outes/web.php):
+   - Configured GET / to dynamically load the website's designated homepage_page_id (via Website::current()) and render its published_document.
+   - Built resilient fallbacks: if no homepage is configured or if the selected page was deleted, fall back to the first available published page, or a clean HelloWeb default welcome page.
+   - Dynamic public slug routing (GET /{slug}) resolved against published pages for the current website, guarded against collisions with admin, auth, and builder paths via route regex negative lookahead constraints.
+2. Draft vs. Published Separation (Page.php, 2026_09_25_000001_add_publishing_to_pages_table.php):
+   - Pages maintain separate draft_document (for ongoing builder edits) and published_document (immutable public-facing content snapshot).
+   - Added published_at timestamp and status helpers (isPublished(), hasUnpublishedChanges()).
+   - Editing and saving in Builder updates draft_document without altering live published_document.
+3. Builder Publishing Controls & Page Management UI:
+   - Added Save Draft and Publish action buttons and dynamic status indicator pill (Draft vs Published) to the Builder toolbar header without altering the visual builder layout or inspector.
+   - Added Publish and Unpublish toggle actions and status badges to the Pages management UI (/pages).
+   - Automatically create and publish a default "Home" page with a clean HelloWeb hero and homepage_page_id association on website creation.
+
+Reason:
+Public website visitors must always see published content rather than in-progress drafts or default starter pages, while content creators need clear controls to preview, publish, and unpublish pages safely.
+
+Implication:
+Public routes never leak draft or unpublished builder JSON. All 89 PHP tests (including 9 end-to-end publishing tests) and frontend builder editor tests pass cleanly.
+
+## D-034 - Void Element Safeguards, Pre-built Layout Templates Modal, and Essential Component Expansion
+
+Status: Accepted
+Date: 2026-09-25
+
+Decision:
+1. Void Element Safeguards (`CanvasNode.tsx`, `public-site.tsx`):
+   - Void elements like `<hr>` (divider) and `<img>` (image) cannot receive children or dangerouslySetInnerHTML under React. Wrapped void elements inside dedicated container nodes with overlay attachments so divider and image elements render cleanly without throwing runtime exceptions.
+   - Ensured HTML wrappers for non-paragraph nodes use `div.contents` rather than `span` to avoid hydration or HTML specification violations (`<div> cannot be a descendant of <p>`).
+2. Canvas Background & Contrast:
+   - Set builder canvas viewport background to `#eaecf0` (`dark:bg-[#12151b]`) with `min-h-fit` and bottom scroll padding so newly added white sections are immediately distinguishable. Added an empty section visual guide with dashed borders and helper instructions.
+   - Removed `layout.flex` from the elements palette to keep layout primitives clear and focused on sections, rows, columns, and grids.
+3. Pre-built Layout Templates Modal (`LayoutTemplatesModal.tsx`):
+   - Clicking `Columns` or `Grid` in the elements panel triggers an interactive template picker dialog.
+   - Columns templates: 2-column equal (50/50), left-heavy (66/33), right-heavy (33/66), 3-column equal, 3-column focus (25/50/25), 4-column, 5-column, and 6-column.
+   - Grid templates: 2x2 cards, 3-column cards, 4-column metric grid, Bento 1 Hero + 2 Stacked, Bento wide banner + 3 cards.
+   - On template selection, guarantees unique node ID generation, automatically creates or locates a target section, and commits through `run()` for full undo/redo and autosave.
+4. Essential Built-In Component Expansion:
+   - Registered 5 new production-ready elements across PHP and TypeScript:
+     - `layout.navbar` (Header & Navigation): brand logo/name, desktop links, CTA button, mobile hamburger toggle button, and collapsible mobile drawer.
+     - `marketing.blurb` (Feature Box): icon badge (sparkles, zap, shield, star, heart, check, rocket, award), title, description, and link.
+     - `content.list` (Styled List): checkmarks, bullet points, or numbers with custom colors and multi-line text editing.
+     - `marketing.imagefeature` (Image Feature): split layout with badge, heading, copy, CTA, and prominent image (left/right position).
+     - `media.gallery` (Image Gallery): responsive CSS grid with interactive full-screen lightbox preview, captions, keyboard navigation, and close button.
+   - Added specialized inspector controls in `ComponentInspector.tsx` for links, images, icons, and list items.
+
+Reason:
+To provide essential, production-ready website building primitives, intuitive layout templating, and robust rendering safeguards without breaking framework architectural boundaries.
+
+Implication:
+All 89 PHP tests, TypeScript check (`tsc --noEmit`), builder editor tests, and Vite production build pass with 0 errors. All changes remain strictly local per user constraint.
+
+# D-038 - Alpha-capable background colors via react-best-gradient-color-picker popover
+
+Status: Accepted
+Date: 2026-09-25
+
+Decision:
+1. Transparency is stored inside the existing `backgroundColor` value as `rgba(r, g, b, a)` — no new style key, no TS/PHP schema changes. Both validators already accepted `rgba(...)` (`style.ts` color regex, `StyleValidator.php`), and both renderers pass colors through as inline CSS.
+2. New `BackgroundColorField` (`builder/editor/BackgroundColorField.tsx`): a swatch trigger (checkerboard-backed color chip + hex + alpha `NN%`) opening a Radix popover (`components/ui/popover.tsx`) containing `react-best-gradient-color-picker`, which natively provides saturation area, hue, opacity slider, hex/rgba inputs, eyedropper, presets, and gradient stop/angle controls.
+3. Mode binding is driven by the existing `Background type` select on advanced-background components (solid/image/video unchanged): solid/image/video bind the picker to `backgroundColor`, gradient binds it to `backgroundGradient` (replacing the raw gradient text input). The picker's internal Solid/Gradient buttons are hidden (`hideColorTypeBtns`) so the select stays the single mode controller. Components without a `backgroundType` capability (navbar, buttons, grids) get solid color + opacity only.
+4. Shared pure color helpers live in `builder/style/style.ts`: `parseColor`, `toRgbaString`, `toHexColor`, `alphaPercent`, `isGradientValue`, `rgbaString` — hex/rgb/hsl/named/transparent parsing, alpha rounded to 3 decimals on commit.
+5. Recent-colors persistence extracted to `builder/editor/recent-colors.ts` and extended to remember `rgba(...)`/`hsl(...)` values; picker presets surface the recents (library defaults when empty).
+6. Bug fixes: `normalizeColor` no longer collapses `rgba(...)` to `#000000` (now via `toHexColor`), and `normalizeHexInput` no longer prefixes `#` onto function-style values like `rgba(...)`.
+7. SSR/bundle safety: the picker is loaded with `lazy(() => import(...))` and only rendered while the popover is open (editor `renderToStaticMarkup` tests never execute it); the Vite build splits it into its own async chunk. The library detects dark mode via `prefers-color-scheme`, so it is pinned to the app theme with `disableDarkMode`/`disableLightMode` derived from the `.dark` class on `<html>`.
+8. Scope is background colors only — text, border, and shadow colors keep the existing `ColorValueControl`.
+
+Reason:
+Backdrop-blur glass effects (D-023) require real transparency: an opaque background color hides whatever sits behind the blur. The native `<input type="color">` cannot express alpha, hex-only recent/swatch helpers mangled `rgba(...)` values, and gradient editing was a raw CSS text field. A dedicated picker gives designers alpha and gradients without adding style keys or breaking the renderer boundary.
+
+Implication:
+`tsc --noEmit` clean, `npm run test:builder-editor` passes (new helper round-trips, `validateStylePatch` rgba/gradient acceptance, navbar `rgba(255, 255, 255, 0.55)` + `backdrop-filter: blur(8px)` render assertions), `npm run build` succeeds with the picker split into a lazy chunk, and all 92 PHP tests pass (new `test_rgba_background_color_with_blur_renders_transparent_background`). Repo-wide `npm run lint` reports 45 pre-existing problems that also fail at HEAD; every file changed or added for this decision lints clean. All changes remain strictly local per user constraint.
+
+# D-039 - Structural responsiveness renders from `context.breakpoint`, never viewport media queries
+
+Status: Accepted
+Date: 2026-09-26
+
+Decision:
+1. Renderers that change DOM structure or visibility across breakpoints (`navbarRenderer`, `imageFeatureRenderer`) branch on `context.breakpoint` and emit inline `display`/`flex-direction`/`gap` values. Viewport `@media` blocks are removed from their markup; only `media.gallery` keeps scoped media queries as a public-site belt-and-suspenders (D-036), because it already renders breakpoint-driven columns in the canvas.
+2. `navbarRenderer`: `isMobileNav = context.breakpoint === 'mobile'` — desktop links and header CTA get `display: none`, the hamburger gets `display: inline-flex`, and the media-query block is gone. The mobile drawer keeps base `display: none` and opens via the existing JS toggles in `CanvasNode.tsx` and `public-site.tsx`, which write `menu.style.display` directly (the retained unconditional `.hw-navbar-mobile-menu.is-open` rule is a non-viewport fallback).
+3. `imageFeatureRenderer`: at mobile it forces `flex-direction: column` and `gap: 24px` regardless of `imagePosition` (matching the old `@media` override), so the canvas Mobile breakpoint now stacks exactly like the public site.
+4. Canonical rule: viewport media queries evaluate against the builder browser window, not the simulated 375px/768px canvas frame, so they can never express responsiveness inside the builder. Breakpoint-driven rendering is the framework model (AGENTS.md: "Responsive behavior is part of the builder model, not separate mobile/tablet pages") and is what `public-site.tsx` already uses via `useViewportBreakpoint()`.
+
+Reason:
+Users could only verify navbar/image-feature responsiveness in preview or the published site — the builder canvas always showed desktop chrome because `@media (max-width: 768px)` never matched a wide builder window. The canvas already receives the selected breakpoint (`BuilderCanvas.tsx` render context) and already has the hamburger click handlers; only the visibility rules were media-query-bound.
+
+Implication:
+Builder canvas Tablet/Desktop keep the full navigation and Mobile shows hamburger + hidden links/CTA; public site below 768px is unchanged, while exactly 768px (iPad portrait) now shows the desktop/tablet navigation in both preview and builder instead of the hamburger — an intentional builder↔preview alignment. Verification: `npx tsc --noEmit` clean, `npm run test:builder-editor` passes (new mobile/tablet/desktop navbar markup assertions and image-feature `row-reverse` vs `column` stacking assertions, all asserting no `@media` in output), changed files lint clean (removed dead `renderLucideSvg` left by earlier uncommitted icon work), `npm run build` succeeds, all 92 PHP tests pass (PHP renders navbar as a generic `ConfiguredRenderer('header')` with no hamburger markup — no PHP change needed). All changes remain strictly local per user constraint.
+
+# D-040 - Background editor popover polish, default transparent sections/headers, page creation flow, and dark mode modernization
+
+Status: Accepted
+Date: 2026-09-26
+
+Decision:
+1. **Background editor UI & popover positioning**:
+   - `BackgroundColorField` popover repositioned to `side="left" align="start" sideOffset={12}` so it floats neatly to the left into the canvas workspace instead of obscuring the inspector panel.
+   - Constrained color picker width to 250px and height to 130px with `hideAdvancedSliders` and `hideColorGuide`, providing a sleek, compact floating palette.
+   - Added 1-click "Transparent" button and quick preset swatches (White, Slate 900, Emerald, Blue, Purple, Dark Gray) to the footer.
+   - `SectionBackgroundControls`: Replaced raw native select with an ergonomic 4-segment pill button bar (`Solid | Gradient | Image | Video`).
+2. **Transparent defaults for sections and navbar**:
+   - `layout.section` default `backgroundColor` updated from `'white'` to `'transparent'` in both TypeScript (`built-ins.ts`) and PHP (`BuiltInComponentDefinitions.php`), preventing unwanted white bars when dropping sections onto dark layouts.
+   - `layout.navbar` default `backgroundColor` updated from `'#ffffff'` to `'transparent'`, `color` to `'inherit'`, `borderBottomWidth` to `0`, and `borderColor` to `'transparent'` in TS and PHP, preventing forced white backgrounds and borders on dark themes.
+3. **Admin page creation modal & backend integration**:
+   - Added `PageController@store` with validation, slug uniqueness checks per website, and automated initial document creation.
+   - Updated `/pages` index with an interactive "Create New Page" dialog with live slug generation, website selection, and instant transition to the builder.
+   - Implemented `PageController@destroy` with confirmation modal for safe page removal.
+4. **Dark mode modernization across dashboard & admin views**:
+   - Updated Tailwind dark variant in `app.css` to `@custom-variant dark (&:is(.dark, .dark *));`.
+   - Replaced hardcoded neutral and white background/border utilities across `dashboard.tsx`, `websites/index.tsx`, `templates/index.tsx`, `media/index.tsx`, `reusable-components/index.tsx`, `app-sidebar.tsx`, and `app-sidebar-header.tsx` with theme tokens (`bg-card`, `bg-sidebar`, `border-border`, `text-card-foreground`, `bg-muted/50`).
+   - Integrated `AppearanceToggleDropdown` into the admin sidebar header.
+5. **Component responsiveness & card container refinement**:
+   - Refined `marketing.imagefeature` card mode with theme variables (`var(--card)` and `var(--border)`) and responsive padding (20px on mobile, 32px on desktop).
+   - Preserved `media.gallery` responsive columns and `layout.navbar` mobile hamburger toggle.
+
+Reason:
+Solves user-reported issues: (1) intrusive oversized color picker covering inspector controls, (2) unwanted white stripes when headers and sections are placed in dark layouts, (3) page creation redirecting without creating a page, and (4) un-themed white components in dark mode across dashboard and admin views.
+
+Implication:
+Vite build succeeds (`npm run build`), all 92 PHP tests pass (592 assertions), and all changes remain strictly local per user constraints.
+
+## D-041 - External Design Import System (Components & Templates)
+
+Status: Accepted
+Date: 2026-09-26
+
+Decision:
+1. **Two Import Types Only**:
+   - HelloWeb external design import strictly accepts two targets:
+     - `component`: Ingested and stored as a `ReusableComponent` model with extracted props, scoped CSS, and an authentic `BuilderComponentNode` tree. Can be dropped into any page or library.
+     - `template`: Ingested and stored as a `Template` model representing a full website or landing page with multi-section composition.
+   - No separate import types for elements, sections, or pages.
+2. **Architecture & Pipeline**:
+   - `ZipPackageExtractor`: Safely extracts ZIP packages with path traversal protection, indexing HTML, CSS, JS, and asset files.
+   - `DependencyDetector`: Detects external CDN libraries (Google Fonts, Font Awesome, Swiper, GSAP, etc.) and injects them cleanly into `globalHeadCode` or `globalFooterCode` without duplication.
+   - `CssScoper`: Isolates package CSS by prefixing selectors with `[data-hw-component="{scopeId}"]` and rewrites relative asset URLs (`url(...)`) to stored `MediaAsset` URLs.
+   - `HtmlDomNormalizer`: Parses HTML DOM and constructs native `BuilderComponentNode` document trees (sections, containers, headings, paragraphs, buttons, images, cards) rather than raw HTML or iframes. Extracts editable props (`heading`, `text`, `src`, `href`) and normalizes inline styles to valid schema format.
+   - `DesignImportService`: Orchestrates package extraction, asset ingestion via `MediaStorageInterface`, CSS scoping, DOM normalization, and model persistence.
+3. **User Entry Points Across the System**:
+   - Builder Top Toolbar (`BuilderToolbar.tsx`): "Import" button with `UploadCloud` icon.
+   - Builder Left Panel (`BuilderLeftPanel.tsx`): "Import Component / Template" button inside the Library tab.
+   - Main Sidebar (`app-sidebar.tsx`): Dedicated "Import" item under MENU with `UploadCloud` icon opening the unified modal.
+   - Templates Screen (`/templates`): "Import Template" button in secondary action header.
+   - Reusable Blocks Screen (`/reusable-components`): "Import Component" button in secondary action header.
+   - Dashboard Overview (`/dashboard`): "Quick Import" header action button.
+4. **Settings Cleanup**:
+   - Removed redundant "Appearance" tab from Settings navigation (`settings/layout.tsx`) since dark/light mode toggle is directly accessible in the global header.
+
+Reason:
+Empowers designers and developers to import real external web designs and ZIP archives into HelloWeb without losing native visual builder capabilities, component tree inspectability, or scoped CSS styling.
+
+Implication:
+All 92 PHP tests pass (606 assertions), Vite build succeeds, and zero iframe or raw HTML hacks are used.
+
+## D-042 - Settings UI Redesign, Section Structure & Complete Dark Mode Fix
+
+Status: Accepted
+Date: 2026-09-26
+
+Decision:
+1. **Settings Layout & Expandable Architecture**:
+   - Upgraded `SettingsLayout` (`resources/js/layouts/settings/layout.tsx`) from a rigid hardcoded card to an expandable, structured settings hub.
+   - Categorized settings into clear sections (`ACCOUNT`, `WEBSITES & DEFAULTS`, extensible for `TEAM`, `INTEGRATIONS`, `BILLING`).
+   - Each setting navigation item includes an icon container (`bg-muted/70` in default, `bg-primary` when active), title, sub-label description, and optional status badge.
+2. **Comprehensive Dark Mode Fix across Settings**:
+   - Replaced hardcoded `bg-white`, `border-neutral-200`, and `text-neutral-*` classes with adaptive CSS theme tokens (`bg-card`, `text-card-foreground`, `border-border`, `text-foreground`, `text-muted-foreground`).
+   - Inputs, select dropdowns, and form containers adapt seamlessly across dark and light themes without high-contrast white boxes or illegible text.
+   - Danger zone / delete account section: Replaced the bright pink/red box with an elegant, theme-aware danger block (`border-destructive/20 bg-destructive/5 dark:bg-destructive/10`), adding an `AlertTriangle` icon badge, clear typography, and a modern dialog modal.
+3. **Form Views Modernization**:
+   - `profile.tsx`: Added an authenticated user identity avatar chip, input field icons (`User`, `Mail`), styled `Input` controls with rounded-xl corners, and smooth transition saved badges.
+   - `password.tsx`: Added an "Encrypted Storage" badge, dedicated field icons (`KeyRound`, `Lock`), clean input placeholders, and theme-token matching.
+   - `website.tsx`: Added a "Live Configuration" badge, field icons (`Layout`, `Type`, `Sparkles`, `Image`, `Home`), live favicon image thumbnail preview, and styled select menu with dark popover options.
+
+Reason:
+Fixes the glaring dark mode issue where settings containers, cards, and warning boxes rendered as un-themed white boxes with low-contrast or illegible text, while providing a clean layout ready for future settings expansion.
+
+Implication:
+Vite build succeeds cleanly (4.10s), all 92 PHP tests pass (606 assertions), and changes remain strictly local.
+
+
+
+

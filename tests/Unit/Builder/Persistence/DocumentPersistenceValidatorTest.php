@@ -60,6 +60,59 @@ class DocumentPersistenceValidatorTest extends TestCase
         );
     }
 
+    public function test_navbar_validates_at_root(): void
+    {
+        $data = [
+            'schemaVersion' => BuilderDocumentSchema::VERSION,
+            'root' => [
+                'id' => 'root',
+                'type' => 'layout.root',
+                'props' => [],
+                'styles' => [],
+                'children' => [
+                    [
+                        'id' => 'nav-1',
+                        'type' => 'layout.navbar',
+                        'props' => [
+                            'brandName' => 'HelloWeb',
+                            'brandLogo' => '',
+                            'brandHref' => '/',
+                            'links' => [
+                                ['label' => 'Home', 'href' => '/'],
+                            ],
+                            'ctaText' => 'Get Started',
+                            'ctaHref' => '#',
+                            'showCta' => true,
+                            'sticky' => false,
+                        ],
+                        'styles' => [
+                            'desktop' => [
+                                'display' => 'block',
+                                'width' => '100%',
+                                'backgroundColor' => '#ffffff',
+                                'color' => '#0f172a',
+                                'paddingTop' => ['value' => 16, 'unit' => 'px'],
+                                'paddingBottom' => ['value' => 16, 'unit' => 'px'],
+                                'paddingLeft' => ['value' => 24, 'unit' => 'px'],
+                                'paddingRight' => ['value' => 24, 'unit' => 'px'],
+                                'borderBottomWidth' => ['value' => 1, 'unit' => 'px'],
+                                'borderStyle' => 'solid',
+                                'borderColor' => '#e2e8f0',
+                            ],
+                        ],
+                        'children' => [],
+                        'metadata' => [],
+                    ],
+                ],
+            ],
+        ];
+
+        $validator = new DocumentPersistenceValidator(BuiltInComponentDefinitions::registry());
+        $document = $validator->validate($data);
+
+        $this->assertSame('layout.navbar', $document->toArray()['root']['children'][0]['type']);
+    }
+
     public function test_custom_code_directly_under_section_is_kept_without_wrappers(): void
     {
         $data = [
@@ -153,4 +206,94 @@ class DocumentPersistenceValidatorTest extends TestCase
         $this->assertSame('layout.row', $children[0]['type']);
         $this->assertSame('content.heading', $children[0]['children'][0]['children'][0]['type']);
     }
+
+    public function test_new_components_validate_successfully(): void
+    {
+        $registry = BuiltInComponentDefinitions::registry();
+        $validator = new DocumentPersistenceValidator($registry);
+
+        $data = [
+            'schemaVersion' => BuilderDocumentSchema::VERSION,
+            'root' => [
+                'id' => 'root',
+                'type' => 'layout.root',
+                'props' => [],
+                'styles' => [],
+                'children' => [
+                    [
+                        'id' => 'nav-1',
+                        'type' => 'layout.navbar',
+                        'props' => $registry->get('layout.navbar')->defaultProps(),
+                        'styles' => $registry->get('layout.navbar')->defaultStyles(),
+                        'children' => [],
+                        'metadata' => [],
+                    ],
+                    [
+                        'id' => 'sec-1',
+                        'type' => 'layout.section',
+                        'props' => [],
+                        'styles' => [],
+                        'children' => [
+                            [
+                                'id' => 'row-1',
+                                'type' => 'layout.row',
+                                'props' => [],
+                                'styles' => [],
+                                'children' => [
+                                    [
+                                        'id' => 'col-1',
+                                        'type' => 'layout.column',
+                                        'props' => [],
+                                        'styles' => [],
+                                        'children' => [
+                                            [
+                                                'id' => 'blurb-1',
+                                                'type' => 'marketing.blurb',
+                                                'props' => $registry->get('marketing.blurb')->defaultProps(),
+                                                'styles' => $registry->get('marketing.blurb')->defaultStyles(),
+                                                'children' => [],
+                                                'metadata' => [],
+                                            ],
+                                            [
+                                                'id' => 'list-1',
+                                                'type' => 'content.list',
+                                                'props' => $registry->get('content.list')->defaultProps(),
+                                                'styles' => $registry->get('content.list')->defaultStyles(),
+                                                'children' => [],
+                                                'metadata' => [],
+                                            ],
+                                            [
+                                                'id' => 'feature-1',
+                                                'type' => 'marketing.imagefeature',
+                                                'props' => $registry->get('marketing.imagefeature')->defaultProps(),
+                                                'styles' => $registry->get('marketing.imagefeature')->defaultStyles(),
+                                                'children' => [],
+                                                'metadata' => [],
+                                            ],
+                                            [
+                                                'id' => 'gallery-1',
+                                                'type' => 'media.gallery',
+                                                'props' => $registry->get('media.gallery')->defaultProps(),
+                                                'styles' => $registry->get('media.gallery')->defaultStyles(),
+                                                'children' => [],
+                                                'metadata' => [],
+                                            ],
+                                        ],
+                                        'metadata' => [],
+                                    ],
+                                ],
+                                'metadata' => [],
+                            ],
+                        ],
+                        'metadata' => [],
+                    ],
+                ],
+                'metadata' => [],
+            ],
+        ];
+
+        $doc = $validator->validate($data);
+        $this->assertInstanceOf(\App\Builder\Document\BuilderDocument::class, $doc);
+    }
 }
+

@@ -1,4 +1,5 @@
 import { Head, usePage } from '@inertiajs/react';
+import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { createElement, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { BuilderBreakpoint, BuilderPageDocument, JsonValue } from '@/builder/document';
@@ -21,8 +22,52 @@ const voidElements = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img',
 export default function PublicSite() {
     const { website, page, document } = usePage<PublicSiteProps>().props;
     const breakpoint = useViewportBreakpoint();
-    const globalHeadCode = typeof document.metadata?.globalHeadCode === 'string' ? document.metadata.globalHeadCode : '';
+    const scopedCss = typeof document.metadata?.scopedCss === 'string' ? document.metadata.scopedCss : '';
+    const globalHeadCode = (typeof document.metadata?.globalHeadCode === 'string' ? document.metadata.globalHeadCode : '') +
+        (scopedCss ? `\n<style>\n${scopedCss}\n</style>` : '');
     const globalFooterCode = typeof document.metadata?.globalFooterCode === 'string' ? document.metadata.globalFooterCode : '';
+    const [lightbox, setLightbox] = useState<{
+        images: { src: string; caption?: string }[];
+        activeIndex: number;
+    } | null>(null);
+
+    useEffect(() => {
+        const handleClick = (e: MouseEvent) => {
+            const target = e.target as HTMLElement | null;
+            if (!target) return;
+
+            // Handle Navbar Hamburger Toggle
+            const navToggle = target.closest<HTMLElement>('[data-hw-nav-toggle]');
+            if (navToggle) {
+                const header = navToggle.closest('header, nav, [data-builder-type="layout.navbar"]');
+                const menu = header?.querySelector<HTMLElement>('[data-hw-nav-menu]');
+                if (menu) {
+                    menu.classList.toggle('is-open');
+                    const isOpen = menu.classList.contains('is-open');
+                    menu.style.display = isOpen ? 'flex' : 'none';
+                }
+                return;
+            }
+
+            // Handle Gallery Lightbox
+            const galleryItem = target.closest<HTMLElement>('[data-hw-gallery-item]');
+            if (galleryItem) {
+                const grid = galleryItem.closest('.hw-gallery-grid') || galleryItem.parentElement;
+                if (!grid) return;
+                const items = Array.from(grid.querySelectorAll<HTMLElement>('[data-hw-gallery-item]'));
+                const images = items.map((it) => ({
+                    src: it.getAttribute('data-src') || '',
+                    caption: it.getAttribute('data-caption') || '',
+                }));
+                const index = items.indexOf(galleryItem);
+                setLightbox({ images, activeIndex: Math.max(0, index) });
+            }
+        };
+
+        window.document.addEventListener('click', handleClick);
+        return () => window.document.removeEventListener('click', handleClick);
+    }, []);
+
     const result = useMemo(() => {
         const context: RenderContext = {
             breakpoint,
@@ -43,6 +88,13 @@ export default function PublicSite() {
             <main className="min-h-screen bg-white text-slate-950">
                 <PublicRenderNode result={result} />
             </main>
+            {lightbox ? (
+                <GalleryLightboxModal
+                    lightbox={lightbox}
+                    onClose={() => setLightbox(null)}
+                    onNavigate={(index) => setLightbox((prev) => (prev ? { ...prev, activeIndex: index } : null))}
+                />
+            ) : null}
         </>
     );
 }
@@ -156,3 +208,90 @@ function reactAttributes(entries: [string, string][]): Record<string, string> {
 
     return attributes;
 }
+
+function GalleryLightboxModal({
+    lightbox,
+    onClose,
+    onNavigate,
+}: {
+    lightbox: { images: { src: string; caption?: string }[]; activeIndex: number };
+    onClose: () => void;
+    onNavigate: (index: number) => void;
+}) {
+    const current = lightbox.images[lightbox.activeIndex];
+
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') onClose();
+            else if (e.key === 'ArrowLeft') onNavigate((lightbox.activeIndex - 1 + lightbox.images.length) % lightbox.images.length);
+            else if (e.key === 'ArrowRight') onNavigate((lightbox.activeIndex + 1) % lightbox.images.length);
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [lightbox, onClose, onNavigate]);
+
+    if (!current) return null;
+
+    return (
+        <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 backdrop-blur-xs"
+            onClick={onClose}
+        >
+            <button
+                type="button"
+                onClick={onClose}
+                className="absolute top-4 right-4 flex size-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition z-10"
+                aria-label="Close lightbox"
+            >
+                <X className="size-6" />
+            </button>
+
+            {lightbox.images.length > 1 ? (
+                <>
+                    <button
+                        type="button"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onNavigate((lightbox.activeIndex - 1 + lightbox.images.length) % lightbox.images.length);
+                        }}
+                        className="absolute left-4 top-1/2 -translate-y-1/2 flex size-11 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition z-10"
+                        aria-label="Previous image"
+                    >
+                        <ChevronLeft className="size-6" />
+                    </button>
+                    <button
+                        type="button"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onNavigate((lightbox.activeIndex + 1) % lightbox.images.length);
+                        }}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 flex size-11 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition z-10"
+                        aria-label="Next image"
+                    >
+                        <ChevronRight className="size-6" />
+                    </button>
+                </>
+            ) : null}
+
+            <div
+                className="relative flex max-h-[85vh] max-w-[90vw] flex-col items-center justify-center"
+                onClick={(e) => e.stopPropagation()}
+            >
+                <img
+                    src={current.src}
+                    alt={current.caption || ''}
+                    className="max-h-[80vh] max-w-[90vw] rounded-xl object-contain shadow-2xl"
+                />
+                {current.caption ? (
+                    <div className="mt-3 text-center text-sm font-medium text-white/90">
+                        {current.caption}
+                    </div>
+                ) : null}
+                <div className="mt-1 text-center text-xs text-white/60">
+                    {lightbox.activeIndex + 1} / {lightbox.images.length}
+                </div>
+            </div>
+        </div>
+    );
+}
+

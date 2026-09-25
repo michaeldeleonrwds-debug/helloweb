@@ -20,7 +20,7 @@ class BuilderPersistenceTest extends TestCase
         $user = User::factory()->create();
         $service = new BuilderPagePersistenceService;
         $website = $service->createWebsite($user, 'Example', 'example');
-        $page = $service->createPage($website, 'Home', 'home');
+        $page = $website->homepage;
 
         $this->assertTrue($user->websites()->whereKey($website)->exists());
         $this->assertTrue($website->pages()->whereKey($page)->exists());
@@ -40,23 +40,23 @@ class BuilderPersistenceTest extends TestCase
         $first = $service->createWebsite(User::factory()->create(), 'First', 'first');
         $second = $service->createWebsite(User::factory()->create(), 'Second', 'second');
 
-        $service->createPage($first, 'Home', 'home');
-        $service->createPage($second, 'Home', 'home');
+        $service->createPage($first, 'About', 'about');
+        $service->createPage($second, 'About', 'about');
 
         $this->expectException(UniqueConstraintViolationException::class);
-        $service->createPage($first, 'Another Home', 'home');
+        $service->createPage($first, 'Another About', 'about');
     }
 
     public function test_valid_document_is_saved_and_loaded_without_structure_loss(): void
     {
         [$page, $user] = $this->page();
         $document = $page->draft_document;
-        $document['root']['children'][0]['children'][0]['children'][0]['props']['text'] = 'Persisted';
+        $document['root']['children'][0]['children'][0]['children'][0]['children'][0]['props']['text'] = 'Persisted';
 
         $saved = (new BuilderPagePersistenceService)->saveDraft($page, $document, 0);
 
         $this->assertSame(1, $saved->document_version);
-        $this->assertSame('Persisted', (new BuilderPagePersistenceService)->loadDocument($saved)->toArray()['root']['children'][0]['children'][0]['children'][0]['props']['text']);
+        $this->assertSame('Persisted', (new BuilderPagePersistenceService)->loadDocument($saved)->toArray()['root']['children'][0]['children'][0]['children'][0]['children'][0]['props']['text']);
     }
 
     public function test_invalid_document_is_rejected_before_persistence(): void
@@ -82,9 +82,15 @@ class BuilderPersistenceTest extends TestCase
     {
         [$page] = $this->page();
         $legacy = $page->draft_document;
-        $section = &$legacy['root']['children'][0];
-        $section['children'][0]['type'] = 'layout.container';
-        $section['children'][0]['id'] = 'legacy-container';
+        $legacy['root']['children'][0]['children'] = [
+            [
+                'id' => 'legacy-container',
+                'type' => 'layout.container',
+                'props' => [],
+                'styles' => [],
+                'children' => [],
+            ],
+        ];
 
         $page->forceFill(['draft_document' => $legacy])->save();
         $document = (new BuilderPagePersistenceService)->loadDocument($page->fresh())->toArray();
@@ -224,6 +230,6 @@ class BuilderPersistenceTest extends TestCase
         $service = new BuilderPagePersistenceService;
         $website = $service->createWebsite($user, 'Example '.Str::random(4), 'example-'.Str::lower(Str::random(4)));
 
-        return [$service->createPage($website, 'Home', 'home'), $user];
+        return [$website->homepage, $user];
     }
 }

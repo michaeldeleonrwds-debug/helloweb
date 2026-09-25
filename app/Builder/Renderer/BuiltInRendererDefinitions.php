@@ -40,6 +40,11 @@ final class BuiltInRendererDefinitions
             'media.image' => new ImageRenderer,
             'code.customcode' => new CustomCodeRenderer,
             'marketing.card' => new ConfiguredRenderer('article'),
+            'layout.navbar' => new ConfiguredRenderer('header'),
+            'content.list' => new ConfiguredRenderer('ul'),
+            'media.gallery' => new ConfiguredRenderer('div'),
+            'marketing.blurb' => new ConfiguredRenderer('div'),
+            'marketing.imagefeature' => new ConfiguredRenderer('div'),
             'reusable.instance' => new ReusableInstanceRenderer,
         ];
     }

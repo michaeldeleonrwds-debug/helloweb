@@ -37,7 +37,7 @@ interface NodeActionsOverlayProps {
     fullWidth?: boolean;
     onAddColumn?: (nodeId: string) => void;
     onAddElement?: (nodeId: string) => void;
-    onOpenMediaManager?: (target?: 'image' | 'background', nodeId?: string) => void;
+    onOpenMediaManager?: (target?: string, nodeId?: string, payload?: any) => void;
     onEdit?: (nodeId: string) => void;
 }
 
@@ -68,7 +68,7 @@ export function NodeActionsOverlay({
     const isRow = type === 'layout.row';
     const isColumn = type === 'layout.column';
     const isSection = type === 'layout.section';
-    const isImage = type === 'media.image';
+    const isImage = type === 'media.image' || type === 'marketing.imagefeature';
     const isButton = type === 'content.button';
     const firstMoveLabel = isColumn ? 'Move left' : 'Move up';
     const secondMoveLabel = isColumn ? 'Move right' : 'Move down';
@@ -93,7 +93,7 @@ export function NodeActionsOverlay({
 
             {isRow ? (
                 <>
-                    <div className="bg-border mx-0.5 h-3.5 w-px" />
+                    <span className="bg-border mx-0.5 inline-block h-3.5 w-px shrink-0" />
                     <ToolbarButton label="Direction: row" active onClick={action(() => onSetFlexDirection?.(nodeId, 'row'))}>
                         <ArrowRight className="size-3.5" />
                     </ToolbarButton>
@@ -115,7 +115,7 @@ export function NodeActionsOverlay({
 
             {isColumn ? (
                 <>
-                    <div className="bg-border mx-0.5 h-3.5 w-px" />
+                    <span className="bg-border mx-0.5 inline-block h-3.5 w-px shrink-0" />
                     <ToolbarButton label="Add element" onClick={action(() => onAddElement?.(nodeId))}>
                         <Plus className="size-3.5" />
                     </ToolbarButton>
@@ -124,7 +124,7 @@ export function NodeActionsOverlay({
 
             {isSection ? (
                 <>
-                    <div className="bg-border mx-0.5 h-3.5 w-px" />
+                    <span className="bg-border mx-0.5 inline-block h-3.5 w-px shrink-0" />
                     <ToolbarButton label="Add row" onClick={action(() => onAddElement?.(nodeId))}>
                         <Plus className="size-3.5" />
                     </ToolbarButton>
@@ -133,8 +133,8 @@ export function NodeActionsOverlay({
 
             {isImage && onOpenMediaManager ? (
                 <>
-                    <div className="bg-border mx-0.5 h-3.5 w-px" />
-                    <ToolbarButton label="Replace image" onClick={action(() => onOpenMediaManager('image', nodeId))}>
+                    <span className="bg-border mx-0.5 inline-block h-3.5 w-px shrink-0" />
+                    <ToolbarButton label="Replace image" onClick={action(() => onOpenMediaManager(type === 'marketing.imagefeature' ? 'imagefeature' : 'image', nodeId))}>
                         <Columns3 className="size-3.5" />
                     </ToolbarButton>
                 </>
@@ -142,14 +142,14 @@ export function NodeActionsOverlay({
 
             {isButton || type === 'content.heading' || type === 'content.text' || type === 'content.richtext' ? (
                 <>
-                    <div className="bg-border mx-0.5 h-3.5 w-px" />
+                    <span className="bg-border mx-0.5 inline-block h-3.5 w-px shrink-0" />
                     <ToolbarButton label="Edit content" onClick={action(() => onEdit?.(nodeId))}>
                         <span className="text-[11px] font-bold">Aa</span>
                     </ToolbarButton>
                 </>
             ) : null}
 
-            <div className="bg-border mx-0.5 h-3.5 w-px" />
+            <span className="bg-border mx-0.5 inline-block h-3.5 w-px shrink-0" />
 
             {onCopy ? (
                 <ToolbarButton label="Copy" onClick={action(() => onCopy(nodeId))}>

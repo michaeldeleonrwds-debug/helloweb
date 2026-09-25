@@ -16,11 +16,13 @@ import {
     Shapes,
     Sparkles,
     TrendingUp,
+    UploadCloud,
 } from 'lucide-react';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
 import { StatusBadge } from '@/components/admin-resource-page';
 import { Button } from '@/components/ui/button';
+import { ImportModal } from '@/components/ImportModal';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 
@@ -61,6 +63,7 @@ interface RevisionSummary {
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Dashboard', href: '/dashboard' }];
 
 export default function Dashboard({ stats, websites, pages, revisions }: DashboardProps) {
+    const [importModalOpen, setImportModalOpen] = useState(false);
     const hasWorkspace = websites.length > 0;
     const spotlightWebsite = websites[0] ?? null;
 
@@ -94,7 +97,17 @@ export default function Dashboard({ stats, websites, pages, revisions }: Dashboa
                                     <span>Launch Builder</span>
                                 </Link>
                             </Button>
-                            <Button asChild variant="outline" size="sm" className="rounded-full border-neutral-200/80 bg-white px-5 py-2.5 font-semibold text-xs text-foreground shadow-2xs hover:bg-neutral-50 transition">
+                            <Button
+                                type="button"
+                                onClick={() => setImportModalOpen(true)}
+                                variant="outline"
+                                size="sm"
+                                className="rounded-full border-border bg-card px-5 py-2.5 font-semibold text-xs text-foreground shadow-2xs hover:bg-muted transition flex items-center gap-1.5"
+                            >
+                                <UploadCloud className="size-3.5 text-muted-foreground" />
+                                <span>Quick Import</span>
+                            </Button>
+                            <Button asChild variant="outline" size="sm" className="rounded-full border-border bg-card px-5 py-2.5 font-semibold text-xs text-foreground shadow-2xs hover:bg-muted transition">
                                 <Link href={route('templates.index')}>
                                     Explore Templates
                                 </Link>
@@ -102,7 +115,7 @@ export default function Dashboard({ stats, websites, pages, revisions }: Dashboa
                         </div>
                     </div>
 
-                    {/* 4-Card KPI Row (Reference Inspired) */}
+                    {/* 4-Card KPI Row */}
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 md:gap-5">
                         {/* KPI 1: Highlight Card (Deep Forest Green) */}
                         <div className="relative flex flex-col justify-between overflow-hidden rounded-[22px] bg-gradient-to-br from-[#134E35] via-[#154D34] to-[#0A2E1F] p-5 text-white shadow-xs transition hover:shadow-md">
@@ -134,7 +147,7 @@ export default function Dashboard({ stats, websites, pages, revisions }: Dashboa
                         </div>
 
                         {/* KPI 2: Total Pages */}
-                        <div className="flex flex-col justify-between rounded-[22px] border border-neutral-200/70 bg-white p-5 shadow-xs transition hover:shadow-md">
+                        <div className="flex flex-col justify-between rounded-[22px] border border-border bg-card p-5 shadow-xs transition hover:shadow-md text-card-foreground">
                             <div className="flex items-center justify-between">
                                 <span className="text-xs font-semibold text-muted-foreground tracking-wide">
                                     Total Pages
@@ -142,7 +155,7 @@ export default function Dashboard({ stats, websites, pages, revisions }: Dashboa
                                 <Link
                                     href={route('pages.index')}
                                     title="View all pages"
-                                    className="flex size-7.5 items-center justify-center rounded-full border border-neutral-200/70 bg-neutral-50 text-neutral-600 transition hover:border-primary/50 hover:bg-primary/5 hover:text-primary"
+                                    className="flex size-7.5 items-center justify-center rounded-full border border-border bg-muted/60 text-muted-foreground transition hover:border-primary/50 hover:bg-primary/10 hover:text-primary"
                                 >
                                     <ArrowUpRight className="size-4 stroke-[2.5]" />
                                 </Link>
@@ -155,14 +168,14 @@ export default function Dashboard({ stats, websites, pages, revisions }: Dashboa
                             </div>
 
                             <div className="pt-1">
-                                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200/60 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-800">
+                                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
                                     <span>{publishedCount} Published</span>
                                 </span>
                             </div>
                         </div>
 
                         {/* KPI 3: Templates */}
-                        <div className="flex flex-col justify-between rounded-[22px] border border-neutral-200/70 bg-white p-5 shadow-xs transition hover:shadow-md">
+                        <div className="flex flex-col justify-between rounded-[22px] border border-border bg-card p-5 shadow-xs transition hover:shadow-md text-card-foreground">
                             <div className="flex items-center justify-between">
                                 <span className="text-xs font-semibold text-muted-foreground tracking-wide">
                                     Templates
@@ -170,7 +183,7 @@ export default function Dashboard({ stats, websites, pages, revisions }: Dashboa
                                 <Link
                                     href={route('templates.index')}
                                     title="Explore templates"
-                                    className="flex size-7.5 items-center justify-center rounded-full border border-neutral-200/70 bg-neutral-50 text-neutral-600 transition hover:border-primary/50 hover:bg-primary/5 hover:text-primary"
+                                    className="flex size-7.5 items-center justify-center rounded-full border border-border bg-muted/60 text-muted-foreground transition hover:border-primary/50 hover:bg-primary/10 hover:text-primary"
                                 >
                                     <ArrowUpRight className="size-4 stroke-[2.5]" />
                                 </Link>
@@ -183,14 +196,14 @@ export default function Dashboard({ stats, websites, pages, revisions }: Dashboa
                             </div>
 
                             <div className="pt-1">
-                                <span className="inline-flex items-center gap-1 rounded-full bg-neutral-100 border border-neutral-200/80 px-2.5 py-0.5 text-[11px] font-semibold text-neutral-700">
+                                <span className="inline-flex items-center gap-1 rounded-full bg-muted border border-border px-2.5 py-0.5 text-[11px] font-semibold text-muted-foreground">
                                     <span>Ready to instantiate</span>
                                 </span>
                             </div>
                         </div>
 
                         {/* KPI 4: Media Assets */}
-                        <div className="flex flex-col justify-between rounded-[22px] border border-neutral-200/70 bg-white p-5 shadow-xs transition hover:shadow-md">
+                        <div className="flex flex-col justify-between rounded-[22px] border border-border bg-card p-5 shadow-xs transition hover:shadow-md text-card-foreground">
                             <div className="flex items-center justify-between">
                                 <span className="text-xs font-semibold text-muted-foreground tracking-wide">
                                     Media Assets
@@ -198,7 +211,7 @@ export default function Dashboard({ stats, websites, pages, revisions }: Dashboa
                                 <Link
                                     href={route('media.index')}
                                     title="View media assets"
-                                    className="flex size-7.5 items-center justify-center rounded-full border border-neutral-200/70 bg-neutral-50 text-neutral-600 transition hover:border-primary/50 hover:bg-primary/5 hover:text-primary"
+                                    className="flex size-7.5 items-center justify-center rounded-full border border-border bg-muted/60 text-muted-foreground transition hover:border-primary/50 hover:bg-primary/10 hover:text-primary"
                                 >
                                     <ArrowUpRight className="size-4 stroke-[2.5]" />
                                 </Link>
@@ -211,29 +224,29 @@ export default function Dashboard({ stats, websites, pages, revisions }: Dashboa
                             </div>
 
                             <div className="pt-1">
-                                <span className="inline-flex items-center gap-1 rounded-full bg-neutral-100 border border-neutral-200/80 px-2.5 py-0.5 text-[11px] font-semibold text-neutral-700">
+                                <span className="inline-flex items-center gap-1 rounded-full bg-muted border border-border px-2.5 py-0.5 text-[11px] font-semibold text-muted-foreground">
                                     <span>Cloud optimized</span>
                                 </span>
                             </div>
                         </div>
                     </div>
 
-                    {/* Middle Section: Analytics, Spotlight, Active Projects (Reference Row 2 Inspired) */}
+                    {/* Middle Section: Analytics, Spotlight, Active Projects */}
                     <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
-                        {/* Widget 1: Project Analytics / Visual Activity Bars (Reference Inspired) */}
-                        <div className="flex flex-col justify-between rounded-[22px] border border-neutral-200/70 bg-white p-5 shadow-xs lg:col-span-5">
+                        {/* Widget 1: Project Analytics */}
+                        <div className="flex flex-col justify-between rounded-[22px] border border-border bg-card p-5 shadow-xs lg:col-span-5 text-card-foreground">
                             <div>
                                 <div className="flex items-center justify-between mb-4">
                                     <div>
                                         <h3 className="text-sm font-bold text-foreground">Website Analytics</h3>
                                         <p className="text-[11px] text-muted-foreground">Weekly page updates & traffic</p>
                                     </div>
-                                    <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[10px] font-bold text-emerald-800 border border-emerald-200/70">
+                                    <span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                                         Active
                                     </span>
                                 </div>
 
-                                {/* Visual Bars (Sunday to Saturday matching reference image) */}
+                                {/* Visual Bars */}
                                 <div className="my-4 flex items-end justify-between gap-2 h-36 px-2 pt-5">
                                     {/* Sunday */}
                                     <div className="flex flex-col items-center gap-2 flex-1">
@@ -245,10 +258,10 @@ export default function Dashboard({ stats, websites, pages, revisions }: Dashboa
                                         <div className="w-full max-w-[28px] h-28 rounded-full bg-[#134E35]" />
                                         <span className="text-[11px] font-semibold text-muted-foreground">M</span>
                                     </div>
-                                    {/* Tuesday: Highlighted with pill badge (like 74% in reference) */}
+                                    {/* Tuesday */}
                                     <div className="flex flex-col items-center gap-2 flex-1">
                                         <div className="relative flex flex-col items-center w-full">
-                                            <span className="absolute -top-6 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold px-1.5 py-0.2 shadow-2xs">
+                                            <span className="absolute -top-6 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold px-1.5 py-0.2 shadow-2xs">
                                                 88%
                                             </span>
                                             <div className="w-full max-w-[28px] h-24 rounded-full bg-emerald-400" />
@@ -260,34 +273,34 @@ export default function Dashboard({ stats, websites, pages, revisions }: Dashboa
                                         <div className="w-full max-w-[28px] h-32 rounded-full bg-[#0D3826]" />
                                         <span className="text-[11px] font-semibold text-muted-foreground">W</span>
                                     </div>
-                                    {/* Thursday (Patterned/Striped) */}
+                                    {/* Thursday */}
                                     <div className="flex flex-col items-center gap-2 flex-1">
-                                        <div className="w-full max-w-[28px] h-24 rounded-full border-2 border-dashed border-neutral-300 bg-neutral-50" />
+                                        <div className="w-full max-w-[28px] h-24 rounded-full border-2 border-dashed border-border bg-muted/30" />
                                         <span className="text-[11px] font-semibold text-muted-foreground">T</span>
                                     </div>
                                     {/* Friday */}
                                     <div className="flex flex-col items-center gap-2 flex-1">
-                                        <div className="w-full max-w-[28px] h-20 rounded-full border-2 border-dashed border-neutral-300 bg-neutral-50" />
+                                        <div className="w-full max-w-[28px] h-20 rounded-full border-2 border-dashed border-border bg-muted/30" />
                                         <span className="text-[11px] font-semibold text-muted-foreground">F</span>
                                     </div>
                                     {/* Saturday */}
                                     <div className="flex flex-col items-center gap-2 flex-1">
-                                        <div className="w-full max-w-[28px] h-16 rounded-full border-2 border-dashed border-neutral-300 bg-neutral-50" />
+                                        <div className="w-full max-w-[28px] h-16 rounded-full border-2 border-dashed border-border bg-muted/30" />
                                         <span className="text-[11px] font-semibold text-muted-foreground">S</span>
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="border-t border-neutral-100 pt-3 flex items-center justify-between text-xs">
+                            <div className="border-t border-border pt-3 flex items-center justify-between text-xs">
                                 <span className="text-muted-foreground text-[11px]">Last sync: Today</span>
                                 <span className="font-semibold text-primary text-[11px] flex items-center gap-1">
-                                    <CheckCircle2 className="size-3 text-emerald-600" /> All systems nominal
+                                    <CheckCircle2 className="size-3 text-emerald-500" /> All systems nominal
                                 </span>
                             </div>
                         </div>
 
-                        {/* Widget 2: Spotlight Website (Reference "Reminders" Inspired) */}
-                        <div className="flex flex-col justify-between rounded-[22px] border border-neutral-200/70 bg-white p-5 shadow-xs lg:col-span-3">
+                        {/* Widget 2: Spotlight Website */}
+                        <div className="flex flex-col justify-between rounded-[22px] border border-border bg-card p-5 shadow-xs lg:col-span-3 text-card-foreground">
                             <div>
                                 <div className="flex items-center justify-between mb-3">
                                     <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
@@ -305,9 +318,9 @@ export default function Dashboard({ stats, websites, pages, revisions }: Dashboa
                                     </p>
                                 </div>
 
-                                <div className="mt-4 rounded-xl bg-neutral-50 p-3 border border-neutral-100 space-y-1">
+                                <div className="mt-4 rounded-xl bg-muted/50 p-3 border border-border space-y-1">
                                     <div className="text-[11px] font-medium text-muted-foreground flex items-center gap-1.5">
-                                        <Clock className="size-3 text-neutral-400" />
+                                        <Clock className="size-3 text-muted-foreground" />
                                         <span>Last modified</span>
                                     </div>
                                     <div className="text-xs font-bold text-foreground">
@@ -326,27 +339,27 @@ export default function Dashboard({ stats, websites, pages, revisions }: Dashboa
                             </div>
                         </div>
 
-                        {/* Widget 3: Active Projects List (Reference "Project" list Inspired) */}
-                        <div className="flex flex-col justify-between rounded-[22px] border border-neutral-200/70 bg-white p-5 shadow-xs lg:col-span-4">
+                        {/* Widget 3: Active Projects List */}
+                        <div className="flex flex-col justify-between rounded-[22px] border border-border bg-card p-5 shadow-xs lg:col-span-4 text-card-foreground">
                             <div>
                                 <div className="flex items-center justify-between mb-3">
                                     <h3 className="text-sm font-bold text-foreground">Projects</h3>
                                     <Link
                                         href={route('websites.index')}
-                                        className="rounded-full border border-neutral-200/80 bg-neutral-50 px-2.5 py-0.5 text-[11px] font-semibold text-neutral-700 hover:bg-neutral-100 transition"
+                                        className="rounded-full border border-border bg-muted/60 px-2.5 py-0.5 text-[11px] font-semibold text-foreground hover:bg-muted transition"
                                     >
                                         + New
                                     </Link>
                                 </div>
 
-                                <div className="divide-y divide-neutral-100">
+                                <div className="divide-y divide-border/60">
                                     {websites.length === 0 ? (
                                         <p className="py-8 text-center text-xs text-muted-foreground">No websites created yet.</p>
                                     ) : (
                                         websites.slice(0, 4).map((site) => (
                                             <div key={site.id} className="flex items-center justify-between py-2.5 group">
                                                 <div className="flex items-center gap-2.5 min-w-0">
-                                                    <div className="flex size-7.5 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-100">
+                                                    <div className="flex size-7.5 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary border border-primary/20">
                                                         <Globe className="size-4" />
                                                     </div>
                                                     <div className="min-w-0">
@@ -365,7 +378,7 @@ export default function Dashboard({ stats, websites, pages, revisions }: Dashboa
                                 </div>
                             </div>
 
-                            <div className="border-t border-neutral-100 pt-3">
+                            <div className="border-t border-border pt-3">
                                 <Link
                                     href={route('websites.index')}
                                     className="flex items-center justify-center gap-1 text-xs font-bold text-primary hover:underline"
@@ -377,29 +390,29 @@ export default function Dashboard({ stats, websites, pages, revisions }: Dashboa
                         </div>
                     </div>
 
-                    {/* Bottom Section: Recent Pages, Progress Ring, Studio Session (Reference Row 3 Inspired) */}
+                    {/* Bottom Section: Recent Pages, Progress Ring, Studio Session */}
                     <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
-                        {/* Widget 4: Recent Pages (Reference "Team Collaboration" Inspired) */}
-                        <div className="flex flex-col justify-between rounded-[22px] border border-neutral-200/70 bg-white p-5 shadow-xs lg:col-span-5">
+                        {/* Widget 4: Recent Pages */}
+                        <div className="flex flex-col justify-between rounded-[22px] border border-border bg-card p-5 shadow-xs lg:col-span-5 text-card-foreground">
                             <div>
                                 <div className="flex items-center justify-between mb-3">
                                     <h3 className="text-sm font-bold text-foreground">Recent Pages</h3>
                                     <Link
                                         href={route('pages.index')}
-                                        className="rounded-full border border-neutral-200/80 bg-neutral-50 px-2.5 py-0.5 text-[11px] font-semibold text-neutral-700 hover:bg-neutral-100 transition"
+                                        className="rounded-full border border-border bg-muted/60 px-2.5 py-0.5 text-[11px] font-semibold text-foreground hover:bg-muted transition"
                                     >
                                         All Pages
                                     </Link>
                                 </div>
 
-                                <div className="divide-y divide-neutral-100">
+                                <div className="divide-y divide-border/60">
                                     {pages.length === 0 ? (
                                         <p className="py-8 text-center text-xs text-muted-foreground">No pages created yet.</p>
                                     ) : (
                                         pages.slice(0, 4).map((page) => (
                                             <div key={page.id} className="flex items-center justify-between py-2.5 group">
                                                 <div className="flex items-center gap-2.5 min-w-0">
-                                                    <div className="flex size-7.5 shrink-0 items-center justify-center rounded-lg bg-neutral-100 text-neutral-700 group-hover:bg-primary/10 group-hover:text-primary transition">
+                                                    <div className="flex size-7.5 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground group-hover:bg-primary/10 group-hover:text-primary transition">
                                                         <FileText className="size-4" />
                                                     </div>
                                                     <div className="min-w-0">
@@ -416,7 +429,7 @@ export default function Dashboard({ stats, websites, pages, revisions }: Dashboa
                                                     <Link
                                                         href={route('builder.pages.show', page.id)}
                                                         title="Edit page in visual builder"
-                                                        className="size-6 rounded-full border border-neutral-200/70 bg-neutral-50 flex items-center justify-center text-neutral-500 hover:bg-primary hover:text-white hover:border-primary transition"
+                                                        className="size-6 rounded-full border border-border bg-muted/60 flex items-center justify-center text-muted-foreground hover:bg-primary hover:text-primary-foreground hover:border-primary transition"
                                                     >
                                                         <ArrowUpRight className="size-3" />
                                                     </Link>
@@ -427,7 +440,7 @@ export default function Dashboard({ stats, websites, pages, revisions }: Dashboa
                                 </div>
                             </div>
 
-                            <div className="border-t border-neutral-100 pt-3">
+                            <div className="border-t border-border pt-3">
                                 <Link
                                     href={route('pages.index')}
                                     className="flex items-center justify-center gap-1 text-xs font-bold text-primary hover:underline"
@@ -438,15 +451,15 @@ export default function Dashboard({ stats, websites, pages, revisions }: Dashboa
                             </div>
                         </div>
 
-                        {/* Widget 5: Publishing Health & Progress Arc (Reference "Project Progress" Inspired) */}
-                        <div className="flex flex-col justify-between rounded-[22px] border border-neutral-200/70 bg-white p-5 shadow-xs lg:col-span-4">
+                        {/* Widget 5: Publishing Health & Progress Arc */}
+                        <div className="flex flex-col justify-between rounded-[22px] border border-border bg-card p-5 shadow-xs lg:col-span-4 text-card-foreground">
                             <div>
                                 <div className="flex items-center justify-between mb-2">
                                     <h3 className="text-sm font-bold text-foreground">Project Progress</h3>
                                     <span className="text-[11px] font-semibold text-muted-foreground">Publication</span>
                                 </div>
 
-                                {/* Progress Arc Diagram (Styled SVG arc like in reference) */}
+                                {/* Progress Arc Diagram */}
                                 <div className="flex flex-col items-center justify-center my-3">
                                     <div className="relative size-36 flex items-center justify-center">
                                         <svg className="size-full -rotate-90" viewBox="0 0 100 100">
@@ -458,7 +471,7 @@ export default function Dashboard({ stats, websites, pages, revisions }: Dashboa
                                                 fill="transparent"
                                                 stroke="currentColor"
                                                 strokeWidth="12"
-                                                className="text-neutral-100"
+                                                className="text-muted"
                                             />
                                             {/* Progress circle */}
                                             <circle
@@ -471,7 +484,7 @@ export default function Dashboard({ stats, websites, pages, revisions }: Dashboa
                                                 strokeDasharray="251.2"
                                                 strokeDashoffset={251.2 - (251.2 * publishedPercent) / 100}
                                                 strokeLinecap="round"
-                                                className="text-[#134E35]"
+                                                className="text-primary"
                                             />
                                         </svg>
                                         <div className="absolute flex flex-col items-center">
@@ -485,10 +498,10 @@ export default function Dashboard({ stats, websites, pages, revisions }: Dashboa
                                     </div>
                                 </div>
 
-                                {/* Legend (Reference Inspired) */}
-                                <div className="flex items-center justify-center gap-4 text-[11px] font-medium text-neutral-600 pt-1">
+                                {/* Legend */}
+                                <div className="flex items-center justify-center gap-4 text-[11px] font-medium text-muted-foreground pt-1">
                                     <div className="flex items-center gap-1.5">
-                                        <span className="size-2 rounded-full bg-[#134E35]" />
+                                        <span className="size-2 rounded-full bg-primary" />
                                         <span>Published</span>
                                     </div>
                                     <div className="flex items-center gap-1.5">
@@ -496,20 +509,20 @@ export default function Dashboard({ stats, websites, pages, revisions }: Dashboa
                                         <span>Drafts</span>
                                     </div>
                                     <div className="flex items-center gap-1.5">
-                                        <span className="size-2 rounded-full bg-neutral-300" />
+                                        <span className="size-2 rounded-full bg-muted-foreground/40" />
                                         <span>Pending</span>
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="border-t border-neutral-100 pt-3 text-center">
+                            <div className="border-t border-border pt-3 text-center">
                                 <p className="text-[11px] text-muted-foreground">
                                     {publishedCount} of {pages.length} pages currently live
                                 </p>
                             </div>
                         </div>
 
-                        {/* Widget 6: Visual Studio Session (Reference "Time Tracker" Inspired) */}
+                        {/* Widget 6: Visual Studio Session */}
                         <div className="relative flex flex-col justify-between overflow-hidden rounded-[22px] bg-gradient-to-br from-[#134E35] via-[#154D34] to-[#0A2E1F] p-5 text-white shadow-xs lg:col-span-3">
                             {/* Decorative curved organic lines */}
                             <div className="absolute -top-12 -right-12 size-40 rounded-full border border-white/10" />
@@ -543,6 +556,8 @@ export default function Dashboard({ stats, websites, pages, revisions }: Dashboa
                     </div>
                 </div>
             </div>
+
+            <ImportModal open={importModalOpen} onOpenChange={setImportModalOpen} />
         </AppLayout>
     );
 }

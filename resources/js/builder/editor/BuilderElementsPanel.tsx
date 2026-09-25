@@ -15,6 +15,7 @@ export interface BuilderElementsPanelProps {
     definitions: ComponentDefinition[];
     onInsert: (type: ComponentType) => void;
     onStartDrag: (type: ComponentType) => void;
+    onOpenLayoutTemplates?: (type: 'columns' | 'grid') => void;
     templates?: { id: number; name: string; description?: string | null }[];
     reusableDefinitions?: ReusableComponentDefinition[];
     mediaAssets?: MediaAsset[];
@@ -28,6 +29,7 @@ export function BuilderElementsPanel({
     definitions,
     onInsert,
     onStartDrag,
+    onOpenLayoutTemplates,
     showHeader = false,
     className = '',
 }: BuilderElementsPanelProps) {
@@ -53,6 +55,7 @@ export function BuilderElementsPanel({
     const filteredDefinitions = useMemo(() => {
         const normalized = query.trim().toLowerCase();
         return definitions.filter((definition) => {
+            if (definition.type === 'layout.flex') return false;
             const matchesCategory = selectedCategory === 'all' || definition.category === selectedCategory;
             if (!matchesCategory) return false;
 
@@ -183,7 +186,16 @@ export function BuilderElementsPanel({
                                                     type="button"
                                                     draggable
                                                     onDragStart={() => onStartDrag(definition.type)}
-                                                    onClick={() => onInsert(definition.type)}
+                                                    onClick={() => {
+                                                        if (
+                                                            (definition.type === 'layout.columns' || definition.type === 'layout.grid') &&
+                                                            onOpenLayoutTemplates
+                                                        ) {
+                                                            onOpenLayoutTemplates(definition.type === 'layout.columns' ? 'columns' : 'grid');
+                                                        } else {
+                                                            onInsert(definition.type);
+                                                        }
+                                                    }}
                                                     className="group relative flex cursor-grab flex-col items-center justify-center gap-2 rounded-xl border border-border/80 bg-card p-2.5 text-center shadow-2xs transition-all hover:border-primary/50 hover:bg-muted/40 hover:shadow-xs active:scale-[0.98] active:cursor-grabbing"
                                                     title={definition.description ?? `Click to insert ${definition.name} or drag to position`}
                                                 >

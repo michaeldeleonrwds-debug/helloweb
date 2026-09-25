@@ -186,7 +186,43 @@ export const STYLE_PROPERTY_DEFINITIONS: readonly StyleDefinition[] = [
         options: ['none', 'solid', 'dashed', 'dotted', 'double'],
         responsive: true,
     },
+    {
+        key: 'borderTopStyle',
+        label: 'Top border style',
+        group: 'border',
+        type: 'enum',
+        options: ['none', 'solid', 'dashed', 'dotted', 'double'],
+        responsive: true,
+    },
+    {
+        key: 'borderRightStyle',
+        label: 'Right border style',
+        group: 'border',
+        type: 'enum',
+        options: ['none', 'solid', 'dashed', 'dotted', 'double'],
+        responsive: true,
+    },
+    {
+        key: 'borderBottomStyle',
+        label: 'Bottom border style',
+        group: 'border',
+        type: 'enum',
+        options: ['none', 'solid', 'dashed', 'dotted', 'double'],
+        responsive: true,
+    },
+    {
+        key: 'borderLeftStyle',
+        label: 'Left border style',
+        group: 'border',
+        type: 'enum',
+        options: ['none', 'solid', 'dashed', 'dotted', 'double'],
+        responsive: true,
+    },
     { key: 'borderColor', label: 'Border color', group: 'border', type: 'color', responsive: true },
+    { key: 'borderTopColor', label: 'Top border color', group: 'border', type: 'color', responsive: true },
+    { key: 'borderRightColor', label: 'Right border color', group: 'border', type: 'color', responsive: true },
+    { key: 'borderBottomColor', label: 'Bottom border color', group: 'border', type: 'color', responsive: true },
+    { key: 'borderLeftColor', label: 'Left border color', group: 'border', type: 'color', responsive: true },
     { key: 'borderRadius', label: 'Border radius', group: 'border', type: 'length', responsive: true },
     { key: 'borderTopLeftRadius', label: 'Top left radius', group: 'border', type: 'length', responsive: true },
     { key: 'borderTopRightRadius', label: 'Top right radius', group: 'border', type: 'length', responsive: true },
@@ -319,7 +355,15 @@ export type StylePropertyKey =
     | 'borderBottomWidth'
     | 'borderLeftWidth'
     | 'borderStyle'
+    | 'borderTopStyle'
+    | 'borderRightStyle'
+    | 'borderBottomStyle'
+    | 'borderLeftStyle'
     | 'borderColor'
+    | 'borderTopColor'
+    | 'borderRightColor'
+    | 'borderBottomColor'
+    | 'borderLeftColor'
     | 'borderRadius'
     | 'borderTopLeftRadius'
     | 'borderTopRightRadius'
@@ -391,7 +435,11 @@ export function validateStylePatch(definition: ComponentDefinition, patch: Recor
                 ? allowed.has('borderWidth')
                 : key.startsWith('border') && key.endsWith('Radius')
                   ? allowed.has('borderRadius')
-                  : false;
+                  : key.startsWith('border') && key.endsWith('Style')
+                    ? allowed.has('borderStyle')
+                    : key.startsWith('border') && key.endsWith('Color')
+                      ? allowed.has('borderColor')
+                      : false;
         if (!property || (!allowed.has(key as StylePropertyKey) && !supportsShorthand)) {
             throw new Error(`Style property [${key}] is not supported by component [${definition.type}].`);
         }
@@ -491,4 +539,139 @@ export function inheritedStyleValue(
     if (own !== undefined) return { value: own, inherited: false };
     const resolved = resolveStyles(node, definition, breakpoint);
     return { value: resolved[key], inherited: breakpoint !== 'desktop' && resolved[key] !== undefined };
+}
+
+export interface ParsedColor {
+    r: number;
+    g: number;
+    b: number;
+    a: number;
+}
+
+const NAMED_COLORS: Record<string, string> = {
+    black: '#000000',
+    white: '#ffffff',
+    red: '#ff0000',
+    green: '#008000',
+    blue: '#0000ff',
+    gray: '#808080',
+    grey: '#808080',
+};
+
+export function isGradientValue(value: string | undefined): boolean {
+    return typeof value === 'string' && /\b(?:repeating-)?(?:linear|radial|conic)-gradient\(/i.test(value);
+}
+
+export function parseColor(value: string | undefined | null): ParsedColor | null {
+    if (typeof value !== 'string') return null;
+    let input = value.trim().toLowerCase();
+    if (input === 'transparent') return { r: 0, g: 0, b: 0, a: 0 };
+    if (NAMED_COLORS[input]) input = NAMED_COLORS[input];
+
+    if (input.startsWith('#')) {
+        const hex = input.slice(1);
+        if (/^[0-9a-f]{3,4}$/.test(hex)) {
+            const [r, g, b, a] = hex.split('');
+            return {
+                r: parseInt(r + r, 16),
+                g: parseInt(g + g, 16),
+                b: parseInt(b + b, 16),
+                a: a ? parseInt(a + a, 16) / 255 : 1,
+            };
+        }
+        if (/^[0-9a-f]{6}([0-9a-f]{2})?$/.test(hex)) {
+            return {
+                r: parseInt(hex.slice(0, 2), 16),
+                g: parseInt(hex.slice(2, 4), 16),
+                b: parseInt(hex.slice(4, 6), 16),
+                a: hex.length === 8 ? parseInt(hex.slice(6, 8), 16) / 255 : 1,
+            };
+        }
+        return null;
+    }
+
+    const match = /^(rgba?|hsla?)\(([^)]*)\)$/i.exec(input);
+    if (!match) return null;
+
+    const body = match[2];
+    const slashIndex = body.indexOf('/');
+    const channelText = (slashIndex === -1 ? body : body.slice(0, slashIndex)).trim();
+    const alphaText = slashIndex === -1 ? undefined : body.slice(slashIndex + 1).trim();
+    const channels = channelText.split(/[\s,]+/).filter(Boolean);
+    if (channels.length < 3) return null;
+
+    const alpha = parseAlpha(alphaText ?? channels[3]);
+    if (alpha === null) return null;
+
+    if (/^rgba?$/i.test(match[1])) {
+        const [r, g, b] = channels.slice(0, 3).map(parseByteChannel);
+        if (r === null || g === null || b === null) return null;
+        return { r, g, b, a: alpha };
+    }
+
+    const [h, s, l] = [Number.parseFloat(channels[0]), Number.parseFloat(channels[1]), Number.parseFloat(channels[2])];
+    if (!Number.isFinite(h) || !Number.isFinite(s) || !Number.isFinite(l)) return null;
+    if (!channels[1].endsWith('%') || !channels[2].endsWith('%')) return null;
+    const { r, g, b } = hslToRgb(h, s / 100, l / 100);
+    return { r, g, b, a: alpha };
+}
+
+export function rgbaString(color: ParsedColor): string {
+    return `rgba(${color.r}, ${color.g}, ${color.b}, ${roundAlpha(color.a)})`;
+}
+
+export function toRgbaString(value: string | undefined, fallback = 'rgba(0, 0, 0, 1)'): string {
+    if (typeof value !== 'string' || value.trim() === '' || isGradientValue(value)) return fallback;
+    const parsed = parseColor(value);
+    return parsed ? rgbaString(parsed) : value;
+}
+
+export function toHexColor(value: string | undefined, fallback = '#000000'): string {
+    const parsed = parseColor(value);
+    if (!parsed) return fallback;
+    const toPart = (channel: number) => channel.toString(16).padStart(2, '0');
+    return `#${toPart(parsed.r)}${toPart(parsed.g)}${toPart(parsed.b)}`;
+}
+
+export function alphaPercent(value: string | undefined): number {
+    const parsed = parseColor(value);
+    return parsed ? Math.round(parsed.a * 100) : 100;
+}
+
+function parseByteChannel(text: string): number | null {
+    const numeric = Number.parseFloat(text);
+    if (!Number.isFinite(numeric)) return null;
+    const scaled = text.endsWith('%') ? (numeric / 100) * 255 : numeric;
+    return clampByte(scaled);
+}
+
+function parseAlpha(text: string | undefined): number | null {
+    if (text === undefined) return 1;
+    const numeric = Number.parseFloat(text);
+    if (!Number.isFinite(numeric)) return null;
+    return clamp01(text.endsWith('%') ? numeric / 100 : numeric);
+}
+
+function hslToRgb(h: number, s: number, l: number): { r: number; g: number; b: number } {
+    const hue = ((h % 360) + 360) % 360;
+    const saturation = clamp01(s);
+    const lightness = clamp01(l);
+    const chroma = saturation * Math.min(lightness, 1 - lightness);
+    const segment = (n: number) => {
+        const k = (n + hue / 30) % 12;
+        return lightness - chroma * Math.max(-1, Math.min(k - 3, Math.min(9 - k, 1)));
+    };
+    return { r: clampByte(segment(0) * 255), g: clampByte(segment(8) * 255), b: clampByte(segment(4) * 255) };
+}
+
+function clampByte(value: number): number {
+    return Math.min(255, Math.max(0, Math.round(value)));
+}
+
+function clamp01(value: number): number {
+    return Math.min(1, Math.max(0, value));
+}
+
+function roundAlpha(value: number): number {
+    return Math.round(value * 1000) / 1000;
 }

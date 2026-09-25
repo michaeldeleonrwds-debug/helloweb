@@ -1,4 +1,4 @@
-import { ArrowUpRight, Boxes, Clock, FileText, Globe, Plus, Search, Sparkles } from 'lucide-react';
+import { ArrowUpRight, Boxes, Clock, FileText, Globe, Plus, Search, Sparkles, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
 import { AdminResourcePage, ResourceEmpty, StatusBadge } from '@/components/admin-resource-page';
@@ -40,8 +40,8 @@ export default function Websites({ websites }: { websites: Website[] }) {
             icon={Boxes}
         >
             <div className="space-y-6">
-                {/* Search & Filter Bar (Reference Inspired) */}
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-[20px] border border-neutral-200/70 bg-white p-3.5 shadow-xs">
+                {/* Search & Filter Bar */}
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-[20px] border border-border bg-card p-3.5 shadow-xs text-card-foreground">
                     <div className="relative flex items-center flex-1 max-w-md">
                         <Search className="absolute left-3.5 size-4 text-muted-foreground" />
                         <input
@@ -49,8 +49,18 @@ export default function Websites({ websites }: { websites: Website[] }) {
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             placeholder="Search by website name or path..."
-                            className="w-full rounded-full border border-neutral-200/80 bg-neutral-50/70 py-2 pl-9.5 pr-4 text-xs font-medium text-foreground placeholder:text-neutral-400 outline-none focus:border-primary/50 focus:bg-white focus:ring-2 focus:ring-primary/10 transition"
+                            className="w-full rounded-full border border-border bg-muted/40 py-2 pl-9.5 pr-8 text-xs font-medium text-foreground placeholder:text-muted-foreground outline-none focus:border-primary/50 focus:bg-card focus:ring-2 focus:ring-primary/10 transition"
                         />
+                        {searchQuery && (
+                            <button
+                                type="button"
+                                onClick={() => setSearchQuery('')}
+                                className="absolute right-3 text-muted-foreground hover:text-foreground"
+                                title="Clear search"
+                            >
+                                <X className="size-3.5" />
+                            </button>
+                        )}
                     </div>
 
                     <div className="flex items-center gap-1.5 overflow-x-auto">
@@ -59,8 +69,8 @@ export default function Websites({ websites }: { websites: Website[] }) {
                             onClick={() => setStatusFilter('all')}
                             className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition ${
                                 statusFilter === 'all'
-                                    ? 'bg-primary text-white shadow-xs'
-                                    : 'text-neutral-600 hover:bg-neutral-100'
+                                    ? 'bg-primary text-primary-foreground shadow-xs'
+                                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                             }`}
                         >
                             All ({websites.length})
@@ -70,8 +80,8 @@ export default function Websites({ websites }: { websites: Website[] }) {
                             onClick={() => setStatusFilter('published')}
                             className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition ${
                                 statusFilter === 'published'
-                                    ? 'bg-primary text-white shadow-xs'
-                                    : 'text-neutral-600 hover:bg-neutral-100'
+                                    ? 'bg-primary text-primary-foreground shadow-xs'
+                                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                             }`}
                         >
                             Published
@@ -81,8 +91,8 @@ export default function Websites({ websites }: { websites: Website[] }) {
                             onClick={() => setStatusFilter('draft')}
                             className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition ${
                                 statusFilter === 'draft'
-                                    ? 'bg-primary text-white shadow-xs'
-                                    : 'text-neutral-600 hover:bg-neutral-100'
+                                    ? 'bg-primary text-primary-foreground shadow-xs'
+                                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                             }`}
                         >
                             Drafts
@@ -102,11 +112,11 @@ export default function Websites({ websites }: { websites: Website[] }) {
                         {filteredWebsites.map((website) => (
                             <div
                                 key={website.id}
-                                className="group relative flex flex-col justify-between rounded-[22px] border border-neutral-200/70 bg-white p-5.5 shadow-xs transition-all duration-200 hover:-translate-y-1 hover:border-primary/40 hover:shadow-md"
+                                className="group relative flex flex-col justify-between rounded-[22px] border border-border bg-card p-5.5 shadow-xs transition-all duration-200 hover:-translate-y-1 hover:border-primary/40 hover:shadow-md text-card-foreground"
                             >
                                 <div>
                                     {/* Mini Browser Bar */}
-                                    <div className="mb-4 flex items-center justify-between border-b border-neutral-100 pb-3">
+                                    <div className="mb-4 flex items-center justify-between border-b border-border/60 pb-3">
                                         <div className="flex items-center gap-1.5">
                                             <span className="size-2.5 rounded-full bg-red-400/80" />
                                             <span className="size-2.5 rounded-full bg-amber-400/80" />
@@ -118,7 +128,7 @@ export default function Websites({ websites }: { websites: Website[] }) {
                                     {/* Icon & Website Info */}
                                     <div className="space-y-2.5">
                                         <div className="flex items-center gap-3">
-                                            <div className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-800 border border-emerald-100 shadow-2xs group-hover:bg-primary group-hover:text-white transition-colors duration-200">
+                                            <div className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary border border-primary/20 shadow-2xs group-hover:bg-primary group-hover:text-primary-foreground transition-colors duration-200">
                                                 <Globe className="size-5" />
                                             </div>
                                             <div className="min-w-0 flex-1">
@@ -138,7 +148,7 @@ export default function Websites({ websites }: { websites: Website[] }) {
                                             </span>
                                             <span>·</span>
                                             <span className="inline-flex items-center gap-1">
-                                                <Clock className="size-3 text-muted-foreground" />
+                                                <Clock className="size-3.5 text-muted-foreground" />
                                                 <span>{website.updatedAt ? new Date(website.updatedAt).toLocaleDateString() : 'Active'}</span>
                                             </span>
                                         </div>
@@ -146,14 +156,14 @@ export default function Websites({ websites }: { websites: Website[] }) {
                                 </div>
 
                                 {/* Actions Footer */}
-                                <div className="mt-6 flex items-center justify-between border-t border-neutral-100 pt-3.5">
-                                    <Button asChild variant="outline" size="sm" className="rounded-full border-neutral-200/80 bg-white hover:bg-neutral-50 text-foreground font-semibold text-xs h-8 px-3.5 shadow-2xs">
+                                <div className="mt-6 flex items-center justify-between border-t border-border/60 pt-3.5">
+                                    <Button asChild variant="outline" size="sm" className="rounded-full border-border bg-card hover:bg-muted text-foreground font-semibold text-xs h-8 px-3.5 shadow-2xs">
                                         <Link href={route('pages.index')}>
                                             View Pages
                                         </Link>
                                     </Button>
 
-                                    <Button asChild size="sm" className="rounded-full bg-primary hover:bg-primary/90 text-white font-bold text-xs h-8 px-4 gap-1.5 shadow-2xs transition active:scale-98">
+                                    <Button asChild size="sm" className="rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs h-8 px-4 gap-1.5 shadow-2xs transition active:scale-98">
                                         <Link href={route('builder')}>
                                             <Sparkles className="size-3.5" />
                                             <span>Open Builder</span>

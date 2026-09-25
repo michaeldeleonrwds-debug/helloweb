@@ -71,7 +71,7 @@ interface BuilderCanvasViewProps {
     isNodeFullWidth?: (nodeId: string) => boolean;
     onAddColumn?: (nodeId: string) => void;
     onAddElement?: (nodeId: string) => void;
-    onOpenMediaManager?: (target?: 'image' | 'background', nodeId?: string) => void;
+    onOpenMediaManager?: (target?: string, nodeId?: string, payload?: any) => void;
     onEditNode?: (nodeId: string) => void;
 }
 
@@ -133,10 +133,10 @@ export function BuilderCanvasView({
 
     return (
         <div
-            className={`builder-canvas min-h-0 min-w-0 flex-1 overflow-auto ${fixedPreviewWidth ? 'bg-[#f0f4f9] dark:bg-[#131314]' : 'bg-white dark:bg-slate-950'}`}
+            className="builder-canvas min-h-0 min-w-0 flex-1 overflow-auto bg-[#eaecf0] dark:bg-[#12151b]"
             data-builder-canvas="true"
         >
-            <div className={`flex min-h-full min-w-full ${fixedPreviewWidth ? 'items-start justify-center px-4 py-8 pb-20' : 'items-start justify-stretch p-0'}`}>
+            <div className={`flex min-h-full min-w-full ${fixedPreviewWidth ? 'items-start justify-center px-4 py-8 pb-20' : 'items-start justify-stretch p-0 pb-24'}`}>
                 <div
                     className={`${fixedPreviewWidth ? 'shrink-0' : 'w-full min-w-0'} transition-[width] duration-200`}
                     style={
@@ -151,7 +151,7 @@ export function BuilderCanvasView({
                     data-builder-page-shell="true"
                 >
                     <div
-                        className={`relative w-full bg-white text-slate-950 ${fixedPreviewWidth ? 'overflow-hidden rounded-xl shadow-md ring-1 ring-slate-900/5 dark:ring-white/10' : 'min-h-full'} ${pageIsEmpty ? 'min-h-[min(720px,calc(100vh-170px))]' : ''}`}
+                        className={`relative w-full bg-white text-slate-950 shadow-sm ${fixedPreviewWidth ? 'overflow-hidden rounded-xl shadow-md ring-1 ring-slate-900/5 dark:ring-white/10' : 'min-h-fit'} ${pageIsEmpty ? 'min-h-[min(720px,calc(100vh-170px))]' : ''}`}
                         data-builder-page="true"
                     >
                         <CanvasNode

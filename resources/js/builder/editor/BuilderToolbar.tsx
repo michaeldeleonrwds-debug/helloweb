@@ -15,6 +15,7 @@ import {
     Smartphone,
     Tablet,
     Undo2,
+    UploadCloud,
     ZoomIn,
     ZoomOut,
 } from 'lucide-react';
@@ -44,6 +45,10 @@ export interface BuilderToolbarProps {
     onSave: () => void;
     onNavigateBack: () => void;
     onOpenCodeSettings: () => void;
+    onOpenImport?: () => void;
+    pageStatus?: string;
+    onPublish?: () => void;
+    isPublishing?: boolean;
 }
 
 const devices: { id: BuilderBreakpoint; label: string; icon: typeof Monitor }[] = [
@@ -74,6 +79,10 @@ export function BuilderToolbar({
     onSave,
     onNavigateBack,
     onOpenCodeSettings,
+    onOpenImport,
+    pageStatus,
+    onPublish,
+    isPublishing = false,
 }: BuilderToolbarProps) {
     return (
         <header
@@ -107,6 +116,17 @@ export function BuilderToolbar({
                         </span>
                         <ChevronDown className="size-3 shrink-0 text-muted-foreground/60" />
                     </div>
+                    {pageStatus ? (
+                        <span
+                            className={`hidden sm:inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                                pageStatus === 'published'
+                                    ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20'
+                                    : 'bg-amber-500/10 text-amber-600 border border-amber-500/20'
+                            }`}
+                        >
+                            {pageStatus}
+                        </span>
+                    ) : null}
                 </div>
 
                 <div className="hidden h-4 w-px bg-border/60 md:block" />
@@ -220,6 +240,20 @@ export function BuilderToolbar({
                     <span className="hidden xl:inline">Code</span>
                 </button>
 
+                {/* Import Button */}
+                {onOpenImport ? (
+                    <button
+                        type="button"
+                        className="inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                        aria-label="Import component or template"
+                        title="Import design package (ZIP)"
+                        onClick={onOpenImport}
+                    >
+                        <UploadCloud className="size-3.5" />
+                        <span className="hidden lg:inline">Import</span>
+                    </button>
+                ) : null}
+
                 {/* Preview Button */}
                 {pageId ? (
                     <a
@@ -235,24 +269,43 @@ export function BuilderToolbar({
                     </a>
                 ) : null}
 
-                {/* Save Button */}
+                {/* Save Draft Button */}
                 <button
                     type="button"
                     onClick={onSave}
                     disabled={saveStatus === 'saved' || saveStatus === 'saving'}
-                    className={`inline-flex h-8 items-center gap-1.5 rounded-lg px-3.5 text-xs font-semibold shadow-2xs transition active:scale-95 ${
+                    className={`inline-flex h-8 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold shadow-2xs transition active:scale-95 ${
                         saveStatus === 'unsaved'
-                            ? 'bg-primary text-primary-foreground hover:brightness-105'
+                            ? 'bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-border/80'
                             : 'border border-border/80 bg-muted/40 text-muted-foreground cursor-default'
                     }`}
+                    title="Save current composition as draft"
                 >
                     {saveStatus === 'saving' ? (
                         <Loader2 className="size-3.5 animate-spin" />
                     ) : (
                         <Check className={`size-3.5 ${saveStatus === 'saved' ? 'text-primary' : ''}`} />
                     )}
-                    <span>{saveStatus === 'saving' ? 'Saving...' : saveStatus === 'saved' ? 'Saved' : 'Save'}</span>
+                    <span>{saveStatus === 'saving' ? 'Saving...' : saveStatus === 'saved' ? 'Draft Saved' : 'Save Draft'}</span>
                 </button>
+
+                {/* Publish Button */}
+                {onPublish ? (
+                    <button
+                        type="button"
+                        onClick={onPublish}
+                        disabled={isPublishing}
+                        className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 text-xs font-semibold shadow-2xs transition active:scale-95 disabled:opacity-50"
+                        title={pageStatus === 'published' ? 'Page is published. Click to publish latest changes.' : 'Publish this page publicly'}
+                    >
+                        {isPublishing ? (
+                            <Loader2 className="size-3.5 animate-spin" />
+                        ) : (
+                            <Globe className="size-3.5" />
+                        )}
+                        <span>{isPublishing ? 'Publishing...' : 'Publish'}</span>
+                    </button>
+                ) : null}
 
                 <div className="h-4 w-px bg-border/60" />
 

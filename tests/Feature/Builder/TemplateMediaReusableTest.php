@@ -30,7 +30,7 @@ class TemplateMediaReusableTest extends TestCase
         $this->assertNotSame($source['id'], $inserted['id']);
         $this->assertNotSame($source['children'][0]['id'], $inserted['children'][0]['id']);
         $this->assertSame($source['styles'], $inserted['styles']);
-        $this->assertSame('layout.container', $inserted['children'][0]['type']);
+        $this->assertSame('layout.row', $inserted['children'][0]['type']);
         $this->assertSame($source['id'], $template->fresh()->document['root']['id']);
     }
 
@@ -55,12 +55,14 @@ class TemplateMediaReusableTest extends TestCase
     public function test_reusable_component_is_a_reference_not_a_copy(): void
     {
         [$page, $user] = $this->page();
-        $source = $page->draft_document['root']['children'][0]['children'][0]['children'][0];
+        $column = $page->draft_document['root']['children'][0]['children'][0]['children'][0];
+        $source = $column['children'][0];
         $service = new ReusableComponentService;
         $component = $service->create($user, 'Shared heading', ['schemaVersion' => 1, 'root' => $source]);
 
-        $updated = $service->insert($user, $component, $page, 'container-default', 0);
-        $instance = $updated->fresh()->draft_document['root']['children'][0]['children'][0]['children'][1];
+        $updated = $service->insert($user, $component, $page, $column['id'], 0);
+        $children = $updated->fresh()->draft_document['root']['children'][0]['children'][0]['children'][0]['children'];
+        $instance = end($children);
 
         $this->assertSame('reusable.instance', $instance['type']);
         $this->assertSame(['type' => 'reusable-component', 'id' => $component->id], $instance['reusableReference']);
@@ -121,6 +123,6 @@ class TemplateMediaReusableTest extends TestCase
         $service = new BuilderPagePersistenceService;
         $website = $service->createWebsite($user, 'Templates', 'templates-'.$user->id);
 
-        return [$service->createPage($website, 'Home', 'home'), $user];
+        return [$website->homepage, $user];
     }
 }

@@ -28,8 +28,10 @@ export interface BuilderLeftPanelProps {
     mediaAssets: MediaAsset[];
     onInsert: (type: ComponentType) => void;
     onStartDrag: (type: ComponentType) => void;
+    onOpenLayoutTemplates?: (type: 'columns' | 'grid') => void;
     onInsertTemplate: (id: number) => void;
     onInsertReusable: (id: number) => void;
+    onOpenImport?: () => void;
     onUploadMedia?: (file: File) => Promise<MediaAsset>;
     document: BuilderPageDocument;
     registry: ComponentRegistry;
@@ -50,8 +52,10 @@ export function BuilderLeftPanel({
     mediaAssets,
     onInsert,
     onStartDrag,
+    onOpenLayoutTemplates,
     onInsertTemplate,
     onInsertReusable,
+    onOpenImport,
     onUploadMedia,
     document,
     registry,
@@ -153,6 +157,7 @@ export function BuilderLeftPanel({
                                 definitions={definitions}
                                 onInsert={onInsert}
                                 onStartDrag={onStartDrag}
+                                onOpenLayoutTemplates={onOpenLayoutTemplates}
                             />
                         ) : null}
 
@@ -178,6 +183,7 @@ export function BuilderLeftPanel({
                                 reusableDefinitions={reusableDefinitions}
                                 onInsertTemplate={onInsertTemplate}
                                 onInsertReusable={onInsertReusable}
+                                onOpenImport={onOpenImport}
                             />
                         ) : null}
 
@@ -200,11 +206,13 @@ function LibraryPanel({
     reusableDefinitions,
     onInsertTemplate,
     onInsertReusable,
+    onOpenImport,
 }: {
     templates: { id: number; name: string; description?: string | null }[];
     reusableDefinitions: ReusableComponentDefinition[];
     onInsertTemplate: (id: number) => void;
     onInsertReusable: (id: number) => void;
+    onOpenImport?: () => void;
 }) {
     const [filter, setFilter] = useState<'all' | 'templates' | 'components'>('all');
     const [query, setQuery] = useState('');
@@ -227,6 +235,17 @@ function LibraryPanel({
         <div className="flex h-full flex-col overflow-hidden">
             {/* Search & Sub-Filter Bar */}
             <div className="shrink-0 space-y-2 border-b border-border p-3">
+                {onOpenImport ? (
+                    <button
+                        type="button"
+                        onClick={onOpenImport}
+                        className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-primary/40 bg-primary/5 py-2 px-3 text-xs font-bold text-primary transition hover:border-primary hover:bg-primary/10 active:scale-[0.98]"
+                    >
+                        <UploadCloud className="size-3.5 stroke-[2.2]" />
+                        <span>Import Component / Template</span>
+                    </button>
+                ) : null}
+
                 <div className="relative">
                     <Search className="pointer-events-none absolute top-2.5 left-3 size-3.5 text-muted-foreground" />
                     <input

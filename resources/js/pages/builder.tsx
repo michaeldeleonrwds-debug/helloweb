@@ -7,7 +7,7 @@ import type { ReusableComponentDefinition } from '@/builder/reusable';
 import { usePage } from '@inertiajs/react';
 
 interface BuilderPageProps extends Record<string, unknown> {
-    page: { id: number; title: string; websiteName: string; version: number };
+    page: { id: number; title: string; websiteName: string; version: number; status?: string; slug?: string };
     document: BuilderPageDocument;
     reusableComponents: ReusableComponentDefinition[];
     templates: { id: number; name: string; description?: string | null }[];
@@ -30,6 +30,8 @@ export default function Builder() {
                     mediaAssets={mediaAssets}
                     websiteName={page.websiteName}
                     pageName={page.title}
+                    pageStatus={page.status}
+                    pageSlug={page.slug}
                 />
             </div>
         </>

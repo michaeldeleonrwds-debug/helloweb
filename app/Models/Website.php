@@ -30,4 +30,9 @@ class Website extends Model
     {
         return $this->belongsTo(Page::class, 'homepage_page_id');
     }
+
+    public static function current(): ?static
+    {
+        return static::query()->with('homepage')->orderBy('id')->first();
+    }
 }

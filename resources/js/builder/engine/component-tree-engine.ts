@@ -43,7 +43,7 @@ export class ComponentTreeEngine {
     constructor(
         private readonly registry: ComponentRegistry,
         private readonly idGenerator: NodeIdGenerator = new SequentialNodeIdGenerator(),
-        private readonly rootAllowedTypes: ComponentType[] = ['layout.section'],
+        private readonly rootAllowedTypes: ComponentType[] = ['layout.section', 'layout.navbar'],
     ) {}
 
     find(document: BuilderPageDocument, nodeId: string): BuilderComponentNode | null {

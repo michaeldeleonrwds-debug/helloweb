@@ -87,6 +87,30 @@ final class BuilderPageController extends Controller
         ]);
     }
 
+    public function publish(Request $request, Page $page): JsonResponse
+    {
+        Gate::authorize('update', $page);
+        $documentData = $request->input('document');
+        $published = $this->service->publishPage($page, is_array($documentData) ? $documentData : null, $request->user());
+
+        return response()->json([
+            'message' => 'Page published successfully.',
+            'page' => $this->pageData($published),
+            'save' => ['status' => 'saved', 'version' => (int) $published->document_version],
+        ]);
+    }
+
+    public function unpublish(Request $request, Page $page): JsonResponse
+    {
+        Gate::authorize('update', $page);
+        $unpublished = $this->service->unpublishPage($page);
+
+        return response()->json([
+            'message' => 'Page unpublished.',
+            'page' => $this->pageData($unpublished),
+        ]);
+    }
+
     public function createRevision(Request $request, Page $page): JsonResponse
     {
         Gate::authorize('update', $page);

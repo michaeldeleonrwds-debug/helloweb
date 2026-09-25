@@ -9,11 +9,15 @@ import {
     Copy,
     Eye,
     EyeOff,
+    Image as ImageIcon,
     Link as LinkIcon,
     Link2,
+    Monitor,
     MousePointer2,
     Plus,
     RotateCcw,
+    Smartphone,
+    Tablet,
     Trash2,
     Type,
     Underline,
@@ -29,13 +33,17 @@ import { HELLOWEB_FONT_LIBRARY, HELLOWEB_FONT_WEIGHT_OPTIONS } from '../fonts/fo
 import {
     getStyleDefinitions,
     inheritedStyleValue,
+    toHexColor,
     type LengthValue,
     type StyleDefinition,
     type StylePropertyKey,
     type StyleValue,
 } from '../style/style';
+import { BackgroundColorField } from './BackgroundColorField';
 import { CodeEditor } from './CodeEditor';
 import { CssValueEditor } from './CssValueEditor';
+import { IconPicker } from './IconPicker';
+import { readRecentColors, rememberRecentColor } from './recent-colors';
 
 interface ComponentInspectorProps {
     node: BuilderComponentNode | null;
@@ -49,7 +57,7 @@ interface ComponentInspectorProps {
     onRemove: () => void;
     width?: number;
     onAddChild?: (type: `${string}.${string}`) => void;
-    onOpenMediaManager?: (target?: 'image' | 'background') => void;
+    onOpenMediaManager?: (target?: string, payload?: any) => void;
 }
 
 const HANDLED_LAYOUT_KEYS = new Set<string>([
@@ -281,6 +289,7 @@ export function ComponentInspector({
                             schema={schema}
                             values={node.props}
                             onChange={onChange}
+                            breakpoint={breakpoint}
                             imageNode={node.type === 'media.image'}
                             onOpenMediaManager={onOpenMediaManager}
                         />
@@ -358,13 +367,15 @@ export function ComponentInspector({
 
                 {inspectorTab === 'style' && (
                     <div className="space-y-3 p-3">
-                        <TypographyGroupControl
-                            node={node}
-                            definition={definition}
-                            breakpoint={breakpoint}
-                            onChange={onStyleChange}
-                            onClear={onStyleClear}
-                        />
+                        {node.type !== 'layout.section' ? (
+                            <TypographyGroupControl
+                                node={node}
+                                definition={definition}
+                                breakpoint={breakpoint}
+                                onChange={onStyleChange}
+                                onClear={onStyleClear}
+                            />
+                        ) : null}
 
                         {!supportsAdvancedBackground && definition.styleCapabilities?.includes('backgroundColor') ? (
                             <BackgroundColorControl
@@ -499,10 +510,11 @@ function SectionBackgroundControls({
     breakpoint: BuilderBreakpoint;
     onChange: (key: StylePropertyKey, value: StyleValue) => void;
     onClear: (key: StylePropertyKey) => void;
-    onOpenMediaManager?: (target?: 'image' | 'background') => void;
+    onOpenMediaManager?: (target?: string, payload?: any) => void;
 }) {
     const type = String(inheritedStyleValue(node, definition, breakpoint, 'backgroundType').value ?? 'solid');
-    const gradient = inheritedStyleValue(node, definition, breakpoint, 'backgroundGradient').value;
+    const color = inheritedStyleValue(node, definition, breakpoint, 'backgroundColor');
+    const gradientState = inheritedStyleValue(node, definition, breakpoint, 'backgroundGradient');
     const image = inheritedStyleValue(node, definition, breakpoint, 'backgroundImage').value;
     const video = inheritedStyleValue(node, definition, breakpoint, 'backgroundVideo').value;
     const size = inheritedStyleValue(node, definition, breakpoint, 'backgroundSize').value;
@@ -512,34 +524,60 @@ function SectionBackgroundControls({
     const inputClass =
         'border-input bg-background focus:border-ring focus:ring-ring/20 mt-1.5 h-8 w-full rounded-md border px-2 text-xs outline-none focus:ring-2';
 
+    const bgTypes = [
+        { id: 'solid', label: 'Solid' },
+        { id: 'gradient', label: 'Gradient' },
+        { id: 'image', label: 'Image' },
+        { id: 'video', label: 'Video' },
+    ];
+
     return (
-        <div className="space-y-3">
-            <label className="block text-xs font-medium">
-                Background type
-                <select className={inputClass} value={type} onChange={(event) => onChange('backgroundType', event.target.value)}>
-                    <option value="solid">Solid color</option>
-                    <option value="gradient">Gradient</option>
-                    <option value="image">Image</option>
-                    <option value="video">Video</option>
-                </select>
-            </label>
-            <StyleControl
-                property={{ key: 'backgroundColor', label: 'Fallback color', group: 'background', type: 'color', responsive: true }}
-                node={node}
-                definition={definition}
-                breakpoint={breakpoint}
-                onChange={onChange}
-                onClear={onClear}
+        <div className="border-border/80 bg-card space-y-3 rounded-lg border p-3">
+            <div className="flex items-center justify-between">
+                <span className="text-foreground text-xs font-semibold">Background</span>
+                <span className="text-muted-foreground bg-muted rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider">{breakpoint}</span>
+            </div>
+
+            <div className="bg-muted/30 space-y-3 rounded-md border p-2.5">
+                <div className="grid grid-cols-4 gap-1 rounded-lg bg-muted/60 p-1">
+                    {bgTypes.map((bt) => (
+                        <button
+                            key={bt.id}
+                            type="button"
+                            onClick={() => onChange('backgroundType', bt.id)}
+                            className={`rounded-md py-1 text-[11px] font-medium transition ${
+                                type === bt.id
+                                    ? 'bg-background text-foreground shadow-xs font-semibold'
+                                    : 'text-muted-foreground hover:text-foreground'
+                            }`}
+                        >
+                            {bt.label}
+                        </button>
+                    ))}
+                </div>
+
+                <BackgroundColorField
+                    label={type === 'solid' ? 'Background color' : 'Fallback color'}
+                    visibleLabel
+                    value={typeof color.value === 'string' ? color.value : undefined}
+                    inherited={color.inherited}
+                    overridden={node.styles[breakpoint]?.backgroundColor !== undefined}
+                    onReset={() => onClear('backgroundColor')}
+                    onChange={(value) => onChange('backgroundColor', value)}
+                idSuffix={`${node.id}-background`}
             />
             {type === 'gradient' ? (
-                <label className="block text-xs font-medium">
-                    Gradient
-                    <input
-                        className={inputClass}
-                        value={String(gradient ?? 'linear-gradient(135deg, #111827, #10b981)')}
-                        onChange={(event) => onChange('backgroundGradient', event.target.value)}
-                    />
-                </label>
+                <BackgroundColorField
+                    label="Gradient"
+                    visibleLabel
+                    mode="gradient"
+                    value={typeof gradientState.value === 'string' ? gradientState.value : undefined}
+                    inherited={gradientState.inherited}
+                    overridden={node.styles[breakpoint]?.backgroundGradient !== undefined}
+                    onReset={() => onClear('backgroundGradient')}
+                    onChange={(value) => onChange('backgroundGradient', value)}
+                    idSuffix={`${node.id}-gradient`}
+                />
             ) : null}
             {type === 'image' ? (
                 <>
@@ -666,6 +704,7 @@ function SectionBackgroundControls({
                     </label>
                 </>
             ) : null}
+            </div>
         </div>
     );
 }
@@ -1989,7 +2028,7 @@ function TypographyGroupControl({
         hasTransform ||
         hasDecoration;
 
-    if (!hasAnyTypography) return null;
+    if (!hasAnyTypography || node.type === 'layout.section') return null;
 
     const textKeys: StylePropertyKey[] = (
         [
@@ -2335,10 +2374,11 @@ function BackgroundColorControl({
                 <span className="text-muted-foreground bg-muted rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider">{breakpoint}</span>
             </div>
             <div className="bg-muted/30 rounded-md border p-2.5">
-                <ColorValueControl
-                    label="Background Color"
-                    value={current.value}
+                <BackgroundColorField
+                    label="Background color"
+                    value={typeof current.value === 'string' ? current.value : undefined}
                     onChange={(value) => onChange('backgroundColor', value)}
+                    idSuffix={`background-${breakpoint}`}
                 />
             </div>
         </div>
@@ -3179,6 +3219,7 @@ function PropControls({
     schema,
     values,
     onChange,
+    breakpoint = 'desktop',
     imageNode,
     onOpenMediaManager,
 }: {
@@ -3186,8 +3227,9 @@ function PropControls({
     schema: NonNullable<ComponentDefinition['propSchema']>;
     values: BuilderRecord;
     onChange: (patch: Partial<BuilderRecord>) => void;
+    breakpoint?: BuilderBreakpoint;
     imageNode?: boolean;
-    onOpenMediaManager?: () => void;
+    onOpenMediaManager?: (target?: string, payload?: any) => void;
 }) {
     return (
         <div className="space-y-3">
@@ -3206,17 +3248,830 @@ function PropControls({
 
             {imageNode && onOpenMediaManager ? (
                 <div className="border-border/80 bg-card space-y-2 rounded-lg border p-3">
-                    <p className="text-foreground text-xs font-semibold">Image Asset</p>
+                    <div className="flex items-center justify-between">
+                        <p className="text-foreground text-xs font-semibold">Image Asset</p>
+                    </div>
+                    {values.src ? (
+                        <div className="relative overflow-hidden rounded-md border border-border/60 bg-muted/40 aspect-video max-h-32 flex items-center justify-center">
+                            <img
+                                src={String(values.src)}
+                                alt={String(values.alt ?? '')}
+                                className="h-full w-full object-cover"
+                            />
+                        </div>
+                    ) : null}
                     <button
                         type="button"
-                        className="border-border hover:bg-muted/80 bg-background text-foreground w-full rounded-md border px-3 py-2 text-xs font-medium transition shadow-xs"
-                        onClick={onOpenMediaManager}
+                        className="border-border hover:bg-muted/80 bg-background text-foreground flex w-full items-center justify-center gap-1.5 rounded-md border px-3 py-2 text-xs font-medium transition shadow-xs"
+                        onClick={() => onOpenMediaManager('image')}
                     >
+                        <ImageIcon className="size-3.5 text-muted-foreground" />
                         Choose from media manager
                     </button>
                 </div>
             ) : null}
 
+            {/* BUTTON COMPONENT CONTROLS */}
+            {nodeType === 'content.button' ? (
+                <div className="border-border/80 bg-card space-y-3 rounded-lg border p-3">
+                    <div className="space-y-1.5">
+                        <label className="text-foreground text-xs font-semibold">Button Text</label>
+                        <input
+                            type="text"
+                            value={String(values.text ?? 'Get started')}
+                            onChange={(e) => onChange({ text: e.target.value })}
+                            placeholder="Button label..."
+                            className="border-input bg-background focus:border-ring focus:ring-ring/20 h-8 w-full rounded-md border px-2 text-xs outline-none focus:ring-1"
+                        />
+                    </div>
+                    <div className="space-y-1.5">
+                        <label className="text-foreground text-xs font-semibold">Link URL</label>
+                        <input
+                            type="text"
+                            value={String(values.href ?? '#')}
+                            onChange={(e) => onChange({ href: e.target.value })}
+                            placeholder="https://... or #section"
+                            className="border-input bg-background focus:border-ring focus:ring-ring/20 h-8 w-full rounded-md border px-2 text-xs outline-none focus:ring-1"
+                        />
+                    </div>
+                    <div className="border-t border-border/60 pt-2.5 space-y-2.5">
+                        <IconPicker
+                            value={String(values.icon ?? '')}
+                            customIcon={String(values.customIcon ?? '')}
+                            onChange={(iconName, customIcon) => {
+                                onChange({
+                                    icon: iconName,
+                                    customIcon: customIcon || '',
+                                    showIcon: Boolean(iconName || customIcon),
+                                });
+                            }}
+                            onClear={() => {
+                                onChange({ icon: '', customIcon: '', showIcon: false });
+                            }}
+                            label="Button Icon"
+                        />
+                        {values.icon || values.customIcon ? (
+                            <div className="grid grid-cols-2 gap-2 pt-1">
+                                <div className="space-y-1">
+                                    <label className="text-[11px] text-muted-foreground font-medium">Position</label>
+                                    <div className="grid grid-cols-2 gap-1 rounded-md border border-input p-0.5 bg-muted/30">
+                                        <button
+                                            type="button"
+                                            onClick={() => onChange({ iconPosition: 'left' })}
+                                            className={`rounded py-1 text-[11px] font-medium transition ${
+                                                String(values.iconPosition ?? 'left') === 'left'
+                                                    ? 'bg-background text-foreground shadow-2xs font-semibold'
+                                                    : 'text-muted-foreground hover:text-foreground'
+                                            }`}
+                                        >
+                                            Left
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => onChange({ iconPosition: 'right' })}
+                                            className={`rounded py-1 text-[11px] font-medium transition ${
+                                                String(values.iconPosition ?? 'left') === 'right'
+                                                    ? 'bg-background text-foreground shadow-2xs font-semibold'
+                                                    : 'text-muted-foreground hover:text-foreground'
+                                            }`}
+                                        >
+                                            Right
+                                        </button>
+                                    </div>
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[11px] text-muted-foreground font-medium">Icon Size</label>
+                                    <select
+                                        value={String(values.iconSize ?? '16px')}
+                                        onChange={(e) => onChange({ iconSize: e.target.value })}
+                                        className="border-input bg-background focus:border-ring h-7 w-full rounded-md border px-2 text-xs"
+                                    >
+                                        <option value="14px">14px (Small)</option>
+                                        <option value="16px">16px (Normal)</option>
+                                        <option value="18px">18px (Medium)</option>
+                                        <option value="20px">20px (Large)</option>
+                                        <option value="24px">24px (X-Large)</option>
+                                    </select>
+                                </div>
+                            </div>
+                        ) : null}
+                    </div>
+                </div>
+            ) : null}
+
+            {/* STYLED LIST CONTROLS */}
+            {nodeType === 'content.list' ? (
+                <div className="border-border/80 bg-card space-y-3 rounded-lg border p-3">
+                    <div className="space-y-1.5">
+                        <label className="text-foreground text-xs font-semibold">Bullet Style</label>
+                        <div className="grid grid-cols-4 gap-1 rounded-md border border-input p-0.5 bg-muted/30">
+                            {[
+                                { id: 'check', label: 'Check' },
+                                { id: 'bullet', label: 'Bullet' },
+                                { id: 'number', label: 'Number' },
+                                { id: 'icon', label: 'Icon' },
+                            ].map((style) => (
+                                <button
+                                    key={style.id}
+                                    type="button"
+                                    onClick={() => onChange({ listType: style.id })}
+                                    className={`rounded py-1 text-[11px] font-medium transition ${
+                                        String(values.listType ?? 'check') === style.id
+                                            ? 'bg-background text-foreground shadow-2xs font-semibold'
+                                            : 'text-muted-foreground hover:text-foreground'
+                                    }`}
+                                >
+                                    {style.label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {String(values.listType ?? 'check') === 'icon' ? (
+                        <div className="space-y-2 border-t border-border/60 pt-2">
+                            <IconPicker
+                                value={String(values.icon ?? 'check')}
+                                customIcon={String(values.customIcon ?? '')}
+                                color={String(values.iconColor ?? '#10b981')}
+                                onChange={(iconName, customIcon) => {
+                                    onChange({ icon: iconName, customIcon: customIcon || '' });
+                                }}
+                                onClear={() => onChange({ icon: 'check', customIcon: '' })}
+                                label="List Icon"
+                            />
+                            <div className="space-y-1">
+                                <label className="text-[11px] text-muted-foreground font-medium">Icon Size</label>
+                                <select
+                                    value={String(values.iconSize ?? '16px')}
+                                    onChange={(e) => onChange({ iconSize: e.target.value })}
+                                    className="border-input bg-background focus:border-ring h-7 w-full rounded-md border px-2 text-xs"
+                                >
+                                    <option value="12px">12px (Small)</option>
+                                    <option value="16px">16px (Normal)</option>
+                                    <option value="18px">18px (Medium)</option>
+                                    <option value="20px">20px (Large)</option>
+                                </select>
+                            </div>
+                        </div>
+                    ) : null}
+
+                    <div className="space-y-1.5 border-t border-border/60 pt-2">
+                        <label className="text-foreground text-xs font-semibold">Icon / Bullet Color</label>
+                        <div className="flex items-center gap-2">
+                            <input
+                                type="color"
+                                value={String(values.iconColor ?? '#10b981')}
+                                onChange={(e) => onChange({ iconColor: e.target.value })}
+                                className="size-7 rounded border border-input cursor-pointer p-0.5 bg-background shrink-0"
+                            />
+                            <input
+                                type="text"
+                                value={String(values.iconColor ?? '#10b981')}
+                                onChange={(e) => onChange({ iconColor: e.target.value })}
+                                className="h-7 min-w-0 flex-1 border border-input rounded bg-background px-2 text-xs font-mono"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="space-y-1.5 border-t border-border/60 pt-2">
+                        <label className="text-foreground text-xs font-semibold">List Items (One per line)</label>
+                        <textarea
+                            className="border-input bg-background min-h-[90px] w-full rounded-md border p-2 text-xs outline-none focus:ring-1"
+                            rows={4}
+                            placeholder="Item 1&#10;Item 2&#10;Item 3"
+                            value={
+                                typeof values.text === 'string' && values.text
+                                    ? values.text
+                                    : Array.isArray(values.items)
+                                      ? values.items.join('\n')
+                                      : ''
+                            }
+                            onChange={(e) => {
+                                const lines = e.target.value;
+                                onChange({
+                                    text: lines,
+                                    items: lines.split('\n').map((s) => s.trim()).filter(Boolean),
+                                });
+                            }}
+                        />
+                    </div>
+                </div>
+            ) : null}
+
+            {/* FEATURE BOX CONTROLS */}
+            {nodeType === 'marketing.blurb' ? (
+                <div className="border-border/80 bg-card space-y-3 rounded-lg border p-3">
+                    <IconPicker
+                        value={String(values.icon ?? 'sparkles')}
+                        customIcon={String(values.customIcon ?? '')}
+                        color={String(values.iconColor ?? '#2563eb')}
+                        onChange={(iconName, customIcon) => {
+                            onChange({ icon: iconName, customIcon: customIcon || '' });
+                        }}
+                        label="Feature Box Icon"
+                    />
+
+                    <div className="grid grid-cols-2 gap-2 pt-1 border-t border-border/60">
+                        <div className="space-y-1">
+                            <label className="text-[11px] text-muted-foreground font-medium">Position</label>
+                            <div className="grid grid-cols-2 gap-1 rounded-md border border-input p-0.5 bg-muted/30">
+                                <button
+                                    type="button"
+                                    onClick={() => onChange({ iconPosition: 'top' })}
+                                    className={`rounded py-1 text-[11px] font-medium transition ${
+                                        String(values.iconPosition ?? 'top') === 'top'
+                                            ? 'bg-background text-foreground shadow-2xs font-semibold'
+                                            : 'text-muted-foreground hover:text-foreground'
+                                    }`}
+                                >
+                                    Top
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => onChange({ iconPosition: 'left' })}
+                                    className={`rounded py-1 text-[11px] font-medium transition ${
+                                        String(values.iconPosition ?? 'top') === 'left'
+                                            ? 'bg-background text-foreground shadow-2xs font-semibold'
+                                            : 'text-muted-foreground hover:text-foreground'
+                                    }`}
+                                >
+                                    Left
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="space-y-1">
+                            <label className="text-[11px] text-muted-foreground font-medium">Icon Shape</label>
+                            <select
+                                value={String(values.iconShape ?? 'rounded')}
+                                onChange={(e) => onChange({ iconShape: e.target.value })}
+                                className="border-input bg-background focus:border-ring h-7 w-full rounded-md border px-2 text-xs"
+                            >
+                                <option value="rounded">Rounded</option>
+                                <option value="circle">Circle</option>
+                                <option value="square">Square</option>
+                                <option value="none">None (Plain)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 border-t border-border/60 pt-2">
+                        <div className="space-y-1">
+                            <label className="text-[11px] text-muted-foreground font-medium">Icon Color</label>
+                            <div className="flex items-center gap-1.5">
+                                <input
+                                    type="color"
+                                    value={String(values.iconColor ?? '#2563eb')}
+                                    onChange={(e) => onChange({ iconColor: e.target.value })}
+                                    className="size-6 rounded border border-input cursor-pointer p-0 bg-background shrink-0"
+                                />
+                                <input
+                                    type="text"
+                                    value={String(values.iconColor ?? '#2563eb')}
+                                    onChange={(e) => onChange({ iconColor: e.target.value })}
+                                    className="h-6 min-w-0 flex-1 border border-input rounded bg-background px-1.5 text-[11px] font-mono"
+                                />
+                            </div>
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-[11px] text-muted-foreground font-medium">Icon Background</label>
+                            <div className="flex items-center gap-1.5">
+                                <input
+                                    type="color"
+                                    value={String(values.iconBg ?? '#eff6ff')}
+                                    onChange={(e) => onChange({ iconBg: e.target.value })}
+                                    className="size-6 rounded border border-input cursor-pointer p-0 bg-background shrink-0"
+                                />
+                                <input
+                                    type="text"
+                                    value={String(values.iconBg ?? '#eff6ff')}
+                                    onChange={(e) => onChange({ iconBg: e.target.value })}
+                                    className="h-6 min-w-0 flex-1 border border-input rounded bg-background px-1.5 text-[11px] font-mono"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="space-y-2 border-t border-border/60 pt-2">
+                        <div className="space-y-1">
+                            <label className="text-foreground text-xs font-semibold">Title</label>
+                            <input
+                                type="text"
+                                value={String(values.title ?? '')}
+                                onChange={(e) => onChange({ title: e.target.value })}
+                                className="border-input bg-background focus:border-ring h-8 w-full rounded-md border px-2 text-xs"
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-foreground text-xs font-semibold">Description</label>
+                            <textarea
+                                value={String(values.description ?? '')}
+                                rows={2}
+                                onChange={(e) => onChange({ description: e.target.value })}
+                                className="border-input bg-background focus:border-ring w-full rounded-md border p-2 text-xs"
+                            />
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                            <div className="space-y-1">
+                                <label className="text-[11px] text-muted-foreground font-medium">Link Text</label>
+                                <input
+                                    type="text"
+                                    placeholder="Learn more →"
+                                    value={String(values.linkText ?? '')}
+                                    onChange={(e) => onChange({ linkText: e.target.value })}
+                                    className="border-input bg-background focus:border-ring h-7 w-full rounded-md border px-2 text-xs"
+                                />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-[11px] text-muted-foreground font-medium">Link URL</label>
+                                <input
+                                    type="text"
+                                    placeholder="#"
+                                    value={String(values.linkHref ?? '#')}
+                                    onChange={(e) => onChange({ linkHref: e.target.value })}
+                                    className="border-input bg-background focus:border-ring h-7 w-full rounded-md border px-2 text-xs"
+                                />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            ) : null}
+
+            {/* IMAGE FEATURE CONTROLS */}
+            {nodeType === 'marketing.imagefeature' ? (
+                <div className="border-border/80 bg-card space-y-3 rounded-lg border p-3">
+                    {/* Image Position Selector */}
+                    <div className="space-y-1.5">
+                        <label className="text-foreground text-xs font-semibold">Image Position</label>
+                        <div className="grid grid-cols-4 gap-1 rounded-md border border-input p-0.5 bg-muted/30">
+                            {[
+                                { id: 'left', label: 'Left' },
+                                { id: 'right', label: 'Right' },
+                                { id: 'top', label: 'Top' },
+                                { id: 'bottom', label: 'Bottom' },
+                            ].map((pos) => (
+                                <button
+                                    key={pos.id}
+                                    type="button"
+                                    onClick={() => onChange({ imagePosition: pos.id })}
+                                    className={`rounded py-1 text-[11px] font-medium transition ${
+                                        String(values.imagePosition ?? 'right') === pos.id
+                                            ? 'bg-background text-foreground shadow-2xs font-semibold'
+                                            : 'text-muted-foreground hover:text-foreground'
+                                    }`}
+                                >
+                                    {pos.label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Card Container Toggle */}
+                    <label className="flex cursor-pointer items-center justify-between rounded-md border border-border/60 bg-muted/20 p-2.5 transition hover:bg-muted/40">
+                        <span className="text-xs font-semibold text-foreground">Display as Card Container</span>
+                        <input
+                            type="checkbox"
+                            checked={values.cardStyle !== false}
+                            onChange={(e) => onChange({ cardStyle: e.target.checked })}
+                            className="accent-primary size-4 rounded"
+                        />
+                    </label>
+
+                    {/* Sub-elements Show / Hide Toggles & Inputs */}
+                    <div className="space-y-2 border-t border-border/60 pt-2.5">
+                        <div className="flex items-center justify-between">
+                            <span className="text-xs font-semibold text-foreground">Content Elements</span>
+                            <span className="text-[10px] text-muted-foreground">Toggle visibility or edit</span>
+                        </div>
+
+                        {/* Eyebrow / Badge */}
+                        <div className="space-y-1 rounded-md border border-border/40 p-2 bg-muted/10">
+                            <div className="flex items-center justify-between">
+                                <label className="text-[11px] font-medium text-foreground">Eyebrow / Badge</label>
+                                <input
+                                    type="checkbox"
+                                    checked={values.showBadge !== false}
+                                    onChange={(e) => onChange({ showBadge: e.target.checked })}
+                                    className="accent-primary size-3.5 rounded"
+                                    title="Show/Hide Eyebrow"
+                                />
+                            </div>
+                            {values.showBadge !== false ? (
+                                <input
+                                    type="text"
+                                    value={String(values.badge ?? '')}
+                                    onChange={(e) => onChange({ badge: e.target.value })}
+                                    placeholder="FEATURE HIGHLIGHT"
+                                    className="border-input bg-background focus:border-ring h-7 w-full rounded-md border px-2 text-xs"
+                                />
+                            ) : null}
+                        </div>
+
+                        {/* Heading / Title */}
+                        <div className="space-y-1 rounded-md border border-border/40 p-2 bg-muted/10">
+                            <div className="flex items-center justify-between">
+                                <label className="text-[11px] font-medium text-foreground">Heading</label>
+                                <input
+                                    type="checkbox"
+                                    checked={values.showTitle !== false}
+                                    onChange={(e) => onChange({ showTitle: e.target.checked })}
+                                    className="accent-primary size-3.5 rounded"
+                                    title="Show/Hide Heading"
+                                />
+                            </div>
+                            {values.showTitle !== false ? (
+                                <input
+                                    type="text"
+                                    value={String(values.title ?? '')}
+                                    onChange={(e) => onChange({ title: e.target.value })}
+                                    placeholder="Feature Title..."
+                                    className="border-input bg-background focus:border-ring h-7 w-full rounded-md border px-2 text-xs"
+                                />
+                            ) : null}
+                        </div>
+
+                        {/* Paragraph / Description */}
+                        <div className="space-y-1 rounded-md border border-border/40 p-2 bg-muted/10">
+                            <div className="flex items-center justify-between">
+                                <label className="text-[11px] font-medium text-foreground">Description</label>
+                                <input
+                                    type="checkbox"
+                                    checked={values.showDescription !== false}
+                                    onChange={(e) => onChange({ showDescription: e.target.checked })}
+                                    className="accent-primary size-3.5 rounded"
+                                    title="Show/Hide Description"
+                                />
+                            </div>
+                            {values.showDescription !== false ? (
+                                <textarea
+                                    value={String(values.description ?? '')}
+                                    rows={2}
+                                    onChange={(e) => onChange({ description: e.target.value })}
+                                    placeholder="Feature description text..."
+                                    className="border-input bg-background focus:border-ring w-full rounded-md border p-2 text-xs"
+                                />
+                            ) : null}
+                        </div>
+
+                        {/* CTA Button */}
+                        <div className="space-y-1.5 rounded-md border border-border/40 p-2 bg-muted/10">
+                            <div className="flex items-center justify-between">
+                                <label className="text-[11px] font-medium text-foreground">CTA Button</label>
+                                <input
+                                    type="checkbox"
+                                    checked={values.showCta !== false}
+                                    onChange={(e) => onChange({ showCta: e.target.checked })}
+                                    className="accent-primary size-3.5 rounded"
+                                    title="Show/Hide Button"
+                                />
+                            </div>
+                            {values.showCta !== false ? (
+                                <div className="grid grid-cols-2 gap-1.5">
+                                    <input
+                                        type="text"
+                                        placeholder="Button Text"
+                                        value={String(values.ctaText ?? '')}
+                                        onChange={(e) => onChange({ ctaText: e.target.value })}
+                                        className="border-input bg-background focus:border-ring h-7 w-full rounded-md border px-2 text-xs"
+                                    />
+                                    <input
+                                        type="text"
+                                        placeholder="Link URL"
+                                        value={String(values.ctaHref ?? '#')}
+                                        onChange={(e) => onChange({ ctaHref: e.target.value })}
+                                        className="border-input bg-background focus:border-ring h-7 w-full rounded-md border px-2 text-xs"
+                                    />
+                                </div>
+                            ) : null}
+                        </div>
+                    </div>
+
+                    {/* Image Settings */}
+                    <div className="space-y-2 border-t border-border/60 pt-2.5">
+                        <label className="text-foreground text-xs font-semibold">Image Source</label>
+                        {values.imageSrc ? (
+                            <div className="relative overflow-hidden rounded-md border border-border/60 bg-muted/40 aspect-video max-h-28 flex items-center justify-center">
+                                <img
+                                    src={String(values.imageSrc)}
+                                    alt={String(values.imageAlt ?? '')}
+                                    className="h-full w-full object-cover"
+                                />
+                            </div>
+                        ) : null}
+                        {onOpenMediaManager ? (
+                            <button
+                                type="button"
+                                className="border-border hover:bg-muted/80 bg-background text-foreground flex w-full items-center justify-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition shadow-2xs"
+                                onClick={() => onOpenMediaManager('imagefeature')}
+                            >
+                                <ImageIcon className="size-3.5 text-muted-foreground" />
+                                {values.imageSrc ? 'Replace image from media' : 'Choose image from media'}
+                            </button>
+                        ) : null}
+                        <input
+                            type="text"
+                            placeholder="Image URL"
+                            value={String(values.imageSrc ?? '')}
+                            onChange={(e) => onChange({ imageSrc: e.target.value })}
+                            className="border-input bg-background focus:border-ring h-7 w-full rounded-md border px-2 text-xs"
+                        />
+                        <input
+                            type="text"
+                            placeholder="Image Alt Text"
+                            value={String(values.imageAlt ?? '')}
+                            onChange={(e) => onChange({ imageAlt: e.target.value })}
+                            className="border-input bg-background focus:border-ring h-7 w-full rounded-md border px-2 text-xs"
+                        />
+                    </div>
+                </div>
+            ) : null}
+
+            {/* NAVBAR BRAND LOGO */}
+            {nodeType === 'layout.navbar' && onOpenMediaManager ? (
+                <div className="border-border/80 bg-card space-y-2 rounded-lg border p-3">
+                    <div className="flex items-center justify-between">
+                        <p className="text-foreground text-xs font-semibold">Brand Logo</p>
+                        {values.brandLogo ? (
+                            <button
+                                type="button"
+                                className="text-destructive text-[11px] hover:underline"
+                                onClick={() => onChange({ brandLogo: '' })}
+                            >
+                                Remove
+                            </button>
+                        ) : null}
+                    </div>
+                    {values.brandLogo ? (
+                        <div className="flex items-center gap-2.5 rounded border border-border/60 bg-muted/30 p-2">
+                            <img
+                                src={String(values.brandLogo)}
+                                alt="Logo preview"
+                                className="h-8 max-w-[100px] object-contain rounded bg-background p-1 border border-border/50"
+                            />
+                            <div className="min-w-0 flex-1 text-[11px] text-muted-foreground truncate">
+                                {String(values.brandLogo)}
+                            </div>
+                        </div>
+                    ) : null}
+                    <button
+                        type="button"
+                        className="border-border hover:bg-muted/80 bg-background text-foreground flex w-full items-center justify-center gap-1.5 rounded-md border px-3 py-2 text-xs font-medium transition shadow-xs"
+                        onClick={() => onOpenMediaManager('brandLogo')}
+                    >
+                        <ImageIcon className="size-3.5 text-muted-foreground" />
+                        {values.brandLogo ? 'Replace logo from media' : 'Choose logo from media'}
+                    </button>
+                </div>
+            ) : null}
+
+            {/* NAVBAR LINKS */}
+            {nodeType === 'layout.navbar' ? (
+                <div className="border-border/80 bg-card space-y-2.5 rounded-lg border p-3">
+                    <div className="flex items-center justify-between">
+                        <span className="text-foreground text-xs font-semibold">Navigation Links</span>
+                        <button
+                            type="button"
+                            className="text-primary text-[11px] font-semibold hover:underline"
+                            onClick={() => {
+                                const currentLinks = Array.isArray(values.links) ? [...values.links] : [];
+                                currentLinks.push({ label: 'New Link', href: '#' });
+                                onChange({ links: currentLinks });
+                            }}
+                        >
+                            + Add Link
+                        </button>
+                    </div>
+                    <div className="space-y-2">
+                        {(Array.isArray(values.links) ? values.links : []).map((link: any, i: number) => (
+                            <div key={i} className="flex items-center gap-1.5 bg-muted/40 p-1.5 rounded-md min-w-0">
+                                <input
+                                    placeholder="Label"
+                                    value={String(link.label ?? '')}
+                                    onChange={(e) => {
+                                        const next = [...(values.links as any[])];
+                                        next[i] = { ...next[i], label: e.target.value };
+                                        onChange({ links: next });
+                                    }}
+                                    className="h-7 min-w-0 flex-1 border border-input rounded bg-background px-2 text-xs"
+                                />
+                                <input
+                                    placeholder="URL"
+                                    value={String(link.href ?? '')}
+                                    onChange={(e) => {
+                                        const next = [...(values.links as any[])];
+                                        next[i] = { ...next[i], href: e.target.value };
+                                        onChange({ links: next });
+                                    }}
+                                    className="h-7 min-w-0 flex-1 border border-input rounded bg-background px-2 text-xs"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        const next = (values.links as any[]).filter((_, idx) => idx !== i);
+                                        onChange({ links: next });
+                                    }}
+                                    className="text-muted-foreground hover:text-destructive size-6 flex shrink-0 items-center justify-center text-xs"
+                                    title="Remove link"
+                                >
+                                    ✕
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            ) : null}
+
+            {/* IMAGE GALLERY CONTROLS */}
+            {nodeType === 'media.gallery' ? (
+                <div className="border-border/80 bg-card space-y-3 rounded-lg border p-3">
+                    {/* Device-Specific Responsive Columns */}
+                    <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                            <span className="text-foreground text-xs font-semibold">Columns per Device</span>
+                            <span className="text-[10px] text-muted-foreground">Responsive</span>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2">
+                            {/* Desktop */}
+                            <div className={`flex flex-col gap-1 p-2 rounded-md border ${breakpoint === 'desktop' ? 'border-primary/50 bg-primary/5' : 'border-border/50 bg-muted/20'}`}>
+                                <span className="text-[11px] font-semibold text-foreground flex items-center gap-1">
+                                    <Monitor className="size-3" />
+                                    Desktop
+                                </span>
+                                <select
+                                    value={Number(values.columnsDesktop ?? values.columns ?? 3)}
+                                    onChange={(e) => {
+                                        const c = Number(e.target.value);
+                                        onChange({ columnsDesktop: c, columns: c });
+                                    }}
+                                    className="border-input bg-background focus:border-ring h-7 w-full rounded-md border px-1.5 text-xs"
+                                >
+                                    {[1, 2, 3, 4, 5, 6].map((num) => (
+                                        <option key={num} value={num}>
+                                            {num} col{num > 1 ? 's' : ''}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {/* Tablet */}
+                            <div className={`flex flex-col gap-1 p-2 rounded-md border ${breakpoint === 'tablet' ? 'border-primary/50 bg-primary/5' : 'border-border/50 bg-muted/20'}`}>
+                                <span className="text-[11px] font-semibold text-foreground flex items-center gap-1">
+                                    <Tablet className="size-3" />
+                                    Tablet
+                                </span>
+                                <select
+                                    value={Number(values.columnsTablet ?? 2)}
+                                    onChange={(e) => onChange({ columnsTablet: Number(e.target.value) })}
+                                    className="border-input bg-background focus:border-ring h-7 w-full rounded-md border px-1.5 text-xs"
+                                >
+                                    {[1, 2, 3, 4].map((num) => (
+                                        <option key={num} value={num}>
+                                            {num} col{num > 1 ? 's' : ''}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {/* Mobile */}
+                            <div className={`flex flex-col gap-1 p-2 rounded-md border ${breakpoint === 'mobile' ? 'border-primary/50 bg-primary/5' : 'border-border/50 bg-muted/20'}`}>
+                                <span className="text-[11px] font-semibold text-foreground flex items-center gap-1">
+                                    <Smartphone className="size-3" />
+                                    Mobile
+                                </span>
+                                <select
+                                    value={Number(values.columnsMobile ?? 1)}
+                                    onChange={(e) => onChange({ columnsMobile: Number(e.target.value) })}
+                                    className="border-input bg-background focus:border-ring h-7 w-full rounded-md border px-1.5 text-xs"
+                                >
+                                    {[1, 2, 3].map((num) => (
+                                        <option key={num} value={num}>
+                                            {num} col{num > 1 ? 's' : ''}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Gap & Aspect Ratio */}
+                    <div className="grid grid-cols-2 gap-2 border-t border-border/60 pt-2.5">
+                        <div className="space-y-1">
+                            <label className="text-[11px] text-muted-foreground font-medium">Grid Gap</label>
+                            <input
+                                type="text"
+                                placeholder="16px"
+                                value={String(values.gapDesktop ?? values.gap ?? '16px')}
+                                onChange={(e) => onChange({ gap: e.target.value, gapDesktop: e.target.value })}
+                                className="border-input bg-background focus:border-ring h-7 w-full rounded-md border px-2 text-xs"
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-[11px] text-muted-foreground font-medium">Aspect Ratio</label>
+                            <select
+                                value={String(values.aspectRatio ?? '4/3')}
+                                onChange={(e) => onChange({ aspectRatio: e.target.value })}
+                                className="border-input bg-background focus:border-ring h-7 w-full rounded-md border px-2 text-xs"
+                            >
+                                <option value="4/3">4:3 (Standard)</option>
+                                <option value="1/1">1:1 (Square)</option>
+                                <option value="16/9">16:9 (Widescreen)</option>
+                                <option value="3/2">3:2 (Classic)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    {/* Images List */}
+                    <div className="border-t border-border/60 pt-2.5 space-y-2">
+                        <div className="flex items-center justify-between">
+                            <span className="text-foreground text-xs font-semibold">Gallery Images</span>
+                            <div className="flex items-center gap-2">
+                                {onOpenMediaManager ? (
+                                    <button
+                                        type="button"
+                                        className="text-primary text-[11px] font-semibold hover:underline flex items-center gap-1"
+                                        onClick={() => onOpenMediaManager('gallery')}
+                                    >
+                                        <ImageIcon className="size-3" />
+                                        + Add from Media
+                                    </button>
+                                ) : null}
+                                <button
+                                    type="button"
+                                    className="text-muted-foreground hover:text-foreground text-[11px] font-medium"
+                                    onClick={() => {
+                                        const currentImages = Array.isArray(values.images) ? [...values.images] : [];
+                                        currentImages.push({
+                                            src: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80',
+                                            caption: 'New Photo',
+                                        });
+                                        onChange({ images: currentImages });
+                                    }}
+                                >
+                                    + URL
+                                </button>
+                            </div>
+                        </div>
+                        <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                            {(Array.isArray(values.images) ? values.images : []).map((img: any, i: number) => (
+                                <div key={i} className="flex flex-col gap-1.5 bg-muted/40 p-2 rounded-md border border-border/50">
+                                    <div className="flex items-center gap-1.5 min-w-0">
+                                        {img.src ? (
+                                            <img
+                                                src={String(img.src)}
+                                                alt={String(img.caption ?? '')}
+                                                className="size-7 rounded object-cover border border-border/60 bg-background shrink-0"
+                                            />
+                                        ) : null}
+                                        <input
+                                            placeholder="Image URL"
+                                            value={String(img.src ?? '')}
+                                            onChange={(e) => {
+                                                const next = [...(values.images as any[])];
+                                                next[i] = { ...next[i], src: e.target.value };
+                                                onChange({ images: next });
+                                            }}
+                                            className="h-7 min-w-0 flex-1 border border-input rounded bg-background px-2 text-xs"
+                                        />
+                                        {onOpenMediaManager ? (
+                                            <button
+                                                type="button"
+                                                title="Choose image from media"
+                                                onClick={() => onOpenMediaManager('gallery-replace', { itemIndex: i })}
+                                                className="border border-border/60 hover:bg-muted text-muted-foreground hover:text-foreground size-7 rounded flex shrink-0 items-center justify-center transition shadow-2xs"
+                                            >
+                                                <ImageIcon className="size-3.5" />
+                                            </button>
+                                        ) : null}
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const next = (values.images as any[]).filter((_, idx) => idx !== i);
+                                                onChange({ images: next });
+                                            }}
+                                            className="text-muted-foreground hover:text-destructive size-6 flex shrink-0 items-center justify-center text-xs"
+                                            title="Remove photo"
+                                        >
+                                            ✕
+                                        </button>
+                                    </div>
+                                    <input
+                                        placeholder="Caption (optional)"
+                                        value={String(img.caption ?? '')}
+                                        onChange={(e) => {
+                                            const next = [...(values.images as any[])];
+                                            next[i] = { ...next[i], caption: e.target.value };
+                                            onChange({ images: next });
+                                        }}
+                                        className="h-6 w-full border border-input rounded bg-background px-2 text-[11px]"
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            ) : null}
+
+            {/* HEADING LEVEL */}
             {nodeType === 'content.heading' && schema.level ? (
                 <div className="border-border/80 bg-card space-y-2 rounded-lg border p-3">
                     <span className="text-foreground text-xs font-semibold">Heading Level</span>
@@ -3245,6 +4100,16 @@ function PropControls({
             {Object.entries(schema).map(([name, property]) => {
                 if (nodeType === 'content.heading' && name === 'level') return null;
                 if (supportsColoredTextSegments(nodeType) && name === 'colorSegments') return null;
+                if (property.type === 'array') return null;
+                if (
+                    nodeType === 'content.button' ||
+                    nodeType === 'content.list' ||
+                    nodeType === 'marketing.blurb' ||
+                    nodeType === 'marketing.imagefeature' ||
+                    nodeType === 'media.gallery'
+                ) {
+                    return null;
+                }
 
                 const value = values[name];
                 const options = Array.isArray(property.values) ? property.values : [];
@@ -3364,6 +4229,20 @@ function PropControls({
                                 }
                             />
                         )}
+                        {(name === 'src' || name === 'imageSrc' || name === 'brandLogo') && onOpenMediaManager ? (
+                            <button
+                                type="button"
+                                className="border-border hover:bg-muted/80 bg-background text-foreground mt-1 flex w-full items-center justify-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition shadow-2xs"
+                                onClick={() => {
+                                    if (name === 'brandLogo') onOpenMediaManager('brandLogo');
+                                    else if (name === 'imageSrc') onOpenMediaManager('imagefeature');
+                                    else onOpenMediaManager('image');
+                                }}
+                            >
+                                <ImageIcon className="size-3 text-muted-foreground" />
+                                Choose from media manager
+                            </button>
+                        ) : null}
                     </div>
                 );
             })}
@@ -3679,35 +4558,6 @@ function ColorValueControl({
     );
 }
 
-const RECENT_COLOR_STORAGE_KEY = 'helloweb.builder.recentColors';
-
-function readRecentColors(): string[] {
-    if (typeof window === 'undefined') return [];
-
-    try {
-        const value = JSON.parse(window.localStorage.getItem(RECENT_COLOR_STORAGE_KEY) ?? '[]');
-        if (!Array.isArray(value)) return [];
-
-        return value.filter((color): color is string => typeof color === 'string' && isRememberableColor(color)).slice(0, 10);
-    } catch {
-        return [];
-    }
-}
-
-function rememberRecentColor(color: string): string[] {
-    if (typeof window === 'undefined' || !isRememberableColor(color)) return readRecentColors();
-
-    const normalized = color.toLowerCase();
-    const updated = [normalized, ...readRecentColors().filter((recentColor) => recentColor.toLowerCase() !== normalized)].slice(0, 10);
-    window.localStorage.setItem(RECENT_COLOR_STORAGE_KEY, JSON.stringify(updated));
-
-    return updated;
-}
-
-function isRememberableColor(color: string): boolean {
-    return /^#[0-9a-f]{6}$/i.test(color) || /^#[0-9a-f]{3}$/i.test(color);
-}
-
 function isValidColorValue(color: string): boolean {
     return /^(#[0-9a-f]{3,8}|rgba?\([^)]*\)|hsla?\([^)]*\)|[a-z]+)$/i.test(color);
 }
@@ -3736,19 +4586,10 @@ function normalizeHexInput(value: string): string {
     const nextValue = value.trim();
     if (nextValue === '') return '#';
     if (nextValue === 'transparent') return nextValue;
+    if (/^(rgba?|hsla?|oklch|oklab|lch|lab|color|var)\(/i.test(nextValue)) return nextValue;
     return nextValue.startsWith('#') ? nextValue : `#${nextValue}`;
 }
 
 function normalizeColor(value: StyleValue | undefined): string {
-    if (typeof value !== 'string') return '#000000';
-    if (/^#[0-9a-f]{6}$/i.test(value)) return value;
-    if (/^#[0-9a-f]{3}$/i.test(value)) {
-        return `#${value
-            .slice(1)
-            .split('')
-            .map((character) => `${character}${character}`)
-            .join('')}`;
-    }
-
-    return '#000000';
+    return typeof value === 'string' ? toHexColor(value, '#000000') : '#000000';
 }

@@ -24,22 +24,32 @@ final readonly class BuilderPagePersistenceService
 
     public function createWebsite(User $user, string $name, string $slug): Website
     {
-        return $user->websites()->create([
-            'name' => $name,
-            'slug' => $slug,
-            'status' => 'draft',
-        ]);
+        return DB::transaction(function () use ($user, $name, $slug): Website {
+            $website = $user->websites()->create([
+                'name' => $name,
+                'slug' => $slug,
+                'status' => 'published',
+            ]);
+
+            $page = $this->createPage($website, 'Home', 'home', true);
+            $website->forceFill(['homepage_page_id' => $page->id])->save();
+
+            return $website->fresh(['homepage']);
+        });
     }
 
-    public function createPage(Website $website, string $title, string $slug): Page
+    public function createPage(Website $website, string $title, string $slug, bool $published = false): Page
     {
         $document = $this->defaultDocuments->create();
+        $docArray = $document->toArray();
 
         $page = $website->pages()->create([
             'title' => $title,
             'slug' => $slug,
-            'status' => 'draft',
-            'draft_document' => $document->toArray(),
+            'status' => $published ? 'published' : 'draft',
+            'draft_document' => $docArray,
+            'published_document' => $published ? $docArray : null,
+            'published_at' => $published ? now() : null,
             'document_schema_version' => $document->schemaVersion(),
             'document_version' => 0,
         ]);
@@ -54,6 +64,63 @@ final readonly class BuilderPagePersistenceService
     public function loadDocument(Page $page): BuilderDocument
     {
         return $this->validator->validate($page->draft_document);
+    }
+
+    public function loadPublishedDocument(Page $page): ?BuilderDocument
+    {
+        $data = $page->published_document ?? ($page->status === 'published' ? $page->draft_document : null);
+        if ($data === null) {
+            return null;
+        }
+
+        return $this->validator->validate($data);
+    }
+
+    public function publishPage(Page $page, ?array $data = null, ?User $user = null): Page
+    {
+        return DB::transaction(function () use ($page, $data, $user): Page {
+            $lockedPage = Page::query()->lockForUpdate()->findOrFail($page->id);
+
+            if ($data !== null) {
+                $document = $this->validator->validate($data);
+                $lockedPage->draft_document = $document->toArray();
+                $lockedPage->document_schema_version = $document->schemaVersion();
+                $lockedPage->document_version = ((int) $lockedPage->document_version) + 1;
+            } else {
+                $document = $this->loadDocument($lockedPage);
+            }
+
+            $lockedPage->published_document = $document->toArray();
+            $lockedPage->published_at = now();
+            $lockedPage->status = 'published';
+
+            if ($user !== null) {
+                $number = ((int) $lockedPage->revisions()->max('revision_number')) + 1;
+                $revision = $lockedPage->revisions()->create([
+                    'revision_number' => $number,
+                    'document' => $document->toArray(),
+                    'schema_version' => $document->schemaVersion(),
+                    'created_by' => $user->id,
+                    'type' => 'publish',
+                ]);
+                $lockedPage->current_revision_id = $revision->id;
+            }
+
+            $lockedPage->save();
+
+            return $lockedPage->fresh(['currentRevision']);
+        });
+    }
+
+    public function unpublishPage(Page $page): Page
+    {
+        return DB::transaction(function () use ($page): Page {
+            $lockedPage = Page::query()->lockForUpdate()->findOrFail($page->id);
+            $lockedPage->status = 'draft';
+            $lockedPage->save();
+
+            return $lockedPage->fresh();
+        });
     }
 
     public function saveDraft(Page $page, array $data, int $expectedVersion): Page

@@ -13,45 +13,56 @@ final class DefaultBuilderDocumentFactory
             'schemaVersion' => BuilderDocumentSchema::VERSION,
             'root' => self::node('root', 'layout.root', [], [
                 self::section('hero', [
-                    'minHeight' => '620px',
-                    'padding' => '7rem 2rem',
-                    'backgroundColor' => '#0f172a',
-                    'backgroundType' => 'gradient',
-                    'backgroundGradient' => 'linear-gradient(135deg, #0f172a 0%, #172554 52%, #0f766e 100%)',
+                    'minHeight' => '100vh',
+                    'padding' => '8rem 2rem',
+                    'backgroundColor' => '#f4f6f9',
                 ], [
                     self::row('hero-row', [
-                        'maxWidth' => '1120px',
+                        'maxWidth' => '800px',
                         'margin' => '0 auto',
                         'backgroundColor' => 'transparent',
                     ], [
-                        self::column('hero-column', ['maxWidth' => '720px', 'gap' => '1.5rem', 'backgroundColor' => 'transparent'], [
-                            self::text('hero-eyebrow', 'A clearer way to build online', ['fontSize' => '0.8rem', 'fontWeight' => 700, 'letterSpacing' => '0.18rem', 'textTransform' => 'uppercase', 'color' => '#99f6e4']),
-                            self::heading('hero-heading', 'Make your next idea feel inevitable.', 1, ['fontSize' => '5.5rem', 'lineHeight' => 0.98, 'color' => '#f8fafc']),
-                            self::text('hero-copy', 'A focused digital home for teams with something worth sharing. Shape the story, launch with confidence, and give every detail a reason to be there.', ['fontSize' => '1.15rem', 'lineHeight' => 1.7, 'color' => '#cbd5e1']),
-                            self::flex('hero-actions', ['gap' => '0.75rem', 'backgroundColor' => 'transparent'], [
-                                self::button('hero-primary-action', 'Start a conversation', '#contact', ['backgroundColor' => '#5eead4', 'color' => '#042f2e', 'padding' => '0.9rem 1.2rem', 'borderRadius' => '999px', 'fontWeight' => 700]),
-                                self::link('hero-secondary-action', 'Explore the approach ->', '#approach', ['color' => '#e2e8f0', 'fontWeight' => 600]),
+                        self::column('hero-column', [
+                            'display' => 'flex',
+                            'flexDirection' => 'column',
+                            'alignItems' => 'center',
+                            'gap' => '1.5rem',
+                            'backgroundColor' => 'transparent',
+                        ], [
+                            self::text('hero-brand', 'HelloWeb', [
+                                'fontSize' => '0.875rem',
+                                'fontWeight' => 700,
+                                'letterSpacing' => '0.18rem',
+                                'textTransform' => 'uppercase',
+                                'color' => '#134e35',
                             ]),
-                        ]),
-                    ]),
-                ]),
-                self::section('approach', ['padding' => '7rem 2rem', 'backgroundColor' => '#f8fafc'], [
-                    self::row('approach-row', ['maxWidth' => '1120px', 'margin' => '0 auto', 'gap' => '3rem', 'backgroundColor' => 'transparent'], [
-                        self::column('approach-intro', ['maxWidth' => '360px', 'backgroundColor' => 'transparent'], [
-                            self::heading('approach-heading', 'Built around clarity.', 2, ['fontSize' => '2.5rem', 'lineHeight' => 1.05, 'color' => '#0f172a']),
-                            self::text('approach-copy', 'The best experiences do less, better. Start with a strong point of view and let the details carry it through.', ['fontSize' => '1rem', 'lineHeight' => 1.7, 'color' => '#475569']),
-                        ]),
-                        self::column('approach-cards', ['gap' => '1rem', 'backgroundColor' => 'transparent'], [
-                            self::card('approach-card-one', '01  Find the signal', 'Turn a complex offer into a message people understand in a single breath.'),
-                            self::card('approach-card-two', '02  Make it useful', 'Give visitors a clear next step and make the path from interest to action feel natural.'),
-                        ]),
-                    ]),
-                ]),
-                self::section('contact', ['padding' => '5rem 2rem', 'backgroundColor' => '#0f172a'], [
-                    self::row('contact-row', ['maxWidth' => '1120px', 'margin' => '0 auto', 'backgroundColor' => 'transparent'], [
-                        self::column('contact-column', ['backgroundColor' => 'transparent'], [
-                            self::heading('contact-heading', 'Ready when you are.', 2, ['fontSize' => '3rem', 'color' => '#f8fafc']),
-                            self::text('contact-copy', 'Replace this starter content with your own story, then publish the page as your new home.', ['color' => '#cbd5e1', 'lineHeight' => 1.7]),
+                            self::heading('hero-heading', 'Welcome to your new website.', 1, [
+                                'fontSize' => '3.5rem',
+                                'fontWeight' => 800,
+                                'lineHeight' => 1.15,
+                                'color' => '#0f172a',
+                                'textAlign' => 'center',
+                            ]),
+                            self::text('hero-copy', 'Start building something amazing with HelloWeb.', [
+                                'fontSize' => '1.25rem',
+                                'lineHeight' => 1.6,
+                                'color' => '#64748b',
+                                'textAlign' => 'center',
+                            ]),
+                            self::flex('hero-actions', [
+                                'gap' => '1rem',
+                                'justifyContent' => 'center',
+                                'backgroundColor' => 'transparent',
+                            ], [
+                                self::button('hero-button', 'Launch Builder', '/builder', [
+                                    'backgroundColor' => '#134e35',
+                                    'color' => '#ffffff',
+                                    'padding' => '0.85rem 2rem',
+                                    'borderRadius' => '999px',
+                                    'fontWeight' => 700,
+                                    'fontSize' => '1rem',
+                                ]),
+                            ]),
                         ]),
                     ]),
                 ]),

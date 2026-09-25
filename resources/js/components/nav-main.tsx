@@ -9,7 +9,7 @@ export function NavMain({ items = [], label = 'MENU' }: { items: NavItem[]; labe
     return (
         <SidebarGroup className="px-3 py-1">
             {label ? (
-                <SidebarGroupLabel className="px-2 text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-400">
+                <SidebarGroupLabel className="px-2 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground/70">
                     {label}
                 </SidebarGroupLabel>
             ) : null}
@@ -25,20 +25,35 @@ export function NavMain({ items = [], label = 'MENU' }: { items: NavItem[]; labe
                                 isActive={isActive}
                                 className={`h-9.5 rounded-xl px-3 transition-all duration-150 ${
                                     isActive
-                                        ? 'bg-primary/10 text-primary font-bold shadow-2xs hover:bg-primary/15'
-                                        : 'text-neutral-600 hover:bg-neutral-100/80 hover:text-foreground font-medium'
+                                        ? 'bg-primary/15 text-primary font-bold shadow-2xs hover:bg-primary/20'
+                                        : 'text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground font-medium'
                                 }`}
                             >
-                                <Link href={item.url} prefetch className="flex items-center gap-3">
-                                    {item.icon && (
-                                        <item.icon
-                                            className={`size-4.5 shrink-0 transition-colors ${
-                                                isActive ? 'text-primary stroke-[2.2]' : 'text-neutral-500 group-hover:text-foreground stroke-[1.8]'
-                                            }`}
-                                        />
-                                    )}
-                                    <span className="text-xs tracking-tight flex-1">{item.title}</span>
-                                </Link>
+                                {item.onClick ? (
+                                    <button
+                                        type="button"
+                                        onClick={item.onClick}
+                                        className="flex w-full items-center gap-3 text-left"
+                                    >
+                                        {item.icon && (
+                                            <item.icon
+                                                className="size-4.5 shrink-0 text-muted-foreground group-hover:text-sidebar-accent-foreground stroke-[1.8]"
+                                            />
+                                        )}
+                                        <span className="text-xs tracking-tight flex-1">{item.title}</span>
+                                    </button>
+                                ) : (
+                                    <Link href={item.url} prefetch className="flex items-center gap-3">
+                                        {item.icon && (
+                                            <item.icon
+                                                className={`size-4.5 shrink-0 transition-colors ${
+                                                    isActive ? 'text-primary stroke-[2.2]' : 'text-muted-foreground group-hover:text-sidebar-accent-foreground stroke-[1.8]'
+                                                }`}
+                                            />
+                                        )}
+                                        <span className="text-xs tracking-tight flex-1">{item.title}</span>
+                                    </Link>
+                                )}
                             </SidebarMenuButton>
                         </SidebarMenuItem>
                     );

@@ -17,6 +17,8 @@ class Page extends Model
         'slug',
         'status',
         'draft_document',
+        'published_document',
+        'published_at',
         'document_schema_version',
         'document_version',
         'current_revision_id',
@@ -26,9 +28,21 @@ class Page extends Model
     {
         return [
             'draft_document' => 'array',
+            'published_document' => 'array',
+            'published_at' => 'datetime',
             'document_schema_version' => 'integer',
             'document_version' => 'integer',
         ];
+    }
+
+    public function isPublished(): bool
+    {
+        return $this->status === 'published' && $this->published_document !== null;
+    }
+
+    public function hasUnpublishedChanges(): bool
+    {
+        return $this->status === 'published' && $this->draft_document !== $this->published_document;
     }
 
     /** @return BelongsTo<Website, $this> */
