@@ -108,7 +108,9 @@ export default function Password() {
                         </div>
 
                         <div className="flex items-center gap-4">
-                            <Button disabled={processing}>Save password</Button>
+                            <Button disabled={processing} className="rounded-full bg-primary hover:bg-primary/90 text-white font-bold text-xs h-9 px-6 shadow-xs transition active:scale-98">
+                                Save Password
+                            </Button>
 
                             <Transition
                                 show={recentlySuccessful}

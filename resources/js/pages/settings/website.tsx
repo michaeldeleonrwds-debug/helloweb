@@ -95,8 +95,12 @@ export default function WebsiteSettingsPage({ website, pages }: { website: Websi
                             <p className="text-muted-foreground text-xs">This page is rendered at the public site root.</p>
                             <InputError message={form.errors.homepage_page_id} />
                         </div>
-                        <Button type="submit" disabled={form.processing}>
-                            {form.processing ? 'Saving...' : 'Save website settings'}
+                        <Button
+                            type="submit"
+                            disabled={form.processing}
+                            className="rounded-full bg-primary hover:bg-primary/90 text-white font-bold text-xs h-9 px-6 shadow-xs transition active:scale-98"
+                        >
+                            {form.processing ? 'Saving...' : 'Save Website Settings'}
                         </Button>
                     </form>
                 </div>

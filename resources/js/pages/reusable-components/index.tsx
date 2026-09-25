@@ -1,8 +1,8 @@
-import { ArrowUpRight, Layers, Plus, Sparkles } from 'lucide-react';
+import { ArrowUpRight, Clock, Layers, Plus, Search, Sparkles } from 'lucide-react';
+import { useMemo, useState } from 'react';
 
 import { AdminResourcePage, ResourceEmpty, StatusBadge } from '@/components/admin-resource-page';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Link } from '@inertiajs/react';
 
 interface ReusableComponent {
@@ -14,76 +14,91 @@ interface ReusableComponent {
 }
 
 export default function ReusableComponents({ components }: { components: ReusableComponent[] }) {
+    const [searchQuery, setSearchQuery] = useState('');
+
+    const filteredComponents = useMemo(() => {
+        return components.filter((comp) => {
+            return (
+                comp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                (comp.description ?? '').toLowerCase().includes(searchQuery.toLowerCase())
+            );
+        });
+    }, [components, searchQuery]);
+
     return (
         <AdminResourcePage
             title="Reusable Blocks"
-            description="Manage shared UI symbols, headers, and modular building blocks synchronized across pages."
+            description="Manage shared UI symbols, modular building blocks, and global components synchronized across pages."
             action={{ label: 'New Block', href: route('builder') }}
             empty="No reusable components yet."
             icon={Sparkles}
         >
-            <Card className="border-border/80 shadow-xs">
-                <CardHeader className="flex flex-row items-center justify-between border-b border-border/60 pb-4">
-                    <div>
-                        <CardTitle className="text-lg font-bold">Reusable Component Library</CardTitle>
-                        <CardDescription className="text-xs">
-                            {components.length} reference-linked block{components.length === 1 ? '' : 's'} available to your pages.
-                        </CardDescription>
-                    </div>
-                    <Button asChild size="sm" className="font-semibold gap-1.5">
-                        <Link href={route('builder')}>
-                            <Plus className="size-3.5" />
-                            Create Block
-                        </Link>
-                    </Button>
-                </CardHeader>
-                <CardContent className="p-6">
-                    {components.length === 0 ? (
-                        <ResourceEmpty
-                            message="No reusable components created yet."
-                            action={{ label: 'Open Builder', href: route('builder') }}
-                            icon={Sparkles}
+            <div className="space-y-6">
+                {/* Search Bar */}
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-[20px] border border-neutral-200/70 bg-white p-3.5 shadow-xs">
+                    <div className="relative flex items-center flex-1 max-w-md">
+                        <Search className="absolute left-3.5 size-4 text-muted-foreground" />
+                        <input
+                            type="text"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            placeholder="Search blocks by name or description..."
+                            className="w-full rounded-full border border-neutral-200/80 bg-neutral-50/70 py-2 pl-9.5 pr-4 text-xs font-medium text-foreground placeholder:text-neutral-400 outline-none focus:border-primary/50 focus:bg-white focus:ring-2 focus:ring-primary/10 transition"
                         />
-                    ) : (
-                        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-                            {components.map((component) => (
-                                <div
-                                    key={component.id}
-                                    className="group relative flex flex-col justify-between rounded-xl border border-border/80 bg-card p-5 transition-all duration-200 hover:-translate-y-1 hover:border-primary/50 hover:shadow-md"
-                                >
-                                    <div>
-                                        <div className="flex items-center justify-between gap-3 mb-3">
-                                            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400">
-                                                <Layers className="size-4" />
-                                            </div>
-                                            <StatusBadge status={component.status} />
+                    </div>
+                    <span className="text-xs font-medium text-muted-foreground px-2">
+                        {filteredComponents.length} block{filteredComponents.length === 1 ? '' : 's'} available
+                    </span>
+                </div>
+
+                {/* Blocks Grid */}
+                {filteredComponents.length === 0 ? (
+                    <ResourceEmpty
+                        message={components.length === 0 ? 'No reusable blocks created yet.' : 'No blocks match your search.'}
+                        action={{ label: 'Open Builder', href: route('builder') }}
+                        icon={Sparkles}
+                    />
+                ) : (
+                    <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+                        {filteredComponents.map((component) => (
+                            <div
+                                key={component.id}
+                                className="group relative flex flex-col justify-between rounded-[22px] border border-neutral-200/70 bg-white p-5.5 shadow-xs transition-all duration-200 hover:-translate-y-1 hover:border-primary/40 hover:shadow-md"
+                            >
+                                <div>
+                                    <div className="flex items-center justify-between gap-3 mb-3.5">
+                                        <div className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-800 border border-emerald-100 shadow-2xs group-hover:bg-primary group-hover:text-white transition-colors duration-200">
+                                            <Layers className="size-5" />
                                         </div>
-                                        <h3 className="text-base font-bold text-foreground group-hover:text-primary transition">
-                                            {component.name}
-                                        </h3>
-                                        <p className="text-muted-foreground mt-1.5 text-xs line-clamp-2 leading-relaxed">
-                                            {component.description || 'Shared modular block definition linked across multiple page layouts.'}
-                                        </p>
+                                        <StatusBadge status={component.status} />
                                     </div>
 
-                                    <div className="mt-6 flex items-center justify-between border-t border-border/50 pt-3">
-                                        <span className="text-[11px] text-muted-foreground">
-                                            {component.updatedAt ? new Date(component.updatedAt).toLocaleDateString() : 'Active'}
-                                        </span>
-                                        <Button asChild size="sm" variant="secondary" className="h-7 text-xs font-semibold gap-1">
-                                            <Link href={route('builder')}>
-                                                <Sparkles className="size-3 text-primary" />
-                                                Edit in Builder
-                                                <ArrowUpRight className="size-3" />
-                                            </Link>
-                                        </Button>
-                                    </div>
+                                    <h3 className="text-base font-extrabold text-foreground group-hover:text-primary transition">
+                                        {component.name}
+                                    </h3>
+                                    <p className="text-muted-foreground mt-1.5 text-xs line-clamp-2 leading-relaxed">
+                                        {component.description || 'Shared modular building block linked across multiple pages in your project.'}
+                                    </p>
                                 </div>
-                            ))}
-                        </div>
-                    )}
-                </CardContent>
-            </Card>
+
+                                <div className="mt-6 flex items-center justify-between border-t border-neutral-100 pt-3.5">
+                                    <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+                                        <Clock className="size-3 text-muted-foreground" />
+                                        {component.updatedAt ? new Date(component.updatedAt).toLocaleDateString() : 'Active'}
+                                    </span>
+                                    <Button asChild size="sm" className="rounded-full bg-primary hover:bg-primary/90 text-white font-bold text-xs h-8 px-4 gap-1.5 shadow-2xs transition active:scale-98">
+                                        <Link href={route('builder')}>
+                                            <Sparkles className="size-3.5" />
+                                            <span>Edit in Builder</span>
+                                            <ArrowUpRight className="size-3 stroke-[2.5]" />
+                                        </Link>
+                                    </Button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
         </AdminResourcePage>
     );
 }

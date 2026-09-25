@@ -484,5 +484,31 @@ Users need immediate access to `maxWidth` without digging into collapsed menus, 
 Implication:
 No breaking changes to persisted document structures or responsive styling cascades. All tests pass with zero regressions.
 
+## D-032 - Clean Light SaaS Application Redesign (Visual Builder Excluded)
+
+Status: Accepted
+Date: 2026-09-25
+
+Decision:
+1. Application-Wide Light SaaS Design System (`resources/css/app.css`):
+   - Established global light SaaS color palette: soft off-white canvas background (`#F4F6F9` / `hsl(220, 18%, 97%)`), pure white card surfaces (`#FFFFFF` / `hsl(0, 0%, 100%)`), deep forest/emerald primary accent (`hsl(155, 60%, 19%)`), crisp borders (`hsl(220, 13%, 91%)`), and `--radius: 1.125rem` (18px) for modern rounded corners.
+   - Left `.builder-editor` styles completely isolated and untouched. Defaulted user appearance to light mode for the non-builder application.
+2. Global Navigation & Shell (`app-sidebar.tsx`, `nav-main.tsx`, `app-sidebar-header.tsx`, `app-logo.tsx`):
+   - Redesigned sidebar into a clean white container with `MENU` and `GENERAL` navigation sections, emerald icon badges, active pill states, a top `+ Launch Builder` pill CTA, and a bottom dark forest green "Visual Studio" banner matching the reference design.
+   - Replaced top header with a modern search pill (`⌘ F`), quick builder launcher button, notification bell with green ping dot, and user profile pill block with avatar, name, and email dropdown.
+   - Upgraded application branding to a modern SaaS icon badge and "HelloWeb" wordmark with forest green dot.
+3. Dashboard & Management Resource Pages:
+   - Rebuilt `dashboard.tsx` with light SaaS architecture: deep forest green highlight KPI card with circular `↗` button, 3 clean white metric cards with subtle borders, weekly activity bar chart with day labels, spotlight project card with instant "Launch in Studio" action, clean projects list, recent pages table with direct 1-click builder edit, and circular SVG publishing health indicator.
+   - Rebuilt all resource management pages (`websites/index.tsx`, `pages/index.tsx`, `templates/index.tsx`, `media/index.tsx`, `reusable-components/index.tsx`) into clean white cards (`rounded-[20px]`/`rounded-[22px]`), filter pill tabs, search bars, and live dot status badges.
+   - Modernized settings layouts (`settings/layout.tsx`, `profile.tsx`, `password.tsx`, `website.tsx`), welcome landing page (`welcome.tsx`), and authentication layouts (`auth-simple-layout.tsx`, `auth-card-layout.tsx`).
+4. Strict Visual Builder Boundary:
+   - Visual Builder components (`resources/js/builder/**`), canvas, inspector, toolbar, left panel, state, styles, persistence, and routes remained 100% untouched.
+
+Reason:
+To transform the entire HelloWeb non-builder application into a cohesive, high-end light SaaS product matching the reference design language while maintaining an absolute boundary around the Visual Builder framework.
+
+Implication:
+All backend routes, Inertia controllers, builder unit tests, and editor tests remain fully functional with zero regressions.
+
 
 

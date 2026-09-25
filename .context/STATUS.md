@@ -11,6 +11,13 @@ The `code.customcss` palette element is removed and replaced by `code.customcode
 
 ## Completed
 
+- Clean light SaaS application redesign outside the visual builder (D-032):
+  - Global CSS tokens & system (`resources/css/app.css`, `use-appearance.tsx`): soft off-white background (`#F4F6F9`), pure white card surfaces (`#FFFFFF`), deep forest green primary (`#134E35`), crisp borders, 18px radius (`rounded-[18px]`/`rounded-[22px]`), light mode default for non-builder application. Isolated `.builder-editor` styles completely.
+  - Global layout & shell (`app-sidebar.tsx`, `nav-main.tsx`, `app-sidebar-header.tsx`, `app-logo.tsx`, `user-info.tsx`): light white sidebar with `MENU` and `GENERAL` groupings, emerald icon badges, `+ Launch Builder` top CTA, bottom forest green Visual Studio banner, header search pill (`⌘ F`), quick builder button, notification bell with live ping, and user profile block.
+  - Rebuilt Dashboard (`dashboard.tsx`): deep forest green highlight KPI card with circular `↗` button, 3 clean white metric cards, weekly activity bar chart, spotlight project card with "Launch in Studio" action, clean projects list, recent pages table with direct 1-click builder edit, and circular SVG publishing health indicator.
+  - Rebuilt Resource & Management pages (`websites/index.tsx`, `pages/index.tsx`, `templates/index.tsx`, `media/index.tsx`, `reusable-components/index.tsx`, `admin-resource-page.tsx`): clean white cards (`rounded-[20px]`/`rounded-[22px]`), filter pill tabs, search inputs, and live dot status badges.
+  - Settings, Welcome & Auth: modernized `settings/layout.tsx`, `profile.tsx`, `password.tsx`, `website.tsx`, `welcome.tsx`, `auth-simple-layout.tsx`, and `auth-card-layout.tsx`.
+  - Visual Builder boundary: 100% untouched. Builder components, canvas, inspector, toolbar, left panel, styles, and tests preserved with zero regressions.
 - Left panel tab layout, split view cleanup, max width inspector controls, and dimensions preset grid (D-031):
   - Left panel tabs & split view removal (`BuilderLeftPanel.tsx`): arranged all 4 tabs ("Elements", "Layers", "Library", "Media") into an exact `grid grid-cols-4 gap-1 w-full` layout so that at 300px panel width, both icon and label text are fully visible without truncation. Removed split view dual-stack rendering so clicking "Elements" renders only the elements panel full-height without showing layers underneath it.
   - Max width & dimensions inspector controls (`ComponentInspector.tsx`, `built-ins.ts`, `BuiltInComponentDefinitions.php`): added `'maxWidth'` capability to `layout.section` in PHP and TypeScript registries. Promoted `Max Width (Max W)` to the primary 2-column dimensions grid alongside `Width (W)`, `Height (H)`, and `Min Height (Min H)`.

@@ -1,4 +1,4 @@
-import AppLogoIcon from '@/components/app-logo-icon';
+import AppLogo from '@/components/app-logo';
 import { Link } from '@inertiajs/react';
 
 interface AuthLayoutProps {
@@ -10,23 +10,28 @@ interface AuthLayoutProps {
 
 export default function AuthSimpleLayout({ children, title, description }: AuthLayoutProps) {
     return (
-        <div className="bg-background flex min-h-svh flex-col items-center justify-center gap-6 p-6 md:p-10">
-            <div className="w-full max-w-sm">
-                <div className="flex flex-col gap-8">
-                    <div className="flex flex-col items-center gap-4">
-                        <Link href={route('home')} className="flex flex-col items-center gap-2 font-medium">
-                            <div className="mb-1 flex h-9 w-9 items-center justify-center rounded-md">
-                                <AppLogoIcon className="size-9 fill-current text-[var(--foreground)] dark:text-white" />
-                            </div>
-                            <span className="text-base font-semibold tracking-tight">HelloWeb</span>
+        <div className="flex min-h-svh flex-col items-center justify-center bg-[#F4F6F9] p-6 md:p-10 font-sans antialiased text-neutral-800">
+            <div className="w-full max-w-[420px]">
+                <div className="flex flex-col gap-6">
+                    <div className="flex justify-center mb-2">
+                        <Link href={route('home')} className="inline-flex items-center gap-2 transition hover:opacity-90">
+                            <AppLogo />
                         </Link>
-
-                        <div className="space-y-2 text-center">
-                            <h1 className="text-xl font-medium">{title}</h1>
-                            <p className="text-muted-foreground text-center text-sm">{description}</p>
-                        </div>
                     </div>
-                    {children}
+
+                    <div className="rounded-[22px] border border-neutral-200/80 bg-white p-7 sm:p-9 shadow-sm">
+                        <div className="mb-6 space-y-1.5 text-center">
+                            <h1 className="text-xl font-bold tracking-tight text-neutral-900">{title}</h1>
+                            {description && (
+                                <p className="text-sm text-neutral-500 font-medium">{description}</p>
+                            )}
+                        </div>
+                        {children}
+                    </div>
+
+                    <p className="text-center text-xs text-neutral-400 font-medium">
+                        &copy; {new Date().getFullYear()} HelloWeb Studio. All rights reserved.
+                    </p>
                 </div>
             </div>
         </div>

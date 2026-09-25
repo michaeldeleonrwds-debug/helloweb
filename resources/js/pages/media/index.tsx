@@ -1,9 +1,8 @@
-import { Image, Loader2, Plus, UploadCloud } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { Check, Copy, Image, Loader2, Plus, Search, Trash2, UploadCloud } from 'lucide-react';
+import { useMemo, useRef, useState } from 'react';
 
 import { AdminResourcePage, ResourceEmpty } from '@/components/admin-resource-page';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface MediaAsset {
     id: number;
@@ -28,6 +27,8 @@ export default function Media({ media }: { media: MediaAsset[] }) {
     const [assets, setAssets] = useState(media);
     const [uploading, setUploading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [copiedId, setCopiedId] = useState<number | null>(null);
     const inputRef = useRef<HTMLInputElement>(null);
 
     const upload = async (file: File) => {
@@ -56,22 +57,43 @@ export default function Media({ media }: { media: MediaAsset[] }) {
         }
     };
 
+    const copyUrl = (id: number, url: string) => {
+        navigator.clipboard.writeText(url);
+        setCopiedId(id);
+        setTimeout(() => setCopiedId(null), 2000);
+    };
+
+    const filteredAssets = useMemo(() => {
+        return assets.filter((asset) => {
+            return (
+                asset.originalFilename.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                asset.mimeType.toLowerCase().includes(searchQuery.toLowerCase())
+            );
+        });
+    }, [assets, searchQuery]);
+
     return (
         <AdminResourcePage
             title="Media Library"
-            description="Upload, inspect, and manage photos, icons, and graphic assets for use across your website builder."
+            description="Upload, organize, and manage image assets and graphics for your website canvas."
             empty="No media assets yet."
             icon={Image}
         >
-            <Card className="border-border/80 shadow-xs">
-                <CardHeader className="flex flex-row items-center justify-between border-b border-border/60 pb-4">
-                    <div>
-                        <CardTitle className="text-lg font-bold">Asset Gallery</CardTitle>
-                        <CardDescription className="text-xs">
-                            {assets.length} file{assets.length === 1 ? '' : 's'} uploaded and ready for canvas insertion.
-                        </CardDescription>
+            <div className="space-y-6">
+                {/* Upload & Search Toolbar */}
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-[20px] border border-neutral-200/70 bg-white p-3.5 shadow-xs">
+                    <div className="relative flex items-center flex-1 max-w-md">
+                        <Search className="absolute left-3.5 size-4 text-muted-foreground" />
+                        <input
+                            type="text"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            placeholder="Search assets by file name..."
+                            className="w-full rounded-full border border-neutral-200/80 bg-neutral-50/70 py-2 pl-9.5 pr-4 text-xs font-medium text-foreground placeholder:text-neutral-400 outline-none focus:border-primary/50 focus:bg-white focus:ring-2 focus:ring-primary/10 transition"
+                        />
                     </div>
-                    <>
+
+                    <div className="flex items-center gap-3">
                         <input
                             ref={inputRef}
                             type="file"
@@ -85,74 +107,102 @@ export default function Media({ media }: { media: MediaAsset[] }) {
                         <Button
                             type="button"
                             size="sm"
-                            className="shadow-xs font-semibold gap-1.5"
+                            className="rounded-full bg-primary hover:bg-primary/90 text-white font-bold text-xs h-9 px-5 gap-2 shadow-xs transition active:scale-98"
                             disabled={uploading}
                             onClick={() => inputRef.current?.click()}
                         >
                             {uploading ? (
                                 <>
                                     <Loader2 className="size-3.5 animate-spin" />
-                                    Uploading...
+                                    <span>Uploading...</span>
                                 </>
                             ) : (
                                 <>
                                     <UploadCloud className="size-4" />
-                                    Upload Image
+                                    <span>Upload Asset</span>
                                 </>
                             )}
                         </Button>
-                    </>
-                </CardHeader>
-                <CardContent className="p-6">
-                    {error ? (
-                        <div className="mb-5 rounded-lg border border-destructive/20 bg-destructive/10 p-3 text-xs text-destructive font-medium" role="alert">
-                            {error}
-                        </div>
-                    ) : null}
+                    </div>
+                </div>
 
-                    {assets.length === 0 ? (
-                        <ResourceEmpty
-                            message="No media assets uploaded yet."
-                            action={{ label: 'Upload your first image', href: '#' }}
-                            icon={Image}
-                        />
-                    ) : (
-                        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                            {assets.map((asset) => (
-                                <div
-                                    key={asset.id}
-                                    className="group overflow-hidden rounded-xl border border-border/80 bg-card transition-all duration-200 hover:-translate-y-1 hover:border-primary/50 hover:shadow-md"
-                                >
-                                    <div className="relative bg-muted/30 flex aspect-video items-center justify-center overflow-hidden border-b border-border/60">
-                                        {asset.mimeType.startsWith('image/') ? (
-                                            <img
-                                                src={asset.url}
-                                                alt={asset.altText || asset.originalFilename}
-                                                className="size-full object-cover transition-transform duration-300 group-hover:scale-105"
-                                            />
-                                        ) : (
-                                            <Image className="size-8 text-muted-foreground/60" />
-                                        )}
-                                        {asset.width && asset.height ? (
-                                            <span className="absolute bottom-2 right-2 rounded-md bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white backdrop-blur-xs">
-                                                {asset.width}x{asset.height}
-                                            </span>
-                                        ) : null}
-                                    </div>
-                                    <div className="p-3">
-                                        <p className="truncate text-xs font-semibold text-foreground group-hover:text-primary transition" title={asset.originalFilename}>
-                                            {asset.originalFilename}
-                                        </p>
-                                        <p className="text-muted-foreground mt-1 truncate text-[11px]">
-                                            {formatBytes(asset.fileSize)} · {asset.mimeType.replace('image/', '').toUpperCase()}
-                                        </p>
+                {error ? (
+                    <div className="rounded-2xl border border-destructive/20 bg-destructive/10 p-4 text-xs text-destructive font-medium" role="alert">
+                        {error}
+                    </div>
+                ) : null}
+
+                {/* Media Assets Grid */}
+                {filteredAssets.length === 0 ? (
+                    <ResourceEmpty
+                        message={assets.length === 0 ? 'No media assets uploaded yet.' : 'No media assets match your search.'}
+                        action={{ label: 'Upload Image', href: '#' }}
+                        icon={Image}
+                    />
+                ) : (
+                    <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                        {filteredAssets.map((asset) => (
+                            <div
+                                key={asset.id}
+                                className="group relative flex flex-col justify-between overflow-hidden rounded-[22px] border border-neutral-200/70 bg-white p-3 shadow-xs transition-all duration-200 hover:-translate-y-1 hover:border-primary/40 hover:shadow-md"
+                            >
+                                {/* Thumbnail Image */}
+                                <div className="relative aspect-video w-full overflow-hidden rounded-[16px] bg-neutral-100/80 border border-neutral-100 flex items-center justify-center">
+                                    {asset.mimeType.startsWith('image/') ? (
+                                        <img
+                                            src={asset.url}
+                                            alt={asset.altText || asset.originalFilename}
+                                            className="size-full object-cover transition-transform duration-300 group-hover:scale-105"
+                                        />
+                                    ) : (
+                                        <Image className="size-8 text-muted-foreground/60" />
+                                    )}
+
+                                    {/* Mime Badge */}
+                                    <span className="absolute top-2 left-2 rounded-full bg-black/60 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white backdrop-blur-xs">
+                                        {asset.mimeType.replace('image/', '')}
+                                    </span>
+
+                                    {/* Dimensions Badge */}
+                                    {asset.width && asset.height ? (
+                                        <span className="absolute bottom-2 right-2 rounded-full bg-black/60 px-2 py-0.5 text-[9px] font-mono font-medium text-white backdrop-blur-xs">
+                                            {asset.width}x{asset.height}
+                                        </span>
+                                    ) : null}
+                                </div>
+
+                                {/* Metadata & Actions */}
+                                <div className="p-2.5 pt-3">
+                                    <h4 className="truncate text-xs font-bold text-foreground group-hover:text-primary transition" title={asset.originalFilename}>
+                                        {asset.originalFilename}
+                                    </h4>
+                                    <div className="mt-1 flex items-center justify-between text-[11px] text-muted-foreground">
+                                        <span>{formatBytes(asset.fileSize)}</span>
+                                        <button
+                                            type="button"
+                                            onClick={() => copyUrl(asset.id, asset.url)}
+                                            className="flex items-center gap-1 font-semibold text-primary hover:underline"
+                                            title="Copy public URL"
+                                        >
+                                            {copiedId === asset.id ? (
+                                                <>
+                                                    <Check className="size-3 text-emerald-600" />
+                                                    <span className="text-emerald-600">Copied!</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Copy className="size-3" />
+                                                    <span>Copy URL</span>
+                                                </>
+                                            )}
+                                        </button>
                                     </div>
                                 </div>
-                            ))}
-                        </div>
-                    )}
-                </CardContent>
-            </Card>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
         </AdminResourcePage>
     );
 }
