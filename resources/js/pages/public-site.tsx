@@ -15,12 +15,14 @@ interface PublicSiteProps extends Record<string, unknown> {
     website: { name: string; title: string; tagline: string | null; faviconUrl: string | null };
     page: { title: string; slug: string };
     document: BuilderPageDocument;
+    headerDocument?: BuilderPageDocument | null;
+    footerDocument?: BuilderPageDocument | null;
 }
 
 const voidElements = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr']);
 
 export default function PublicSite() {
-    const { website, page, document } = usePage<PublicSiteProps>().props;
+    const { website, page, document, headerDocument, footerDocument } = usePage<PublicSiteProps>().props;
     const breakpoint = useViewportBreakpoint();
     const scopedCss = typeof document.metadata?.scopedCss === 'string' ? document.metadata.scopedCss : '';
     const globalHeadCode = (typeof document.metadata?.globalHeadCode === 'string' ? document.metadata.globalHeadCode : '') +
@@ -68,6 +70,17 @@ export default function PublicSite() {
         return () => window.document.removeEventListener('click', handleClick);
     }, []);
 
+    const headerResult = useMemo(() => {
+        if (!headerDocument) return null;
+        const context: RenderContext = {
+            breakpoint,
+            componentRegistry: createBuiltInComponentRegistry(),
+            rendererRegistry: registerBuiltInRenderers(new ComponentRendererRegistry()),
+        };
+
+        return new BuilderRenderer(context).renderDocument(headerDocument);
+    }, [breakpoint, headerDocument]);
+
     const result = useMemo(() => {
         const context: RenderContext = {
             breakpoint,
@@ -78,6 +91,17 @@ export default function PublicSite() {
         return new BuilderRenderer(context).renderDocument(document);
     }, [breakpoint, document]);
 
+    const footerResult = useMemo(() => {
+        if (!footerDocument) return null;
+        const context: RenderContext = {
+            breakpoint,
+            componentRegistry: createBuiltInComponentRegistry(),
+            rendererRegistry: registerBuiltInRenderers(new ComponentRendererRegistry()),
+        };
+
+        return new BuilderRenderer(context).renderDocument(footerDocument);
+    }, [breakpoint, footerDocument]);
+
     return (
         <>
             <Head title={page.title === 'Home' ? website.title : `${page.title} | ${website.title}`}>
@@ -85,9 +109,12 @@ export default function PublicSite() {
                 {website.tagline ? <meta name="description" content={website.tagline} /> : null}
             </Head>
             <GlobalCodeEffects headCode={globalHeadCode} footerCode={globalFooterCode} />
-            <main className="min-h-screen bg-white text-slate-950">
-                <PublicRenderNode result={result} />
+            <main className="min-h-screen bg-white text-slate-950 flex flex-col justify-between">
+                {headerResult ? <header className="w-full shrink-0"><PublicRenderNode result={headerResult} /></header> : null}
+                <div className="flex-1 w-full"><PublicRenderNode result={result} /></div>
+                {footerResult ? <footer className="w-full shrink-0"><PublicRenderNode result={footerResult} /></footer> : null}
             </main>
+
             {lightbox ? (
                 <GalleryLightboxModal
                     lightbox={lightbox}

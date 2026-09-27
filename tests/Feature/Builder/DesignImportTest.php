@@ -28,7 +28,7 @@ class DesignImportTest extends TestCase
 
     public function test_can_analyze_design_package_zip(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create(['is_superadmin' => true]);
 
         $zipFile = $this->createZipArchive([
             'index.html' => '<html><head><link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter"><link rel="stylesheet" href="styles.css"></head><body><section class="hero"><h1>Awesome Block</h1><p>Test description</p><a href="/signup" class="btn">Sign Up</a></section></body></html>',
@@ -55,7 +55,7 @@ class DesignImportTest extends TestCase
 
     public function test_can_import_as_reusable_component(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create(['is_superadmin' => true]);
 
         $zipFile = $this->createZipArchive([
             'index.html' => '<section class="pricing-card"><h2>Pro Plan</h2><p>$29/mo</p><button>Choose Plan</button></section>',
@@ -77,6 +77,7 @@ class DesignImportTest extends TestCase
             'user_id' => $user->id,
             'name' => 'Custom Pricing Block',
             'status' => 'active',
+            'is_platform' => true,
         ]);
 
         @unlink($zipFile);
@@ -84,7 +85,7 @@ class DesignImportTest extends TestCase
 
     public function test_can_import_as_template(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create(['is_superadmin' => true]);
 
         $zipFile = $this->createZipArchive([
             'index.html' => '<html><head><title>Portfolio</title><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"></head><body><section><h1>Portfolio Home</h1></section></body></html>',
@@ -108,7 +109,36 @@ class DesignImportTest extends TestCase
             'name' => 'Portfolio Template',
             'type' => 'website',
             'status' => 'active',
+            'is_platform' => true,
         ]);
+
+        @unlink($zipFile);
+    }
+
+    public function test_non_superadmin_cannot_access_import_endpoints(): void
+    {
+        $user = User::factory()->create(['is_superadmin' => false]);
+
+        $zipFile = $this->createZipArchive([
+            'index.html' => '<html><body><h1>Hello</h1></body></html>',
+        ]);
+
+        $uploaded = new UploadedFile($zipFile, 'test.zip', 'application/zip', null, true);
+
+        // Analyze
+        $this->actingAs($user)
+            ->postJson(route('builder.import.analyze'), ['file' => $uploaded, 'type' => 'component'])
+            ->assertStatus(403);
+
+        // Component
+        $this->actingAs($user)
+            ->postJson(route('builder.import.component'), ['file' => $uploaded, 'name' => 'Block'])
+            ->assertStatus(403);
+
+        // Template
+        $this->actingAs($user)
+            ->postJson(route('builder.import.template'), ['file' => $uploaded, 'name' => 'Tpl'])
+            ->assertStatus(403);
 
         @unlink($zipFile);
     }

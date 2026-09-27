@@ -5,9 +5,11 @@ namespace App\Builder\Renderer;
 use App\Builder\Renderer\BuiltIn\ConfiguredRenderer;
 use App\Builder\Renderer\BuiltIn\ContainerRenderer;
 use App\Builder\Renderer\BuiltIn\CustomCodeRenderer;
+use App\Builder\Renderer\BuiltIn\EssentialElementRenderer;
 use App\Builder\Renderer\BuiltIn\HeadingRenderer;
 use App\Builder\Renderer\BuiltIn\ImageRenderer;
 use App\Builder\Renderer\BuiltIn\LinkRenderer;
+use App\Builder\Renderer\BuiltIn\PricingRenderer;
 use App\Builder\Renderer\BuiltIn\ReusableInstanceRenderer;
 use App\Builder\Renderer\BuiltIn\RootRenderer;
 use App\Builder\Renderer\BuiltIn\SectionRenderer;
@@ -20,6 +22,8 @@ final class BuiltInRendererDefinitions
      */
     public static function all(): array
     {
+        $essentialElementRenderer = new EssentialElementRenderer;
+
         return [
             'layout.root' => new RootRenderer,
             'layout.section' => new SectionRenderer,
@@ -37,14 +41,27 @@ final class BuiltInRendererDefinitions
             'content.richtext' => new TextContentRenderer,
             'content.button' => new LinkRenderer,
             'content.link' => new LinkRenderer,
+            'content.accordion' => $essentialElementRenderer,
+            'content.tabs' => $essentialElementRenderer,
             'media.image' => new ImageRenderer,
             'code.customcode' => new CustomCodeRenderer,
             'marketing.card' => new ConfiguredRenderer('article'),
             'layout.navbar' => new ConfiguredRenderer('header'),
             'content.list' => new ConfiguredRenderer('ul'),
             'media.gallery' => new ConfiguredRenderer('div'),
+            'media.carousel' => $essentialElementRenderer,
+            'embed.video' => $essentialElementRenderer,
             'marketing.blurb' => new ConfiguredRenderer('div'),
+            'marketing.pricing' => new PricingRenderer,
+            'marketing.logomarquee' => $essentialElementRenderer,
+            'marketing.stats' => $essentialElementRenderer,
+            'marketing.testimonial' => $essentialElementRenderer,
+            'form.contact' => $essentialElementRenderer,
             'marketing.imagefeature' => new ConfiguredRenderer('div'),
+            'marketing.countdown' => $essentialElementRenderer,
+            'content.socialicons' => $essentialElementRenderer,
+            'content.alert' => $essentialElementRenderer,
+            'marketing.progressbar' => $essentialElementRenderer,
             'reusable.instance' => new ReusableInstanceRenderer,
         ];
     }

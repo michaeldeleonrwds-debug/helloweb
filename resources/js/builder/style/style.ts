@@ -259,6 +259,22 @@ export const STYLE_PROPERTY_DEFINITIONS: readonly StyleDefinition[] = [
         responsive: true,
     },
     {
+        key: 'overflowWrap',
+        label: 'Overflow wrap',
+        group: 'text',
+        type: 'enum',
+        options: ['normal', 'break-word', 'anywhere'],
+        responsive: true,
+    },
+    {
+        key: 'wordBreak',
+        label: 'Word break',
+        group: 'text',
+        type: 'enum',
+        options: ['normal', 'break-word', 'break-all', 'keep-all'],
+        responsive: true,
+    },
+    {
         key: 'boxShadow',
         label: 'Shadow',
         group: 'effects',
@@ -378,6 +394,8 @@ export type StylePropertyKey =
     | 'letterSpacing'
     | 'textTransform'
     | 'textDecoration'
+    | 'overflowWrap'
+    | 'wordBreak'
     | 'boxShadow'
     | 'opacity'
     | 'filter'

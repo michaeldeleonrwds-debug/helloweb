@@ -8,9 +8,12 @@ import {
     ExternalLink,
     Globe,
     LayoutGrid,
+    LayoutTemplate,
     Loader2,
     Monitor,
+    PanelBottom,
     PanelRight,
+    PanelsTopLeft,
     Redo2,
     Smartphone,
     Tablet,
@@ -49,6 +52,13 @@ export interface BuilderToolbarProps {
     pageStatus?: string;
     onPublish?: () => void;
     isPublishing?: boolean;
+    isTemplate?: boolean;
+    templateType?: string;
+    onOpenHeaderPicker?: () => void;
+    onOpenFooterPicker?: () => void;
+    onOpenBlueprintsPicker?: () => void;
+    activeHeaderName?: string | null;
+    activeFooterName?: string | null;
 }
 
 const devices: { id: BuilderBreakpoint; label: string; icon: typeof Monitor }[] = [
@@ -83,6 +93,13 @@ export function BuilderToolbar({
     pageStatus,
     onPublish,
     isPublishing = false,
+    isTemplate = false,
+    templateType,
+    onOpenHeaderPicker,
+    onOpenFooterPicker,
+    onOpenBlueprintsPicker,
+    activeHeaderName,
+    activeFooterName,
 }: BuilderToolbarProps) {
     return (
         <header
@@ -95,8 +112,8 @@ export function BuilderToolbar({
                     type="button"
                     onClick={onNavigateBack}
                     className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-foreground active:scale-95"
-                    aria-label="Back to dashboard"
-                    title="Back to dashboard"
+                    aria-label={isTemplate ? 'Back to templates' : 'Back to dashboard'}
+                    title={isTemplate ? 'Back to templates' : 'Back to dashboard'}
                 >
                     <ArrowLeft className="size-4" />
                 </button>
@@ -106,8 +123,8 @@ export function BuilderToolbar({
                 {/* Site & Page Navigation */}
                 <div className="flex min-w-0 items-center gap-1.5">
                     <Globe className="size-3.5 shrink-0 text-muted-foreground/60 hidden sm:block" />
-                    <span className="hidden max-w-32 truncate text-xs font-medium text-muted-foreground sm:inline" title={websiteName}>
-                        {websiteName}
+                    <span className="hidden max-w-32 truncate text-xs font-medium text-muted-foreground sm:inline" title={isTemplate ? 'Templates' : websiteName}>
+                        {isTemplate ? 'Templates' : websiteName}
                     </span>
                     <span className="hidden text-xs text-muted-foreground/40 sm:inline">/</span>
                     <div className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-semibold text-foreground transition hover:bg-muted/60">
@@ -116,7 +133,11 @@ export function BuilderToolbar({
                         </span>
                         <ChevronDown className="size-3 shrink-0 text-muted-foreground/60" />
                     </div>
-                    {pageStatus ? (
+                    {isTemplate ? (
+                        <span className="hidden sm:inline-flex items-center rounded-full bg-primary/10 border border-primary/20 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary">
+                            {templateType === 'header' ? 'Global Header' : templateType === 'footer' ? 'Global Footer' : 'Page Blueprint'}
+                        </span>
+                    ) : pageStatus ? (
                         <span
                             className={`hidden sm:inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
                                 pageStatus === 'published'
@@ -133,71 +154,47 @@ export function BuilderToolbar({
 
                 {/* Google Docs style Save Indicator */}
                 <GoogleCloudSaveIndicator status={saveStatus} error={saveError} onRetry={onRetry} />
-            </div>
 
-            {/* Center section: Google M3 Segmented Viewport Switcher & Zoom Selector */}
-            <div className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-2 md:flex">
-                <div
-                    className="flex items-center rounded-full border border-border/80 bg-muted/60 p-0.5 shadow-2xs"
-                    aria-label="Device viewport switcher"
-                >
-                    {devices.map(({ id, label, icon: Icon }) => {
-                        const isActive = breakpoint === id;
-                        return (
+                {/* Theme Layout Quick Pickers (Pages only) */}
+                {!isTemplate && (onOpenHeaderPicker || onOpenFooterPicker) ? (
+                    <div className="hidden lg:flex items-center gap-1.5 ml-1 border-l border-border/60 pl-2">
+                        {onOpenHeaderPicker && (
                             <button
-                                key={id}
                                 type="button"
-                                aria-label={label}
-                                aria-pressed={isActive}
-                                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition ${
-                                    isActive
-                                        ? 'bg-card text-primary font-semibold shadow-2xs'
-                                        : 'text-muted-foreground hover:bg-card/40 hover:text-foreground'
-                                }`}
-                                onClick={() => onBreakpointChange(id)}
+                                onClick={onOpenHeaderPicker}
+                                className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border/80 bg-muted/30 hover:bg-muted px-2.5 text-xs font-medium text-foreground transition active:scale-95"
+                                title="Choose or switch Global Header design"
                             >
-                                <Icon className="size-3.5" />
-                                <span className="hidden lg:inline">{label}</span>
+                                <PanelsTopLeft className="size-3.5 text-primary" />
+                                <span className="max-w-28 truncate">{activeHeaderName || 'No Header'}</span>
+                                <ChevronDown className="size-3 text-muted-foreground" />
                             </button>
-                        );
-                    })}
-                </div>
-
-                {/* Canvas Zoom Control */}
-                <div className="flex items-center rounded-full border border-border/80 bg-muted/60 px-2 py-0.5 shadow-2xs text-xs font-medium text-muted-foreground">
-                    <button
-                        type="button"
-                        onClick={() => onZoomChange?.(Math.max(50, (zoom ?? 80) - 10))}
-                        className="p-0.5 hover:text-foreground transition rounded"
-                        title="Zoom out"
-                        aria-label="Zoom out"
-                    >
-                        <ZoomOut className="size-3" />
-                    </button>
-                    <select
-                        value={zoom ?? 80}
-                        onChange={(e) => onZoomChange?.(Number(e.target.value))}
-                        className="bg-transparent text-xs font-medium text-foreground focus:outline-none cursor-pointer px-1 py-0.5"
-                        title="Canvas zoom level"
-                        aria-label="Canvas zoom level"
-                    >
-                        <option value={50} className="bg-popover text-popover-foreground">50%</option>
-                        <option value={75} className="bg-popover text-popover-foreground">75%</option>
-                        <option value={80} className="bg-popover text-popover-foreground">80%</option>
-                        <option value={90} className="bg-popover text-popover-foreground">90%</option>
-                        <option value={100} className="bg-popover text-popover-foreground">100%</option>
-                        <option value={125} className="bg-popover text-popover-foreground">125%</option>
-                    </select>
-                    <button
-                        type="button"
-                        onClick={() => onZoomChange?.(Math.min(150, (zoom ?? 80) + 10))}
-                        className="p-0.5 hover:text-foreground transition rounded"
-                        title="Zoom in"
-                        aria-label="Zoom in"
-                    >
-                        <ZoomIn className="size-3" />
-                    </button>
-                </div>
+                        )}
+                        {onOpenFooterPicker && (
+                            <button
+                                type="button"
+                                onClick={onOpenFooterPicker}
+                                className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border/80 bg-muted/30 hover:bg-muted px-2.5 text-xs font-medium text-foreground transition active:scale-95"
+                                title="Choose or switch Global Footer design"
+                            >
+                                <PanelBottom className="size-3.5 text-primary" />
+                                <span className="max-w-28 truncate">{activeFooterName || 'No Footer'}</span>
+                                <ChevronDown className="size-3 text-muted-foreground" />
+                            </button>
+                        )}
+                        {onOpenBlueprintsPicker && (
+                            <button
+                                type="button"
+                                onClick={onOpenBlueprintsPicker}
+                                className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border/80 bg-muted/30 hover:bg-muted px-2.5 text-xs font-medium text-foreground transition active:scale-95"
+                                title="Browse and apply Page Blueprints"
+                            >
+                                <LayoutTemplate className="size-3.5 text-blue-500" />
+                                <span className="hidden xl:inline">Blueprints</span>
+                            </button>
+                        )}
+                    </div>
+                ) : null}
             </div>
 
             {/* Right section: History, Code, Preview, Save, Panel toggles */}
@@ -269,7 +266,7 @@ export function BuilderToolbar({
                     </a>
                 ) : null}
 
-                {/* Save Draft Button */}
+                {/* Save Draft / Template Button */}
                 <button
                     type="button"
                     onClick={onSave}
@@ -279,18 +276,28 @@ export function BuilderToolbar({
                             ? 'bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-border/80'
                             : 'border border-border/80 bg-muted/40 text-muted-foreground cursor-default'
                     }`}
-                    title="Save current composition as draft"
+                    title={isTemplate ? 'Save template changes' : 'Save current composition as draft'}
                 >
                     {saveStatus === 'saving' ? (
                         <Loader2 className="size-3.5 animate-spin" />
                     ) : (
                         <Check className={`size-3.5 ${saveStatus === 'saved' ? 'text-primary' : ''}`} />
                     )}
-                    <span>{saveStatus === 'saving' ? 'Saving...' : saveStatus === 'saved' ? 'Draft Saved' : 'Save Draft'}</span>
+                    <span>
+                        {saveStatus === 'saving'
+                            ? 'Saving...'
+                            : saveStatus === 'saved'
+                            ? isTemplate
+                                ? 'Template Saved'
+                                : 'Draft Saved'
+                            : isTemplate
+                            ? 'Save Template'
+                            : 'Save Draft'}
+                    </span>
                 </button>
 
-                {/* Publish Button */}
-                {onPublish ? (
+                {/* Publish Button (pages only) */}
+                {!isTemplate && onPublish ? (
                     <button
                         type="button"
                         onClick={onPublish}
@@ -306,6 +313,7 @@ export function BuilderToolbar({
                         <span>{isPublishing ? 'Publishing...' : 'Publish'}</span>
                     </button>
                 ) : null}
+
 
                 <div className="h-4 w-px bg-border/60" />
 

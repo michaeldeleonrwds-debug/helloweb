@@ -1,4 +1,4 @@
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, usePage } from '@inertiajs/react';
 import {
     ArrowRight,
     ArrowUpRight,
@@ -24,7 +24,7 @@ import { StatusBadge } from '@/components/admin-resource-page';
 import { Button } from '@/components/ui/button';
 import { ImportModal } from '@/components/ImportModal';
 import AppLayout from '@/layouts/app-layout';
-import type { BreadcrumbItem } from '@/types';
+import type { BreadcrumbItem, SharedData } from '@/types';
 
 interface DashboardProps {
     stats: { websites: number; pages: number; templates: number; media: number; reusableComponents: number };
@@ -63,6 +63,8 @@ interface RevisionSummary {
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Dashboard', href: '/dashboard' }];
 
 export default function Dashboard({ stats, websites, pages, revisions }: DashboardProps) {
+    const { auth } = usePage<SharedData>().props;
+    const isSuperAdmin = Boolean(auth?.user?.is_superadmin);
     const [importModalOpen, setImportModalOpen] = useState(false);
     const hasWorkspace = websites.length > 0;
     const spotlightWebsite = websites[0] ?? null;
@@ -97,16 +99,18 @@ export default function Dashboard({ stats, websites, pages, revisions }: Dashboa
                                     <span>Launch Builder</span>
                                 </Link>
                             </Button>
-                            <Button
-                                type="button"
-                                onClick={() => setImportModalOpen(true)}
-                                variant="outline"
-                                size="sm"
-                                className="rounded-full border-border bg-card px-5 py-2.5 font-semibold text-xs text-foreground shadow-2xs hover:bg-muted transition flex items-center gap-1.5"
-                            >
-                                <UploadCloud className="size-3.5 text-muted-foreground" />
-                                <span>Quick Import</span>
-                            </Button>
+                            {isSuperAdmin ? (
+                                <Button
+                                    type="button"
+                                    onClick={() => setImportModalOpen(true)}
+                                    variant="outline"
+                                    size="sm"
+                                    className="rounded-full border-border bg-card px-5 py-2.5 font-semibold text-xs text-foreground shadow-2xs hover:bg-muted transition flex items-center gap-1.5"
+                                >
+                                    <UploadCloud className="size-3.5 text-muted-foreground" />
+                                    <span>Quick Import</span>
+                                </Button>
+                            ) : null}
                             <Button asChild variant="outline" size="sm" className="rounded-full border-border bg-card px-5 py-2.5 font-semibold text-xs text-foreground shadow-2xs hover:bg-muted transition">
                                 <Link href={route('templates.index')}>
                                     Explore Templates

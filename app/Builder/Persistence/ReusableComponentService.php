@@ -22,23 +22,50 @@ final readonly class ReusableComponentService
         $this->validator = $validator ?? new DocumentPersistenceValidator(BuiltInComponentDefinitions::registry());
     }
 
-    public function create(User $user, string $name, array $document, ?string $description = null): ReusableComponent
+    public function create(User $user, string $name, array $document, ?string $description = null, ?bool $isPlatform = null): ReusableComponent
     {
         $validated = $this->validator->validate($document);
 
         return $user->reusableComponents()->create([
             'name' => $name,
             'description' => $description,
+            'is_platform' => $isPlatform ?? $user->isSuperAdmin(),
             'document' => $validated->toArray(),
             'schema_version' => $validated->schemaVersion(),
             'status' => 'active',
         ]);
     }
 
+    public function ensureDefaultComponents(User $user): void
+    {
+        $hasComponents = ReusableComponent::where('status', 'active')
+            ->where(fn ($q) => $q->where('user_id', $user->id)->orWhere('is_platform', true))
+            ->exists();
+
+        if (! $hasComponents) {
+            foreach (DefaultReusableComponentFactory::defaultComponents() as $def) {
+                $this->create(
+                    $user,
+                    $def['name'],
+                    $def['document'],
+                    $def['description'],
+                    true // mark default components as platform blocks
+                );
+            }
+        }
+    }
+
     /** @return list<ReusableComponent> */
     public function available(User $user): array
     {
-        $components = $user->reusableComponents()->where('status', 'active')->latest()->get()->all();
+        $this->ensureDefaultComponents($user);
+
+        $components = ReusableComponent::where('status', 'active')
+            ->where(fn ($q) => $q->where('user_id', $user->id)->orWhere('is_platform', true))
+            ->latest()
+            ->get()
+            ->all();
+
         foreach ($components as $component) {
             $this->validator->validate($component->document);
         }
@@ -61,13 +88,17 @@ final readonly class ReusableComponentService
 
     public function archive(User $user, ReusableComponent $component): void
     {
+        if ($component->is_platform && ! $user->isSuperAdmin()) {
+            abort(403, 'Platform components cannot be deleted.');
+        }
+
         $this->assertOwner($user, $component);
         $component->forceFill(['status' => 'archived'])->save();
     }
 
     public function insert(User $user, ReusableComponent $component, Page $page, string $parentId, int $expectedVersion): Page
     {
-        $this->assertOwner($user, $component);
+        abort_unless((int) $component->user_id === (int) $user->id || (bool) $component->is_platform || $user->isSuperAdmin(), 403);
         abort_unless($page->website()->where('user_id', $user->id)->exists(), 403);
         $this->validator->validate($component->document);
         $pageDocument = $this->pages->loadDocument($page);
@@ -93,12 +124,16 @@ final readonly class ReusableComponentService
             'id' => $component->id,
             'name' => $component->name,
             'description' => $component->description,
+            'is_platform' => (bool) $component->is_platform,
             'document' => $component->document,
         ], $this->available($user));
     }
 
     private function assertOwner(User $user, ReusableComponent $component): void
     {
+        if ($user->isSuperAdmin()) {
+            return;
+        }
         abort_unless((int) $component->user_id === (int) $user->id, 403);
     }
 }

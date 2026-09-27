@@ -141,7 +141,7 @@ final class DesignImportService
                 ],
             ];
 
-            return $this->reusableService->create($user, $name, $documentArray, "Imported component {$name}");
+            return $this->reusableService->create($user, $name, $documentArray, "Imported component {$name}", true);
         } finally {
             $this->extractor->cleanup($package['tempDir']);
         }
@@ -211,7 +211,8 @@ final class DesignImportService
                 document: $documentArray,
                 slug: Str::slug($name),
                 description: "Imported full website template: {$name}",
-                type: 'website'
+                type: 'website',
+                isPlatform: true
             );
         } finally {
             $this->extractor->cleanup($package['tempDir']);

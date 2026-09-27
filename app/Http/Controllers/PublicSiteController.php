@@ -69,6 +69,16 @@ final class PublicSiteController extends Controller
 
     private function renderPage(Website $website, Page $page, BuilderDocument $document): Response
     {
+        $headerDocument = null;
+        if ($website->header_template_id && $website->headerTemplate) {
+            $headerDocument = $website->headerTemplate->document;
+        }
+
+        $footerDocument = null;
+        if ($website->footer_template_id && $website->footerTemplate) {
+            $footerDocument = $website->footerTemplate->document;
+        }
+
         return Inertia::render('public-site', [
             'website' => [
                 'name' => $website->name,
@@ -78,7 +88,10 @@ final class PublicSiteController extends Controller
             ],
             'page' => ['title' => $page->title, 'slug' => $page->slug],
             'document' => $document->toArray(),
+            'headerDocument' => $headerDocument,
+            'footerDocument' => $footerDocument,
         ]);
     }
 }
+
 

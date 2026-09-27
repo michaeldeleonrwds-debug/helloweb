@@ -1,17 +1,217 @@
 # Project Status
 
-Updated: 2026-09-26
-Agent: opencode
-Phase: Search & Delete Controls Across Resource Management Pages (D-044)
+Updated: 2026-09-28
+Agent: Antigravity
+Phase: High-Converting Builder Elements & Inspector Customization Expansion
 Status: complete
 
 ## Current Objective
 
-All admin resource management screens (Reusable Blocks, Templates, Media Assets, Pages, Websites) now feature real-time search with clear buttons (`X`) and safe delete/archive actions with confirmation prompts. Next exact milestone remains PHASE 10 — PREVIEW AND PUBLISHING.
+Deliver production-grade component parity with high-converting visual builders (GHL, Elementor Pro, Divi), enhance logo marquee motion and visual controls, provide dedicated inspector panels for interactive elements, and verify mobile responsiveness end-to-end.
 
 ## Completed
 
-- Comprehensive Search & Delete Controls Across Admin Resources (D-044):
+- PHP Component Definition & Public Renderer Parity (D-051):
+  - **Backend Schema Mirroring (`BuiltInComponentDefinitions.php`)**:
+    - Updated `marketing.logomarquee` prop schema to accept `pauseOnHover` (boolean), `fadeEdges` (boolean), `fadeWidth` (string), `grayscale` (boolean), `logoCardStyle` (enum: card, clean), and `gap` (string), completely resolving the 422 persistence validation error `Property [pauseOnHover] is not supported by component [marketing.logomarquee]`.
+    - Defined full component schemas for `marketing.countdown`, `content.socialicons`, `content.alert`, and `marketing.progressbar`.
+    - Added new components to `$columnChildren` so they can be saved within columns and containers.
+  - **Public Renderer Parity (`BuiltInRendererDefinitions.php`, `EssentialElementRenderer.php`)**:
+    - Registered and implemented public rendering for countdown, social icons, alert banner, and progress bar.
+    - Updated `logoMarquee()` to render 3-track loop, `pauseOnHover` hover pause, gradient fade masks, grayscale hover transition, and clickable outbound links.
+    - Added YouTube/Vimeo embed URL normalizer in `video()`.
+  - **Verification**:
+    - `php artisan test tests/Unit/Builder/Registry/ComponentRegistryTest.php`: passed (14 passed, 56 assertions).
+    - `php artisan test`: passed (97 passed, 871 assertions).
+    - `npx tsc --noEmit`: passed (0 errors).
+    - `npm run test:builder-editor`: passed.
+    - `npm run build`: passed (Vite built in 6.67s).
+
+- High-Converting Builder Elements & Inspector Customization Expansion (D-050):
+  - **Logo Marquee (`marketing.logomarquee`)**:
+    - Infinite 3-track seamless loop (`-33.333333%`) preventing stutter or whitespace at animation reset.
+    - Direction (left/right) and duration/speed controls.
+    - `pauseOnHover` switch stopping animation smoothly on mouseover.
+    - Gradient edge fade masks with customizable `fadeWidth`.
+    - Grayscale filter mode with smooth CSS hover color transition.
+    - Card vs. clean transparent styling switches.
+    - Per-logo item controls: thumbnail, image URL, alt text, link URL (`href`), tooltip name (`name`), media library replace/insert.
+  - **Four New High-Value Built-In Elements**:
+    - **Countdown Timer (`marketing.countdown`)**: Urgency timer for sales, launches, and events with datetime picker, card/circle/minimal styles, unit toggles (days, hours, minutes, seconds), custom labels, digit/card colors, and live client-side countdown timer script.
+    - **Social Icons (`content.socialicons`)**: Profile linkstrip supporting Facebook, X/Twitter, Instagram, LinkedIn, YouTube, GitHub, TikTok, WhatsApp, and custom links, with brand/monochrome/outline styles, circle/rounded/square shapes, size presets, and responsive alignment.
+    - **Alert Banner (`content.alert`)**: Callout notice supporting info, success, warning, destructive, and neutral presets, title, message, Lucide icon, CTA button, and dismissible toggle.
+    - **Progress Bar (`marketing.progressbar`)**: Visual metric indicator with 0-100 range slider and numeric input, custom height and corner radius, custom bar and track colors, and striped/animated patterns.
+  - **Custom Visual Inspector Panels (`ComponentInspector.tsx`)**:
+    - Replaced flat unformatted schema inputs with dedicated visual panels for `marketing.logomarquee`, `marketing.countdown`, `content.socialicons`, `content.alert`, `marketing.progressbar`, `content.accordion`, `content.tabs`, `marketing.pricing`, `marketing.stats`, and `embed.video`.
+    - Excluded all handled components from fallback loop to eliminate duplicate fields.
+    - Auto-normalizes YouTube (`watch?v=`, `youtu.be`) and Vimeo URLs to embed format.
+  - **Visual Icons Registry (`component-icons.tsx`)**:
+    - Mapped `Timer`, `Share2`, `AlertCircle`, and `Activity` icons with category badges.
+  - **Mobile Responsiveness**:
+    - Verified all elements have responsive defaults (auto-stacking, wrapping, aspect-ratio scaling).
+  - **Verification**:
+    - `npx tsc --noEmit`: passed (0 errors).
+    - `npm run test:builder-editor`: passed.
+    - `npm run build`: Vite production build passed in 7.74s.
+    - `php artisan test`: 95 passed (857 assertions).
+
+
+- Responsive Theme Catalog Expansion:
+  - Added responsive default normalization in `DefaultTemplateFactory` so seeded built-in headers, footers, and page blueprints get tablet/mobile style overrides for sections, rows, columns, flex groups, and prominent text.
+  - Tightened footer/header/blueprint mobile defaults after screenshot review: multi-column rows now collapse to stacked mobile columns, text-bearing elements can constrain/wrap long content, and mobile rows reset width/max width to avoid horizontal overflow.
+  - Corrected **Floating Glassmorphism Pill Header** so the default platform document renders the pill navbar as a root-level absolutely positioned element with responsive insets instead of a normal padded section that pushes page content down.
+  - Fixed `content.list` styling contract so Styled List exposes text color and typography controls separately from the icon/bullet color prop.
+  - Added `marketing.pricing` as a responsive Pricing Card builder element with editable badge, plan, price, period, features, CTA, accent color, and highlighted state.
+  - Added matching TypeScript and PHP renderer support so Pricing renders consistently in the editor, previews, and public output, including mobile-safe wrapping and width defaults.
+  - Added an essentials element pack across the component registry, editor palette, TypeScript renderer, and PHP public renderer:
+    - Image Carousel (`media.carousel`)
+    - Logo Marquee (`marketing.logomarquee`) with left/right direction, speed, text color, logo background, and border color controls
+    - Accordion (`content.accordion`)
+    - Tabs (`content.tabs`)
+    - Stats (`marketing.stats`)
+    - Testimonial (`marketing.testimonial`)
+    - Video Embed (`embed.video`)
+    - Contact Form (`form.contact`)
+  - Updated the TypeScript component tree engine so newly inserted `layout.section` nodes default to the framework hierarchy `Section -> Row -> Column`.
+  - Updated default layout widths: Section remains full-width (`width: 100%`), Row defaults to `width: 1160px`, and Column defaults to `width: 1140px`, with Row/Column capped by `maxWidth: 100%`.
+  - Added typed responsive text wrapping primitives (`overflowWrap`, `wordBreak`) to the shared PHP/TypeScript style model and enabled them for text-like components instead of relying on arbitrary CSS.
+  - Updated default platform template seeding so active platform templates are refreshed by slug, allowing already-seeded built-ins to pick up responsive catalog fixes without overwriting private user templates.
+  - Added **Split CTA Header** (`split-cta-header`) as a conversion-focused global header option.
+  - Added **Editorial Footer** (`editorial-footer`) as a publishing-style global footer option.
+  - Added **Local Service Blueprint** (`local-service-blueprint`) as a responsive lead-generation page blueprint.
+  - Added matching design-switcher wireframes in `ThemeLayoutPickerModal.tsx`.
+  - Updated `ThemeTemplateTest` to expect 16 seeded templates, assert the new slugs are seeded, and verify stale platform templates are refreshed by slug.
+  - Added `DefaultTemplateFactoryTest` coverage requiring default templates to include mobile overrides, multi-child rows to stack on mobile, and the floating pill header to stay out of normal document flow. Added `ComponentRegistryTest` coverage that Styled List supports text color controls. Added builder editor test coverage that section insertion creates a Row and Column scaffold.
+  - **Verification**:
+    - `php artisan test tests/Unit/DefaultTemplateFactoryTest.php`: passed with 34 assertions; PHP reported existing PDO MySQL constant deprecation notice.
+    - `php artisan test tests/Feature/Builder/ThemeTemplateTest.php`: passed with 79 assertions; PHP reported existing PDO MySQL constant deprecation notices.
+    - `php artisan test tests/Unit/Builder/Registry/ComponentLibraryTest.php tests/Unit/Builder/Renderer/BuilderRendererTest.php`: passed with 128 assertions.
+    - `npm run test:builder-editor`: passed.
+    - `npx tsc --noEmit`: passed with 0 errors.
+    - `npm run build`: passed.
+
+- In-Browser AI Background Removal & WebP Image Optimization Engine (D-049):
+  - **Client-Side Image Processing Engine (`resources/js/builder/utils/image-processing.ts`)**:
+    - Created browser-native processing utilities for HTML5 Canvas WebP encoding and `@imgly/background-removal` AI foreground extraction.
+    - Zero server load: runs entirely via WebAssembly & ONNX Runtime Web in the user's browser.
+    - Code-split by Vite: WASM and ONNX chunks are only loaded when background removal is clicked.
+  - **Left Sidebar Media Panel (`BuilderLeftPanel.tsx`)**:
+    - Added pre-upload optimization toggles: "⚡ Convert to WebP" (checked by default) and "✨ Remove Background" (AI cutout).
+    - Added 1-click action buttons on all media gallery cards: "Cutout" ✨ and "WebP" ⚡.
+    - Added format badges (`WEBP`, `PNG`, `JPG`), `✨ Cutout` badge, and file size indicator.
+  - **Media Manager Modal (`MediaManager.tsx`)**:
+    - Embedded pre-upload WebP and Background Remover checkboxes.
+    - Added 1-click "Cutout" and "WebP" actions to all assets with auto-selection.
+  - **Component Inspector 1-Click Magic Tools (`ComponentInspector.tsx`, `BuilderEditor.tsx`)**:
+    - Added 1-click "Remove BG (AI)" and "To WebP" buttons directly under image previews for `media.image` and `layout.navbar` brand logo.
+    - Seamlessly uploads the cutout asset to the media library and auto-updates the live canvas element.
+  - **Verification**:
+    - `npx tsc --noEmit`: 0 errors.
+    - `npm run test:builder-editor`: passed (100%).
+    - `npm run build`: Vite production build succeeded in 7.03s with code-split ONNX/WASM chunks.
+    - `php artisan test`: 92 passed (766 assertions).
+
+- Left Toolbar Tab Button Spacing & Header Empty Brand Fallback Fix (D-048):
+  - **Left Toolbar Tab Button Spacing (`BuilderLeftPanel.tsx`, `BuilderEditor.tsx`)**:
+    - Added `px-2.5` to tab bar wrapper and `gap-1.5` to grid columns.
+    - Added `px-2` horizontal inner padding and `gap-1.5` to all tab buttons (`inline-flex items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium transition`).
+    - The active pill background now gives the icon 8px of breathing room from the curved border, completely fixing the edge jamming.
+    - Set default `leftPanelWidth` in `BuilderEditor.tsx` to `340px` (symmetrical with `rightPanelWidth` at `340px`), eliminating ellipsis truncation so "Elements", "Layers", "Library", and "Media" display fully.
+  - **Header Empty Brand Fallback Fix (`built-ins.ts`, `ComponentInspector.tsx`)**:
+    - In `resources/js/builder/renderer/built-ins.ts`, replaced `String(props.brandName ?? 'HelloWeb')` with `typeof props.brandName === 'string' ? props.brandName : ''`.
+    - Made the brand title `<span>` conditional on `brandName`: `${brandName ? '<span>' + escapeHtml(brandName) + '</span>' : ''}`. When a logo is present and the text title is cleared, only the logo image is rendered.
+    - Added dedicated Brand/Site Title input, Brand URL input, and Media Library logo selector/preview/remove actions to `ComponentInspector.tsx`.
+    - Excluded `['brandName', 'brandLogo', 'brandHref', 'links']` from the generic schema loop for `layout.navbar`.
+  - **Verification**:
+    - `npx tsc --noEmit`: 0 errors.
+    - `npm run test:builder-editor`: passed (100%).
+    - `npm run build`: Vite production build succeeded in 4.35s.
+    - `php artisan test`: 92 passed (766 assertions).
+
+- Builder In-Canvas Link Navigation Suppression & Platform Template Autosave Fix (D-047):
+  - **In-Canvas Link Navigation Suppression**:
+    - In `CanvasNode.tsx` and `BuilderCanvas.tsx`, intercepted clicks on all anchor elements (`<a href="...">`) across page nodes, headers, and footers with `event.preventDefault()`.
+    - Clicking the header logo or links in the builder now cleanly selects the component node for inspector editing without navigating away to `/` home.
+    - Added `.builder-chrome-link` exemption to preserve external actions like the floating "Customize ↗" link.
+  - **Platform Template Autosave Fix (500 Error Resolution)**:
+    - Fixed MySQL 1062 duplicate slug error in `TemplatePersistenceService.php` by checking for existing user forks and guaranteeing unique incremental slugs (`$uniqueSlug`).
+    - Promoted primary account User 1 (`Michael deLeon`) to `is_superadmin = true` so platform templates can be edited directly by the owner.
+    - Updated `useBuilderAutosave` and `BuilderEditor.tsx` with dynamic template ID tracking and browser history synchronization.
+  - **Verification**:
+    - `php artisan test`: 92 passed (766 assertions), including new tests for repeated platform template customization and superadmin editing.
+    - `npx tsc --noEmit`: 0 errors.
+    - `npm run test:builder-editor`: passed (100%).
+    - `npm run build`: Vite production build succeeded in 4.22s.
+
+- VS Code-Style Editor Bottom Status Bar & Top Toolbar De-cluttering (D-046):
+  - **VS Code-Style Bottom Status Bar (`BuilderFooterBar.tsx`)**:
+    - Docked a 30px (`h-7.5`) high-density bottom bar along the base of the Visual Builder window.
+    - Integrated dynamic DOM hierarchy breadcrumbs (`Page > Section > Row > Column > Button`) with 1-click ancestor selection, total element counter, and lock badge.
+    - Segmented responsive viewport switcher (`Desktop`, `Tablet`, `Mobile`) with screen dimension tags (`1200px+`, `768px`, `375px`).
+    - Integrated zoom controls (`- 80% +`), Global Code modal trigger, Live Preview trigger, and cloud autosave status indicator (`Saved`, `Saving...`, `Unsaved`, `Retry`).
+  - **Top Toolbar De-cluttering (`BuilderToolbar.tsx`)**:
+    - Removed colliding center `absolute left-1/2` container that overlapped with the Global Header and Footer dropdown buttons.
+    - Top toolbar now has spacious breathing room for project identity, theme layout buttons, undo/redo, draft saving, and publishing.
+  - **Keyboard Shortcuts Dialog (`KeyboardShortcutsModal.tsx`)**:
+    - Created modal detailing shortcuts for History, Editing, Hierarchy Navigation, and Canvas manipulation.
+    - Bound `Ctrl+/` shortcut to quickly toggle the dialog from anywhere in the editor.
+  - **Verification**:
+    - `npx tsc --noEmit`: 0 errors.
+    - `npm run test:builder-editor`: passed (100%).
+    - `npm run build`: Vite v6.1.1 production build succeeded in 4.42s.
+    - `php artisan test`: 92 passed (755 assertions).
+
+- In-Builder Global Header & Footer Selector, Design Catalog Expansion & Canvas Preview (D-045):
+  - **In-Builder Header & Footer Selection**:
+    - Relocated Global Header and Footer selection from Website Settings into the Visual Builder toolbar (`BuilderToolbar.tsx`).
+    - Added active header and footer design name indicators with quick-picker buttons and a Page Blueprints trigger.
+    - Built interactive `ThemeLayoutPickerModal.tsx` with Header, Footer, and Blueprint tabs, displaying live wireframe mockups, platform badges, description, active checkmarks, and 1-click selection.
+    - Created backend route `PATCH builder/pages/{page}/theme-layout` (`BuilderPageController::updateThemeLayout`) updating `header_template_id` and `footer_template_id` with optimistic frontend updates.
+    - Replaced dropdown selects in Website Settings (`settings/website.tsx`) with a callout card explaining in-builder selection and linking to the builder.
+  - **Design Catalog Expansion (`DefaultTemplateFactory.php`)**:
+    - Expanded platform catalog to 13 responsive, schema-validated templates:
+      - 4 Headers: Main Navigation Header, Centered Minimal Header, Dark Modern Glow Header (`dark-modern-glow-header` with glowing cyan HelloWeb mark), Floating Glassmorphism Pill Header (`floating-pill-header`).
+      - 5 Footers: Multi-Column Footer, SaaS Newsletter Footer (`saas-newsletter-footer`), Minimal Clean Footer, Centered Brand Footer (`centered-brand-footer`), Dark Mega Footer (`dark-mega-footer`).
+      - 4 Blueprints: Modern Landing Page, Agency & Portfolio Blueprint (`agency-portfolio-blueprint`), SaaS Product Blueprint (`saas-product-blueprint`), Blank Canvas Blueprint (`blank-canvas-blueprint`).
+    - Added brand assets to `public/images/helloweb-logo-dark.png` and `public/images/helloweb-logo-light.png`.
+    - Auto-seeding by unique `slug` ensures all platform templates are guaranteed in the database.
+  - **Live Canvas Header & Footer Preview (`BuilderCanvas.tsx`)**:
+    - `BuilderCanvasView` renders the active Global Header above page content and active Global Footer below page content using `BuilderRenderer` and `ReadOnlyCanvasNode`.
+    - Floating hover control badge provides the active template name, a "Change Design" button that re-opens the picker modal, and a "Customize ↗" link opening the template editor in a new tab.
+  - **Verification**:
+    - Unit tests: `tests/Unit/DefaultTemplateFactoryTest.php` passing (28 assertions).
+    - Feature tests: `tests/Feature/Builder/ThemeTemplateTest.php` passing 8 tests (65 assertions).
+    - Full PHPUnit suite: `php artisan test` passing 92 tests (755 assertions).
+    - Typecheck: `npx tsc --noEmit` passing with 0 errors.
+    - Build: `npm run build` passing in 4.88s.
+
+- Superadmin Platform Admin Panel & Global Platform Catalog (D-044):
+  - **Superadmin Gating & Security Middleware**:
+    - Created `EnsureUserIsSuperAdmin` middleware and registered `'superadmin'` route alias.
+    - Gated `builder/import/*` and `/admin` routes strictly to superadmins (`is_superadmin = true`). Non-superadmins receive `403 Forbidden`.
+    - Gated import triggers in the UI (`ImportModal`, `BuilderEditor`, `templates/index`, `reusable-components/index`, `dashboard`) so standard users cannot upload templates or components.
+    - Protected public site slug regex with negative lookahead for `admin`.
+  - **Global Platform Catalog (`is_platform`)**:
+    - Applied migrations `2026_09_27_000001` and `2026_09_27_000002` adding `is_platform` boolean flag to `templates` and `reusable_components`, and `header_template_id`/`footer_template_id` to `websites`.
+    - Created starter platform reusable blocks via `DefaultReusableComponentFactory` (Hero Banner Block, Feature 3-Column Grid, Call To Action Banner, Testimonial Spotlight).
+    - `TemplatePersistenceService` and `ReusableComponentService` automatically pull platform resources (`is_platform = true`) alongside user-owned resources into builder libraries and settings selectors.
+    - Prevented standard users from deleting or archiving platform items (`delete` policy and `abort(403)`).
+    - Platform template customization auto-forks a private user copy upon modification.
+  - **Platform Admin Dashboard (`/admin`)**:
+    - Built `AdminPlatformController` and `resources/js/pages/admin/index.tsx` (Platform Owner Mode).
+    - Real-time catalog metrics: total templates, platform templates, reusable components, websites, active headers/footers/pages.
+    - Live platform status toggle switches for templates and reusable components with instant feedback.
+    - Embedded ZIP package uploader modal for superadmins to ingest new components and templates into the platform catalog.
+    - Prominently accessible via sidebar under `ADMINISTRATION -> Platform Admin` exclusively for superadmins.
+  - **Verification**:
+    - `php artisan test`: 92 passed (721 assertions).
+    - `php artisan test tests/Feature/Builder/AdminPlatformTest.php`: 8 passed (53 assertions).
+    - `php artisan test tests/Feature/Builder/DesignImportTest.php`: 4 passed (17 assertions).
+    - `php artisan test tests/Feature/Builder/ThemeTemplateTest.php`: 7 passed (59 assertions).
+    - `npm run test:builder-editor`: passed (100%).
+    - `npx tsc --noEmit`: 0 errors.
+    - `npm run build`: Vite v6.1.1 production build succeeded in 4.63s.
+
   - **Reusable Blocks (`resources/js/pages/reusable-components/index.tsx`)**:
     - Added one-click clear button (`X`) inside the search input.
     - Added `Trash2` archive/delete action button on each component card header with browser confirmation prompt.
@@ -288,13 +488,13 @@ Start PHASE 10 â€” PREVIEW AND PUBLISHING. Do not implement deployment, dom
 
 ## Validation
 
-All checks below were actually run on 2026-09-26 for the D-039 responsiveness milestone (D-038 checks were run 2026-09-25):
+All checks below were actually run on 2026-09-28 for D-051 and component parity:
 
-- Focused editor tests: pass - `npm run test:builder-editor` (includes new navbar mobile/tablet/desktop and image-feature stacking render assertions)
+- Unit & Schema tests: pass - `php artisan test tests/Unit/Builder/Registry/ComponentRegistryTest.php` (14 passed, 56 assertions; existing PHP 8.5 PDO deprecation notice)
+- Full PHPUnit suite: pass - `php artisan test` (97 passed, 871 assertions; existing PHP 8.5 PDO deprecation notices)
 - Typecheck: pass - `npx tsc --noEmit` (0 errors)
-- Lint: pass on changed files (`resources/js/builder/renderer/built-ins.ts`, `scripts/builder-editor-tests.ts`) - repo-wide `npm run lint` still reports the 45 pre-existing problems that also fail at HEAD
-- Build: pass - `npm run build` (vite v6.1.1 built in 3.85s)
-- Full PHPUnit suite: pass - `php artisan test` - 92 tests, 592 assertions (57 pre-existing `PDO::MYSQL_ATTR_SSL_CA` deprecations)
+- Builder Editor tests: pass - `npm run test:builder-editor` (passed)
+- Build: pass - `npm run build` (Vite built in 6.67s)
 - Integration / E2E / Browser: not-run
 - Production: n/a
 
@@ -303,4 +503,3 @@ All checks below were actually run on 2026-09-26 for the D-039 responsiveness mi
 Branch: master
 Latest verified commit: 8448998 - feat(ui): redesign entire HelloWeb non-builder application to clean light SaaS design system
 Dirty files: yes - all session work (D-038, D-039, and earlier milestones) remains uncommitted per the user's no-commit constraint
-

@@ -12,17 +12,25 @@ import {
     Image as ImageIcon,
     Link as LinkIcon,
     Link2,
+    Loader2,
     Monitor,
     MousePointer2,
     Plus,
     RotateCcw,
     Smartphone,
+    Sparkles,
     Tablet,
     Trash2,
     Type,
     Underline,
     Unlink2,
+    Wand2,
     X,
+    Zap,
+    Timer,
+    Share2,
+    AlertCircle,
+    Activity,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
@@ -30,6 +38,8 @@ import type { ComponentDefinition } from '../component/definition';
 import { HELLOWEB_DESIGN_TOKENS } from '../design-tokens';
 import type { BuilderBreakpoint, BuilderComponentNode, BuilderRecord, JsonValue } from '../document';
 import { HELLOWEB_FONT_LIBRARY, HELLOWEB_FONT_WEIGHT_OPTIONS } from '../fonts/font-library';
+import type { MediaAsset } from '../persistence';
+import { normalizeVideoEmbedUrl } from '../renderer/built-ins';
 import {
     getStyleDefinitions,
     inheritedStyleValue,
@@ -39,6 +49,7 @@ import {
     type StylePropertyKey,
     type StyleValue,
 } from '../style/style';
+import { convertImageToWebp, removeImageBackground } from '../utils/image-processing';
 import { BackgroundColorField } from './BackgroundColorField';
 import { CodeEditor } from './CodeEditor';
 import { CssValueEditor } from './CssValueEditor';
@@ -58,6 +69,7 @@ interface ComponentInspectorProps {
     width?: number;
     onAddChild?: (type: `${string}.${string}`) => void;
     onOpenMediaManager?: (target?: string, payload?: any) => void;
+    onUploadMedia?: (file: File) => Promise<MediaAsset>;
 }
 
 const HANDLED_LAYOUT_KEYS = new Set<string>([
@@ -163,6 +175,7 @@ export function ComponentInspector({
     onRemove,
     onAddChild,
     onOpenMediaManager,
+    onUploadMedia,
     width,
 }: ComponentInspectorProps) {
     const [inspectorTab, setInspectorTab] = useState<'content' | 'layout' | 'style' | 'more'>('layout');
@@ -292,6 +305,7 @@ export function ComponentInspector({
                             breakpoint={breakpoint}
                             imageNode={node.type === 'media.image'}
                             onOpenMediaManager={onOpenMediaManager}
+                            onUploadMedia={onUploadMedia}
                         />
                     </div>
                 )}
@@ -3222,6 +3236,7 @@ function PropControls({
     breakpoint = 'desktop',
     imageNode,
     onOpenMediaManager,
+    onUploadMedia,
 }: {
     nodeType: BuilderComponentNode['type'];
     schema: NonNullable<ComponentDefinition['propSchema']>;
@@ -3230,7 +3245,50 @@ function PropControls({
     breakpoint?: BuilderBreakpoint;
     imageNode?: boolean;
     onOpenMediaManager?: (target?: string, payload?: any) => void;
+    onUploadMedia?: (file: File) => Promise<MediaAsset>;
 }) {
+    const [imageActionLoading, setImageActionLoading] = useState<string | null>(null);
+    const [imageActionError, setImageActionError] = useState<string | null>(null);
+
+    const handleRemoveBg = async (sourceUrl: string, propKey: string) => {
+        if (!sourceUrl || !onUploadMedia) return;
+        setImageActionLoading('Removing background with AI...');
+        setImageActionError(null);
+        try {
+            const cutoutFile = await removeImageBackground(sourceUrl, {
+                format: 'image/webp',
+                onProgress: (_stage, percent) => {
+                    setImageActionLoading(`AI Cutout (${percent}%)...`);
+                },
+            });
+            const newAsset = await onUploadMedia(cutoutFile);
+            if (newAsset?.url) {
+                onChange({ [propKey]: newAsset.url });
+            }
+        } catch (err) {
+            setImageActionError(err instanceof Error ? err.message : 'AI background removal failed.');
+        } finally {
+            setImageActionLoading(null);
+        }
+    };
+
+    const handleToWebp = async (sourceUrl: string, propKey: string) => {
+        if (!sourceUrl || !onUploadMedia) return;
+        setImageActionLoading('Converting to WebP...');
+        setImageActionError(null);
+        try {
+            const webpFile = await convertImageToWebp(sourceUrl);
+            const newAsset = await onUploadMedia(webpFile);
+            if (newAsset?.url) {
+                onChange({ [propKey]: newAsset.url });
+            }
+        } catch (err) {
+            setImageActionError(err instanceof Error ? err.message : 'WebP conversion failed.');
+        } finally {
+            setImageActionLoading(null);
+        }
+    };
+
     return (
         <div className="space-y-3">
             {supportsColoredTextSegments(nodeType) ? (
@@ -3252,12 +3310,60 @@ function PropControls({
                         <p className="text-foreground text-xs font-semibold">Image Asset</p>
                     </div>
                     {values.src ? (
-                        <div className="relative overflow-hidden rounded-md border border-border/60 bg-muted/40 aspect-video max-h-32 flex items-center justify-center">
-                            <img
-                                src={String(values.src)}
-                                alt={String(values.alt ?? '')}
-                                className="h-full w-full object-cover"
-                            />
+                        <div className="space-y-2">
+                            <div className="relative overflow-hidden rounded-md border border-border/60 bg-muted/40 aspect-video max-h-32 flex items-center justify-center">
+                                <img
+                                    src={String(values.src)}
+                                    alt={String(values.alt ?? '')}
+                                    className="h-full w-full object-cover"
+                                />
+                            </div>
+
+                            {/* In-Browser AI & WebP Quick Actions */}
+                            {onUploadMedia ? (
+                                <div className="flex items-center gap-1.5">
+                                    <button
+                                        type="button"
+                                        disabled={Boolean(imageActionLoading)}
+                                        onClick={() => void handleRemoveBg(String(values.src), 'src')}
+                                        className="flex-1 inline-flex items-center justify-center gap-1 rounded-md border border-primary/30 bg-primary/10 hover:bg-primary/20 text-primary py-1.5 text-[11px] font-semibold transition disabled:opacity-50"
+                                        title="Remove background in browser with AI"
+                                    >
+                                        {imageActionLoading?.includes('Cutout') ? (
+                                            <>
+                                                <Loader2 className="size-3 animate-spin" />
+                                                <span className="truncate">{imageActionLoading}</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Wand2 className="size-3" />
+                                                Remove BG (AI)
+                                            </>
+                                        )}
+                                    </button>
+
+                                    {!String(values.src).toLowerCase().endsWith('.webp') ? (
+                                        <button
+                                            type="button"
+                                            disabled={Boolean(imageActionLoading)}
+                                            onClick={() => void handleToWebp(String(values.src), 'src')}
+                                            className="inline-flex items-center justify-center gap-1 rounded-md border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 px-2.5 py-1.5 text-[11px] font-semibold transition disabled:opacity-50"
+                                            title="Convert to lightweight WebP"
+                                        >
+                                            {imageActionLoading?.includes('WebP') ? (
+                                                <Loader2 className="size-3 animate-spin" />
+                                            ) : (
+                                                <Zap className="size-3" />
+                                            )}
+                                            To WebP
+                                        </button>
+                                    ) : null}
+                                </div>
+                            ) : null}
+
+                            {imageActionError ? (
+                                <p className="text-[11px] text-destructive">{imageActionError}</p>
+                            ) : null}
                         </div>
                     ) : null}
                     <button
@@ -3597,6 +3703,729 @@ function PropControls({
                 </div>
             ) : null}
 
+            {nodeType === 'marketing.logomarquee' ? (
+                <div className="border-border/80 bg-card space-y-3 rounded-lg border p-3">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <span className="text-foreground block text-xs font-semibold">Logo Marquee</span>
+                            <span className="text-muted-foreground text-[10px]">Infinite scrolling partner & brand showcase</span>
+                        </div>
+                        {onOpenMediaManager ? (
+                            <button
+                                type="button"
+                                className="text-primary flex items-center gap-1 text-[11px] font-semibold hover:underline"
+                                onClick={() => onOpenMediaManager('logomarquee')}
+                            >
+                                <ImageIcon className="size-3" />
+                                Add logo
+                            </button>
+                        ) : null}
+                    </div>
+
+                    {/* Marquee Motion & Animation Controls */}
+                    <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                            <label className="text-muted-foreground text-[11px] font-medium">Scroll Direction</label>
+                            <select
+                                value={String(values.direction ?? 'left')}
+                                onChange={(event) => onChange({ direction: event.target.value })}
+                                className="border-input bg-background focus:border-ring h-7 w-full rounded-md border px-2 text-xs"
+                            >
+                                <option value="left">Left ←</option>
+                                <option value="right">Right →</option>
+                            </select>
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-muted-foreground text-[11px] font-medium">Scroll Duration</label>
+                            <input
+                                value={String(values.speed ?? '25s')}
+                                placeholder="25s"
+                                onChange={(event) => onChange({ speed: event.target.value })}
+                                className="border-input bg-background focus:border-ring h-7 w-full rounded-md border px-2 text-xs"
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-muted-foreground text-[11px] font-medium">Logo Height</label>
+                            <input
+                                value={String(values.logoHeight ?? '36px')}
+                                placeholder="36px"
+                                onChange={(event) => onChange({ logoHeight: event.target.value })}
+                                className="border-input bg-background focus:border-ring h-7 w-full rounded-md border px-2 text-xs"
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-muted-foreground text-[11px] font-medium">Spacing Gap</label>
+                            <input
+                                value={String(values.gap ?? '24px')}
+                                placeholder="24px"
+                                onChange={(event) => onChange({ gap: event.target.value })}
+                                className="border-input bg-background focus:border-ring h-7 w-full rounded-md border px-2 text-xs"
+                            />
+                        </div>
+                    </div>
+
+                    {/* Visual Style & Hover Settings */}
+                    <div className="space-y-2 border-t border-border/60 pt-2.5">
+                        <div className="space-y-1">
+                            <label className="text-muted-foreground text-[11px] font-medium">Display Style</label>
+                            <select
+                                value={String(values.logoCardStyle ?? 'card')}
+                                onChange={(event) => onChange({ logoCardStyle: event.target.value })}
+                                className="border-input bg-background focus:border-ring h-7 w-full rounded-md border px-2 text-xs"
+                            >
+                                <option value="card">Cards (Badge with border & background)</option>
+                                <option value="clean">Clean (Transparent logos only)</option>
+                            </select>
+                        </div>
+
+                        {values.logoCardStyle !== 'clean' ? (
+                            <div className="grid grid-cols-2 gap-2">
+                                <div className="space-y-1">
+                                    <label className="text-muted-foreground text-[11px] font-medium">Card Background</label>
+                                    <input
+                                        type="color"
+                                        value={toHexColor(String(values.logoBackground ?? '#ffffff'))}
+                                        onChange={(event) => onChange({ logoBackground: event.target.value })}
+                                        className="border-input bg-background h-7 w-full rounded-md border p-1"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-muted-foreground text-[11px] font-medium">Card Border</label>
+                                    <input
+                                        type="color"
+                                        value={toHexColor(String(values.borderColor ?? '#e2e8f0'))}
+                                        onChange={(event) => onChange({ borderColor: event.target.value })}
+                                        className="border-input bg-background h-7 w-full rounded-md border p-1"
+                                    />
+                                </div>
+                            </div>
+                        ) : null}
+
+                        {/* Interactive Toggles */}
+                        <div className="space-y-1.5 pt-1">
+                            <label className="flex items-center gap-2 cursor-pointer text-xs">
+                                <input
+                                    type="checkbox"
+                                    checked={values.pauseOnHover !== false}
+                                    onChange={(e) => onChange({ pauseOnHover: e.target.checked })}
+                                    className="rounded border-input text-primary size-3.5"
+                                />
+                                <span className="text-foreground text-[11px] font-medium">Pause scrolling on hover</span>
+                            </label>
+
+                            <label className="flex items-center gap-2 cursor-pointer text-xs">
+                                <input
+                                    type="checkbox"
+                                    checked={values.fadeEdges !== false}
+                                    onChange={(e) => onChange({ fadeEdges: e.target.checked })}
+                                    className="rounded border-input text-primary size-3.5"
+                                />
+                                <span className="text-foreground text-[11px] font-medium">Gradient fade edges</span>
+                            </label>
+
+                            {values.fadeEdges !== false ? (
+                                <div className="pl-5 pt-0.5">
+                                    <input
+                                        value={String(values.fadeWidth ?? '80px')}
+                                        placeholder="80px"
+                                        onChange={(e) => onChange({ fadeWidth: e.target.value })}
+                                        className="border-input bg-background h-6 w-24 rounded border px-2 text-[11px]"
+                                    />
+                                </div>
+                            ) : null}
+
+                            <label className="flex items-center gap-2 cursor-pointer text-xs">
+                                <input
+                                    type="checkbox"
+                                    checked={values.grayscale !== false}
+                                    onChange={(e) => onChange({ grayscale: e.target.checked })}
+                                    className="rounded border-input text-primary size-3.5"
+                                />
+                                <span className="text-foreground text-[11px] font-medium">Grayscale logos (full color on hover)</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    {/* Logo Items Manager */}
+                    <div className="space-y-2 border-t border-border/60 pt-2.5">
+                        <div className="flex items-center justify-between">
+                            <span className="text-foreground text-xs font-semibold">Logos List</span>
+                            <span className="text-muted-foreground text-[10px]">
+                                {(Array.isArray(values.logos) ? values.logos.length : 0)} items
+                            </span>
+                        </div>
+
+                        <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
+                            {(Array.isArray(values.logos) ? values.logos : []).map((logo: any, i: number) => (
+                                <div key={i} className="border-border/50 bg-muted/30 space-y-2 rounded-md border p-2">
+                                    <div className="flex min-w-0 items-center gap-2">
+                                        {logo.src ? (
+                                            <div className="border-border/60 bg-background flex h-10 w-16 shrink-0 items-center justify-center rounded border p-1">
+                                                <img src={String(logo.src)} alt={String(logo.alt ?? '')} className="max-h-full max-w-full object-contain" />
+                                            </div>
+                                        ) : null}
+                                        <input
+                                            placeholder="Logo image URL"
+                                            value={String(logo.src ?? '')}
+                                            onChange={(event) => {
+                                                const next = [...(Array.isArray(values.logos) ? values.logos : [])];
+                                                next[i] = { ...(next[i] as Record<string, any>), src: event.target.value };
+                                                onChange({ logos: next, logoImages: undefined });
+                                            }}
+                                            className="border-input bg-background h-7 min-w-0 flex-1 rounded border px-2 text-xs"
+                                        />
+                                        {onOpenMediaManager ? (
+                                            <button
+                                                type="button"
+                                                title="Replace logo from media"
+                                                onClick={() => onOpenMediaManager('logomarquee-replace', { itemIndex: i })}
+                                                className="border-border/60 hover:bg-muted text-muted-foreground hover:text-foreground flex size-7 shrink-0 items-center justify-center rounded border transition shadow-2xs"
+                                            >
+                                                <ImageIcon className="size-3.5" />
+                                            </button>
+                                        ) : null}
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const next = (Array.isArray(values.logos) ? values.logos : []).filter((_, index) => index !== i);
+                                                onChange({ logos: next, logoImages: undefined });
+                                            }}
+                                            className="text-muted-foreground hover:text-destructive flex size-6 shrink-0 items-center justify-center text-xs"
+                                            title="Remove logo"
+                                        >
+                                            ✕
+                                        </button>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-1.5">
+                                        <input
+                                            placeholder="Alt text"
+                                            value={String(logo.alt ?? '')}
+                                            onChange={(event) => {
+                                                const next = [...(Array.isArray(values.logos) ? values.logos : [])];
+                                                next[i] = { ...(next[i] as Record<string, any>), alt: event.target.value };
+                                                onChange({ logos: next, logoImages: undefined });
+                                            }}
+                                            className="border-input bg-background h-6 rounded border px-2 text-[11px]"
+                                        />
+                                        <input
+                                            placeholder="Link URL (optional)"
+                                            value={String(logo.href ?? '')}
+                                            onChange={(event) => {
+                                                const next = [...(Array.isArray(values.logos) ? values.logos : [])];
+                                                next[i] = { ...(next[i] as Record<string, any>), href: event.target.value };
+                                                onChange({ logos: next, logoImages: undefined });
+                                            }}
+                                            className="border-input bg-background h-6 rounded border px-2 text-[11px]"
+                                        />
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        <button
+                            type="button"
+                            className="border-border hover:bg-muted/70 text-foreground flex w-full items-center justify-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition"
+                            onClick={() => {
+                                const next = Array.isArray(values.logos) ? [...values.logos] : [];
+                                next.push({ src: '/images/helloweb-logo-dark.png', alt: 'Logo', href: '', name: 'Logo' });
+                                onChange({ logos: next, logoImages: undefined });
+                            }}
+                        >
+                            <Plus className="size-3" />
+                            Add logo item
+                        </button>
+                    </div>
+                </div>
+            ) : null}
+
+            {/* COUNTDOWN TIMER CONTROLS */}
+            {nodeType === 'marketing.countdown' ? (
+                <div className="border-border/80 bg-card space-y-3 rounded-lg border p-3">
+                    <div>
+                        <span className="text-foreground block text-xs font-semibold">Countdown Timer</span>
+                        <span className="text-muted-foreground text-[10px]">Drive urgency for sales, launches, or live events</span>
+                    </div>
+
+                    <div className="space-y-1">
+                        <label className="text-muted-foreground text-[11px] font-medium">Target Date & Time</label>
+                        <input
+                            type="datetime-local"
+                            value={String(values.targetDate ?? '2026-12-31T23:59')}
+                            onChange={(e) => onChange({ targetDate: e.target.value })}
+                            className="border-input bg-background focus:border-ring h-7 w-full rounded-md border px-2 text-xs"
+                        />
+                    </div>
+
+                    <div className="space-y-1">
+                        <label className="text-muted-foreground text-[11px] font-medium">Display Style</label>
+                        <select
+                            value={String(values.styleVariant ?? 'card')}
+                            onChange={(e) => onChange({ styleVariant: e.target.value })}
+                            className="border-input bg-background focus:border-ring h-7 w-full rounded-md border px-2 text-xs"
+                        >
+                            <option value="card">Cards (Structured Boxed Badges)</option>
+                            <option value="circle">Circles (Rounded Disks)</option>
+                            <option value="minimal">Minimal (Clean Typographic)</option>
+                        </select>
+                    </div>
+
+                    <div className="space-y-1.5 border-t border-border/60 pt-2.5">
+                        <span className="text-muted-foreground text-[11px] font-medium block">Active Time Units</span>
+                        <div className="grid grid-cols-2 gap-1.5">
+                            <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={values.showDays !== false}
+                                    onChange={(e) => onChange({ showDays: e.target.checked })}
+                                    className="rounded border-input text-primary size-3.5"
+                                />
+                                <span className="text-[11px]">Days</span>
+                            </label>
+                            <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={values.showHours !== false}
+                                    onChange={(e) => onChange({ showHours: e.target.checked })}
+                                    className="rounded border-input text-primary size-3.5"
+                                />
+                                <span className="text-[11px]">Hours</span>
+                            </label>
+                            <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={values.showMinutes !== false}
+                                    onChange={(e) => onChange({ showMinutes: e.target.checked })}
+                                    className="rounded border-input text-primary size-3.5"
+                                />
+                                <span className="text-[11px]">Minutes</span>
+                            </label>
+                            <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={values.showSeconds !== false}
+                                    onChange={(e) => onChange({ showSeconds: e.target.checked })}
+                                    className="rounded border-input text-primary size-3.5"
+                                />
+                                <span className="text-[11px]">Seconds</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 border-t border-border/60 pt-2.5">
+                        <div className="space-y-1">
+                            <label className="text-muted-foreground text-[11px] font-medium">Number Color</label>
+                            <input
+                                type="color"
+                                value={toHexColor(String(values.digitColor ?? '#0f172a'))}
+                                onChange={(e) => onChange({ digitColor: e.target.value })}
+                                className="border-input bg-background h-7 w-full rounded-md border p-1"
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-muted-foreground text-[11px] font-medium">Label Color</label>
+                            <input
+                                type="color"
+                                value={toHexColor(String(values.labelColor ?? '#64748b'))}
+                                onChange={(e) => onChange({ labelColor: e.target.value })}
+                                className="border-input bg-background h-7 w-full rounded-md border p-1"
+                            />
+                        </div>
+                        {values.styleVariant !== 'minimal' ? (
+                            <>
+                                <div className="space-y-1">
+                                    <label className="text-muted-foreground text-[11px] font-medium">Card Background</label>
+                                    <input
+                                        type="color"
+                                        value={toHexColor(String(values.cardBackground ?? '#ffffff'))}
+                                        onChange={(e) => onChange({ cardBackground: e.target.value })}
+                                        className="border-input bg-background h-7 w-full rounded-md border p-1"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-muted-foreground text-[11px] font-medium">Card Border</label>
+                                    <input
+                                        type="color"
+                                        value={toHexColor(String(values.cardBorderColor ?? '#e2e8f0'))}
+                                        onChange={(e) => onChange({ cardBorderColor: e.target.value })}
+                                        className="border-input bg-background h-7 w-full rounded-md border p-1"
+                                    />
+                                </div>
+                            </>
+                        ) : null}
+                    </div>
+
+                    <div className="space-y-1 border-t border-border/60 pt-2.5">
+                        <label className="text-muted-foreground text-[11px] font-medium">Expiration Message</label>
+                        <input
+                            type="text"
+                            placeholder="Special offer has ended!"
+                            value={String(values.expiryText ?? '')}
+                            onChange={(e) => onChange({ expiryText: e.target.value })}
+                            className="border-input bg-background focus:border-ring h-7 w-full rounded-md border px-2 text-xs"
+                        />
+                    </div>
+                </div>
+            ) : null}
+
+            {/* SOCIAL ICONS CONTROLS */}
+            {nodeType === 'content.socialicons' ? (
+                <div className="border-border/80 bg-card space-y-3 rounded-lg border p-3">
+                    <div>
+                        <span className="text-foreground block text-xs font-semibold">Social Icons</span>
+                        <span className="text-muted-foreground text-[10px]">Follow links and brand profile icons</span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                            <label className="text-muted-foreground text-[11px] font-medium">Icon Style</label>
+                            <select
+                                value={String(values.iconStyle ?? 'brand')}
+                                onChange={(e) => onChange({ iconStyle: e.target.value })}
+                                className="border-input bg-background focus:border-ring h-7 w-full rounded-md border px-2 text-xs"
+                            >
+                                <option value="brand">Brand Colors</option>
+                                <option value="monochrome">Monochrome</option>
+                                <option value="outline">Outline</option>
+                            </select>
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-muted-foreground text-[11px] font-medium">Shape</label>
+                            <select
+                                value={String(values.shape ?? 'circle')}
+                                onChange={(e) => onChange({ shape: e.target.value })}
+                                className="border-input bg-background focus:border-ring h-7 w-full rounded-md border px-2 text-xs"
+                            >
+                                <option value="circle">Circle</option>
+                                <option value="rounded">Rounded</option>
+                                <option value="square">Square</option>
+                            </select>
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-muted-foreground text-[11px] font-medium">Size</label>
+                            <select
+                                value={String(values.size ?? 'md')}
+                                onChange={(e) => onChange({ size: e.target.value })}
+                                className="border-input bg-background focus:border-ring h-7 w-full rounded-md border px-2 text-xs"
+                            >
+                                <option value="sm">Small (32px)</option>
+                                <option value="md">Medium (40px)</option>
+                                <option value="lg">Large (48px)</option>
+                            </select>
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-muted-foreground text-[11px] font-medium">Alignment</label>
+                            <select
+                                value={String(values.align ?? 'center')}
+                                onChange={(e) => onChange({ align: e.target.value })}
+                                className="border-input bg-background focus:border-ring h-7 w-full rounded-md border px-2 text-xs"
+                            >
+                                <option value="left">Left</option>
+                                <option value="center">Center</option>
+                                <option value="right">Right</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    {values.iconStyle !== 'brand' ? (
+                        <div className="grid grid-cols-2 gap-2 border-t border-border/60 pt-2.5">
+                            <div className="space-y-1">
+                                <label className="text-muted-foreground text-[11px] font-medium">Icon Color</label>
+                                <input
+                                    type="color"
+                                    value={toHexColor(String(values.customColor ?? '#2563eb'))}
+                                    onChange={(e) => onChange({ customColor: e.target.value })}
+                                    className="border-input bg-background h-7 w-full rounded-md border p-1"
+                                />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-muted-foreground text-[11px] font-medium">Background Color</label>
+                                <input
+                                    type="color"
+                                    value={toHexColor(String(values.customBg ?? '#eff6ff'))}
+                                    onChange={(e) => onChange({ customBg: e.target.value })}
+                                    className="border-input bg-background h-7 w-full rounded-md border p-1"
+                                />
+                            </div>
+                        </div>
+                    ) : null}
+
+                    <div className="space-y-2 border-t border-border/60 pt-2.5">
+                        <div className="flex items-center justify-between">
+                            <span className="text-foreground text-xs font-semibold">Social Networks</span>
+                            <span className="text-muted-foreground text-[10px]">
+                                {(Array.isArray(values.items) ? values.items.length : 0)} links
+                            </span>
+                        </div>
+
+                        <div className="max-h-60 space-y-2 overflow-y-auto pr-1">
+                            {(Array.isArray(values.items) ? values.items : []).map((item: any, i: number) => (
+                                <div key={i} className="border-border/50 bg-muted/30 flex items-center gap-1.5 rounded-md border p-1.5">
+                                    <select
+                                        value={String(item.platform ?? 'facebook')}
+                                        onChange={(e) => {
+                                            const next = [...(values.items as any[])];
+                                            next[i] = { ...next[i], platform: e.target.value };
+                                            onChange({ items: next });
+                                        }}
+                                        className="border-input bg-background h-7 w-28 shrink-0 rounded border px-1.5 text-xs font-medium"
+                                    >
+                                        <option value="facebook">Facebook</option>
+                                        <option value="twitter">X / Twitter</option>
+                                        <option value="instagram">Instagram</option>
+                                        <option value="linkedin">LinkedIn</option>
+                                        <option value="youtube">YouTube</option>
+                                        <option value="github">GitHub</option>
+                                        <option value="tiktok">TikTok</option>
+                                        <option value="whatsapp">WhatsApp</option>
+                                    </select>
+                                    <input
+                                        placeholder="https://..."
+                                        value={String(item.url ?? '')}
+                                        onChange={(e) => {
+                                            const next = [...(values.items as any[])];
+                                            next[i] = { ...next[i], url: e.target.value };
+                                            onChange({ items: next });
+                                        }}
+                                        className="border-input bg-background h-7 min-w-0 flex-1 rounded border px-2 text-xs"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            const next = (values.items as any[]).filter((_, idx) => idx !== i);
+                                            onChange({ items: next });
+                                        }}
+                                        className="text-muted-foreground hover:text-destructive flex size-6 shrink-0 items-center justify-center text-xs"
+                                        title="Remove link"
+                                    >
+                                        ✕
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+
+                        <button
+                            type="button"
+                            className="border-border hover:bg-muted/70 text-foreground flex w-full items-center justify-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition"
+                            onClick={() => {
+                                const next = Array.isArray(values.items) ? [...values.items] : [];
+                                next.push({ platform: 'instagram', url: 'https://instagram.com', label: 'Instagram' });
+                                onChange({ items: next });
+                            }}
+                        >
+                            <Plus className="size-3" />
+                            Add social link
+                        </button>
+                    </div>
+                </div>
+            ) : null}
+
+            {/* ALERT BANNER CONTROLS */}
+            {nodeType === 'content.alert' ? (
+                <div className="border-border/80 bg-card space-y-3 rounded-lg border p-3">
+                    <div>
+                        <span className="text-foreground block text-xs font-semibold">Alert Banner</span>
+                        <span className="text-muted-foreground text-[10px]">Callout notices, highlights, and alerts</span>
+                    </div>
+
+                    <div className="space-y-1">
+                        <label className="text-muted-foreground text-[11px] font-medium">Alert Tone / Variant</label>
+                        <select
+                            value={String(values.variant ?? 'info')}
+                            onChange={(e) => onChange({ variant: e.target.value })}
+                            className="border-input bg-background focus:border-ring h-7 w-full rounded-md border px-2 text-xs"
+                        >
+                            <option value="info">Info (Blue notice)</option>
+                            <option value="success">Success (Green confirmation)</option>
+                            <option value="warning">Warning (Amber attention)</option>
+                            <option value="destructive">Destructive (Red critical)</option>
+                            <option value="neutral">Neutral (Subtle gray)</option>
+                        </select>
+                    </div>
+
+                    <div className="space-y-1">
+                        <label className="text-muted-foreground text-[11px] font-medium">Banner Title</label>
+                        <input
+                            type="text"
+                            value={String(values.title ?? '')}
+                            onChange={(e) => onChange({ title: e.target.value })}
+                            className="border-input bg-background focus:border-ring h-7 w-full rounded-md border px-2 text-xs"
+                        />
+                    </div>
+
+                    <div className="space-y-1">
+                        <label className="text-muted-foreground text-[11px] font-medium">Message Body</label>
+                        <textarea
+                            rows={3}
+                            value={String(values.message ?? '')}
+                            onChange={(e) => onChange({ message: e.target.value })}
+                            className="border-input bg-background focus:border-ring w-full rounded-md border p-2 text-xs"
+                        />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 border-t border-border/60 pt-2.5">
+                        <div className="space-y-1">
+                            <label className="text-muted-foreground text-[11px] font-medium">Action Text</label>
+                            <input
+                                type="text"
+                                placeholder="Learn more →"
+                                value={String(values.actionText ?? '')}
+                                onChange={(e) => onChange({ actionText: e.target.value })}
+                                className="border-input bg-background focus:border-ring h-7 w-full rounded-md border px-2 text-xs"
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-muted-foreground text-[11px] font-medium">Action Link</label>
+                            <input
+                                type="text"
+                                placeholder="#"
+                                value={String(values.actionHref ?? '#')}
+                                onChange={(e) => onChange({ actionHref: e.target.value })}
+                                className="border-input bg-background focus:border-ring h-7 w-full rounded-md border px-2 text-xs"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-4 border-t border-border/60 pt-2.5">
+                        <label className="flex items-center gap-1.5 cursor-pointer text-xs">
+                            <input
+                                type="checkbox"
+                                checked={values.showIcon !== false}
+                                onChange={(e) => onChange({ showIcon: e.target.checked })}
+                                className="rounded border-input text-primary size-3.5"
+                            />
+                            <span className="text-[11px]">Show Icon</span>
+                        </label>
+                        <label className="flex items-center gap-1.5 cursor-pointer text-xs">
+                            <input
+                                type="checkbox"
+                                checked={values.dismissible === true}
+                                onChange={(e) => onChange({ dismissible: e.target.checked })}
+                                className="rounded border-input text-primary size-3.5"
+                            />
+                            <span className="text-[11px]">Dismissible</span>
+                        </label>
+                    </div>
+                </div>
+            ) : null}
+
+            {/* PROGRESS BAR CONTROLS */}
+            {nodeType === 'marketing.progressbar' ? (
+                <div className="border-border/80 bg-card space-y-3 rounded-lg border p-3">
+                    <div>
+                        <span className="text-foreground block text-xs font-semibold">Progress Bar</span>
+                        <span className="text-muted-foreground text-[10px]">Visual indicator for skills, goals, and milestones</span>
+                    </div>
+
+                    <div className="space-y-1">
+                        <div className="flex items-center justify-between">
+                            <label className="text-muted-foreground text-[11px] font-medium">Progress Value</label>
+                            <span className="text-foreground text-xs font-bold font-mono">{Number(values.percentage ?? 50)}%</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <input
+                                type="range"
+                                min={0}
+                                max={100}
+                                value={Number(values.percentage ?? 50)}
+                                onChange={(e) => onChange({ percentage: Number(e.target.value) })}
+                                className="flex-1 accent-primary"
+                            />
+                            <input
+                                type="number"
+                                min={0}
+                                max={100}
+                                value={Number(values.percentage ?? 50)}
+                                onChange={(e) => onChange({ percentage: Math.max(0, Math.min(100, Number(e.target.value))) })}
+                                className="border-input bg-background h-7 w-14 rounded border px-1 text-center text-xs font-mono"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="space-y-1">
+                        <label className="text-muted-foreground text-[11px] font-medium">Label</label>
+                        <input
+                            type="text"
+                            value={String(values.label ?? '')}
+                            onChange={(e) => onChange({ label: e.target.value })}
+                            className="border-input bg-background focus:border-ring h-7 w-full rounded-md border px-2 text-xs"
+                        />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 border-t border-border/60 pt-2.5">
+                        <div className="space-y-1">
+                            <label className="text-muted-foreground text-[11px] font-medium">Fill Color</label>
+                            <input
+                                type="color"
+                                value={toHexColor(String(values.barColor ?? '#2563eb'))}
+                                onChange={(e) => onChange({ barColor: e.target.value })}
+                                className="border-input bg-background h-7 w-full rounded-md border p-1"
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-muted-foreground text-[11px] font-medium">Track Color</label>
+                            <input
+                                type="color"
+                                value={toHexColor(String(values.trackColor ?? '#e2e8f0'))}
+                                onChange={(e) => onChange({ trackColor: e.target.value })}
+                                className="border-input bg-background h-7 w-full rounded-md border p-1"
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-muted-foreground text-[11px] font-medium">Bar Height</label>
+                            <input
+                                type="text"
+                                placeholder="12px"
+                                value={String(values.barHeight ?? '12px')}
+                                onChange={(e) => onChange({ barHeight: e.target.value })}
+                                className="border-input bg-background focus:border-ring h-7 w-full rounded-md border px-2 text-xs"
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-muted-foreground text-[11px] font-medium">Corner Radius</label>
+                            <input
+                                type="text"
+                                placeholder="9999px"
+                                value={String(values.borderRadius ?? '9999px')}
+                                onChange={(e) => onChange({ borderRadius: e.target.value })}
+                                className="border-input bg-background focus:border-ring h-7 w-full rounded-md border px-2 text-xs"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="space-y-1.5 border-t border-border/60 pt-2.5">
+                        <label className="flex items-center gap-1.5 cursor-pointer text-xs">
+                            <input
+                                type="checkbox"
+                                checked={values.showPercentage !== false}
+                                onChange={(e) => onChange({ showPercentage: e.target.checked })}
+                                className="rounded border-input text-primary size-3.5"
+                            />
+                            <span className="text-[11px]">Show percentage counter</span>
+                        </label>
+                        <label className="flex items-center gap-1.5 cursor-pointer text-xs">
+                            <input
+                                type="checkbox"
+                                checked={values.striped === true}
+                                onChange={(e) => onChange({ striped: e.target.checked })}
+                                className="rounded border-input text-primary size-3.5"
+                            />
+                            <span className="text-[11px]">Striped pattern</span>
+                        </label>
+                        {values.striped ? (
+                            <label className="flex items-center gap-1.5 cursor-pointer text-xs pl-5">
+                                <input
+                                    type="checkbox"
+                                    checked={values.animated === true}
+                                    onChange={(e) => onChange({ animated: e.target.checked })}
+                                    className="rounded border-input text-primary size-3.5"
+                                />
+                                <span className="text-[11px]">Animate stripes</span>
+                            </label>
+                        ) : null}
+                    </div>
+                </div>
+            ) : null}
+
             {/* IMAGE FEATURE CONTROLS */}
             {nodeType === 'marketing.imagefeature' ? (
                 <div className="border-border/80 bg-card space-y-3 rounded-lg border p-3">
@@ -3786,41 +4615,114 @@ function PropControls({
                 </div>
             ) : null}
 
-            {/* NAVBAR BRAND LOGO */}
-            {nodeType === 'layout.navbar' && onOpenMediaManager ? (
-                <div className="border-border/80 bg-card space-y-2 rounded-lg border p-3">
-                    <div className="flex items-center justify-between">
-                        <p className="text-foreground text-xs font-semibold">Brand Logo</p>
-                        {values.brandLogo ? (
+            {/* NAVBAR BRAND IDENTITY (LOGO & TITLE) */}
+            {nodeType === 'layout.navbar' ? (
+                <div className="border-border/80 bg-card space-y-3 rounded-lg border p-3">
+                    <div className="space-y-1.5">
+                        <label className="text-foreground text-xs font-semibold">Brand / Site Title</label>
+                        <input
+                            type="text"
+                            value={String(values.brandName ?? '')}
+                            onChange={(e) => onChange({ brandName: e.target.value })}
+                            placeholder="Leave blank for logo only..."
+                            className="border-input bg-background focus:border-ring focus:ring-ring/20 h-8 w-full rounded-md border px-2 text-xs outline-none focus:ring-1"
+                        />
+                        <p className="text-[10px] text-muted-foreground leading-normal">
+                            Displayed next to the logo. Clear this field if your logo image already contains the brand name.
+                        </p>
+                    </div>
+
+                    <div className="space-y-1.5">
+                        <label className="text-foreground text-xs font-semibold">Brand Link Destination</label>
+                        <input
+                            type="text"
+                            value={String(values.brandHref ?? '/')}
+                            onChange={(e) => onChange({ brandHref: e.target.value })}
+                            placeholder="/"
+                            className="border-input bg-background focus:border-ring focus:ring-ring/20 h-8 w-full rounded-md border px-2 text-xs outline-none focus:ring-1"
+                        />
+                    </div>
+
+                    {onOpenMediaManager ? (
+                        <div className="border-t border-border/60 pt-2.5 space-y-2">
+                            <div className="flex items-center justify-between">
+                                <p className="text-foreground text-xs font-semibold">Brand Logo</p>
+                                {values.brandLogo ? (
+                                    <button
+                                        type="button"
+                                        className="text-destructive text-[11px] hover:underline"
+                                        onClick={() => onChange({ brandLogo: '' })}
+                                    >
+                                        Remove
+                                    </button>
+                                ) : null}
+                            </div>
+                            {values.brandLogo ? (
+                                <div className="space-y-1.5">
+                                    <div className="flex items-center gap-2.5 rounded border border-border/60 bg-muted/30 p-2">
+                                        <img
+                                            src={String(values.brandLogo)}
+                                            alt="Logo preview"
+                                            className="h-8 max-w-[100px] object-contain rounded bg-background p-1 border border-border/50"
+                                        />
+                                        <div className="min-w-0 flex-1 text-[11px] text-muted-foreground truncate">
+                                            {String(values.brandLogo)}
+                                        </div>
+                                    </div>
+
+                                    {/* In-Browser AI & WebP Quick Actions for Logo */}
+                                    {onUploadMedia ? (
+                                        <div className="flex items-center gap-1.5">
+                                            <button
+                                                type="button"
+                                                disabled={Boolean(imageActionLoading)}
+                                                onClick={() => void handleRemoveBg(String(values.brandLogo), 'brandLogo')}
+                                                className="flex-1 inline-flex items-center justify-center gap-1 rounded-md border border-primary/30 bg-primary/10 hover:bg-primary/20 text-primary py-1 text-[10px] font-semibold transition disabled:opacity-50"
+                                                title="Remove background from logo using AI"
+                                            >
+                                                {imageActionLoading?.includes('Cutout') ? (
+                                                    <>
+                                                        <Loader2 className="size-2.5 animate-spin" />
+                                                        <span className="truncate">{imageActionLoading}</span>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Wand2 className="size-2.5" />
+                                                        Remove BG (AI)
+                                                    </>
+                                                )}
+                                            </button>
+
+                                            {!String(values.brandLogo).toLowerCase().endsWith('.webp') ? (
+                                                <button
+                                                    type="button"
+                                                    disabled={Boolean(imageActionLoading)}
+                                                    onClick={() => void handleToWebp(String(values.brandLogo), 'brandLogo')}
+                                                    className="inline-flex items-center justify-center gap-1 rounded-md border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 px-2 py-1 text-[10px] font-semibold transition disabled:opacity-50"
+                                                    title="Convert logo to WebP"
+                                                >
+                                                    {imageActionLoading?.includes('WebP') ? (
+                                                        <Loader2 className="size-2.5 animate-spin" />
+                                                    ) : (
+                                                        <Zap className="size-2.5" />
+                                                    )}
+                                                    To WebP
+                                                </button>
+                                            ) : null}
+                                        </div>
+                                    ) : null}
+                                </div>
+                            ) : null}
                             <button
                                 type="button"
-                                className="text-destructive text-[11px] hover:underline"
-                                onClick={() => onChange({ brandLogo: '' })}
+                                className="border-border hover:bg-muted/80 bg-background text-foreground flex w-full items-center justify-center gap-1.5 rounded-md border px-3 py-2 text-xs font-medium transition shadow-xs"
+                                onClick={() => onOpenMediaManager('brandLogo')}
                             >
-                                Remove
+                                <ImageIcon className="size-3.5 text-muted-foreground" />
+                                {values.brandLogo ? 'Replace logo from media' : 'Choose logo from media'}
                             </button>
-                        ) : null}
-                    </div>
-                    {values.brandLogo ? (
-                        <div className="flex items-center gap-2.5 rounded border border-border/60 bg-muted/30 p-2">
-                            <img
-                                src={String(values.brandLogo)}
-                                alt="Logo preview"
-                                className="h-8 max-w-[100px] object-contain rounded bg-background p-1 border border-border/50"
-                            />
-                            <div className="min-w-0 flex-1 text-[11px] text-muted-foreground truncate">
-                                {String(values.brandLogo)}
-                            </div>
                         </div>
                     ) : null}
-                    <button
-                        type="button"
-                        className="border-border hover:bg-muted/80 bg-background text-foreground flex w-full items-center justify-center gap-1.5 rounded-md border px-3 py-2 text-xs font-medium transition shadow-xs"
-                        onClick={() => onOpenMediaManager('brandLogo')}
-                    >
-                        <ImageIcon className="size-3.5 text-muted-foreground" />
-                        {values.brandLogo ? 'Replace logo from media' : 'Choose logo from media'}
-                    </button>
                 </div>
             ) : null}
 
@@ -4097,16 +4999,445 @@ function PropControls({
                 </div>
             ) : null}
 
+            {/* ACCORDION / FAQ CONTROLS */}
+            {nodeType === 'content.accordion' ? (
+                <div className="border-border/80 bg-card space-y-3 rounded-lg border p-3">
+                    <div>
+                        <span className="text-foreground block text-xs font-semibold">Accordion / FAQ</span>
+                        <span className="text-muted-foreground text-[10px]">Collapsible question & answer panels</span>
+                    </div>
+
+                    <div className="space-y-1">
+                        <label className="text-muted-foreground text-[11px] font-medium">Accent Color</label>
+                        <input
+                            type="color"
+                            value={toHexColor(String(values.accentColor ?? '#2563eb'))}
+                            onChange={(e) => onChange({ accentColor: e.target.value })}
+                            className="border-input bg-background h-7 w-full rounded-md border p-1"
+                        />
+                    </div>
+
+                    <div className="space-y-2 border-t border-border/60 pt-2.5">
+                        <div className="flex items-center justify-between">
+                            <span className="text-foreground text-xs font-semibold">Accordion Items</span>
+                            <span className="text-muted-foreground text-[10px]">
+                                {(Array.isArray(values.items) ? values.items.length : 0)} items
+                            </span>
+                        </div>
+
+                        <div className="max-h-64 space-y-2.5 overflow-y-auto pr-1">
+                            {(Array.isArray(values.items) ? values.items : []).map((item: any, i: number) => (
+                                <div key={i} className="border-border/50 bg-muted/30 space-y-1.5 rounded-md border p-2">
+                                    <div className="flex items-center gap-1.5">
+                                        <input
+                                            placeholder="Question / Header"
+                                            value={String(item.title ?? '')}
+                                            onChange={(e) => {
+                                                const next = [...(values.items as any[])];
+                                                next[i] = { ...next[i], title: e.target.value };
+                                                onChange({ items: next });
+                                            }}
+                                            className="border-input bg-background h-7 min-w-0 flex-1 rounded border px-2 text-xs font-medium"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const next = (values.items as any[]).filter((_, idx) => idx !== i);
+                                                onChange({ items: next });
+                                            }}
+                                            className="text-muted-foreground hover:text-destructive flex size-6 shrink-0 items-center justify-center text-xs"
+                                            title="Remove item"
+                                        >
+                                            ✕
+                                        </button>
+                                    </div>
+                                    <textarea
+                                        placeholder="Answer / Content body..."
+                                        rows={2}
+                                        value={String(item.body ?? '')}
+                                        onChange={(e) => {
+                                            const next = [...(values.items as any[])];
+                                            next[i] = { ...next[i], body: e.target.value };
+                                            onChange({ items: next });
+                                        }}
+                                        className="border-input bg-background w-full rounded border p-1.5 text-xs"
+                                    />
+                                </div>
+                            ))}
+                        </div>
+
+                        <button
+                            type="button"
+                            className="border-border hover:bg-muted/70 text-foreground flex w-full items-center justify-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition"
+                            onClick={() => {
+                                const next = Array.isArray(values.items) ? [...values.items] : [];
+                                next.push({ title: 'New Question', body: 'Add your detailed answer here.' });
+                                onChange({ items: next });
+                            }}
+                        >
+                            <Plus className="size-3" />
+                            Add accordion item
+                        </button>
+                    </div>
+                </div>
+            ) : null}
+
+            {/* TABS CONTROLS */}
+            {nodeType === 'content.tabs' ? (
+                <div className="border-border/80 bg-card space-y-3 rounded-lg border p-3">
+                    <div>
+                        <span className="text-foreground block text-xs font-semibold">Tabs Content Switcher</span>
+                        <span className="text-muted-foreground text-[10px]">Switch between multiple views without reloading</span>
+                    </div>
+
+                    <div className="space-y-1">
+                        <label className="text-muted-foreground text-[11px] font-medium">Active Accent Color</label>
+                        <input
+                            type="color"
+                            value={toHexColor(String(values.accentColor ?? '#2563eb'))}
+                            onChange={(e) => onChange({ accentColor: e.target.value })}
+                            className="border-input bg-background h-7 w-full rounded-md border p-1"
+                        />
+                    </div>
+
+                    <div className="space-y-2 border-t border-border/60 pt-2.5">
+                        <div className="flex items-center justify-between">
+                            <span className="text-foreground text-xs font-semibold">Tabs List</span>
+                            <span className="text-muted-foreground text-[10px]">
+                                {(Array.isArray(values.tabs) ? values.tabs.length : 0)} tabs
+                            </span>
+                        </div>
+
+                        <div className="max-h-64 space-y-2.5 overflow-y-auto pr-1">
+                            {(Array.isArray(values.tabs) ? values.tabs : []).map((tab: any, i: number) => (
+                                <div key={i} className="border-border/50 bg-muted/30 space-y-1.5 rounded-md border p-2">
+                                    <div className="flex items-center gap-1.5">
+                                        <input
+                                            placeholder="Tab Label"
+                                            value={String(tab.label ?? '')}
+                                            onChange={(e) => {
+                                                const next = [...(values.tabs as any[])];
+                                                next[i] = { ...next[i], label: e.target.value };
+                                                onChange({ tabs: next });
+                                            }}
+                                            className="border-input bg-background h-7 min-w-0 flex-1 rounded border px-2 text-xs font-medium"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const next = (values.tabs as any[]).filter((_, idx) => idx !== i);
+                                                onChange({ tabs: next });
+                                            }}
+                                            className="text-muted-foreground hover:text-destructive flex size-6 shrink-0 items-center justify-center text-xs"
+                                            title="Remove tab"
+                                        >
+                                            ✕
+                                        </button>
+                                    </div>
+                                    <textarea
+                                        placeholder="Tab panel content..."
+                                        rows={2}
+                                        value={String(tab.body ?? '')}
+                                        onChange={(e) => {
+                                            const next = [...(values.tabs as any[])];
+                                            next[i] = { ...next[i], body: e.target.value };
+                                            onChange({ tabs: next });
+                                        }}
+                                        className="border-input bg-background w-full rounded border p-1.5 text-xs"
+                                    />
+                                </div>
+                            ))}
+                        </div>
+
+                        <button
+                            type="button"
+                            className="border-border hover:bg-muted/70 text-foreground flex w-full items-center justify-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition"
+                            onClick={() => {
+                                const next = Array.isArray(values.tabs) ? [...values.tabs] : [];
+                                next.push({ label: `Tab ${next.length + 1}`, body: 'Content for this tab view.' });
+                                onChange({ tabs: next });
+                            }}
+                        >
+                            <Plus className="size-3" />
+                            Add tab
+                        </button>
+                    </div>
+                </div>
+            ) : null}
+
+            {/* PRICING CARD CONTROLS */}
+            {nodeType === 'marketing.pricing' ? (
+                <div className="border-border/80 bg-card space-y-3 rounded-lg border p-3">
+                    <div>
+                        <span className="text-foreground block text-xs font-semibold">Pricing Card</span>
+                        <span className="text-muted-foreground text-[10px]">Membership tier, SaaS plan, or product pricing</span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                            <label className="text-muted-foreground text-[11px] font-medium">Plan Name</label>
+                            <input
+                                type="text"
+                                value={String(values.planName ?? '')}
+                                onChange={(e) => onChange({ planName: e.target.value })}
+                                className="border-input bg-background focus:border-ring h-7 w-full rounded-md border px-2 text-xs"
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-muted-foreground text-[11px] font-medium">Badge Text</label>
+                            <input
+                                type="text"
+                                placeholder="Most Popular"
+                                value={String(values.badge ?? '')}
+                                onChange={(e) => onChange({ badge: e.target.value })}
+                                className="border-input bg-background focus:border-ring h-7 w-full rounded-md border px-2 text-xs"
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-muted-foreground text-[11px] font-medium">Price</label>
+                            <input
+                                type="text"
+                                placeholder="$49"
+                                value={String(values.price ?? '')}
+                                onChange={(e) => onChange({ price: e.target.value })}
+                                className="border-input bg-background focus:border-ring h-7 w-full rounded-md border px-2 text-xs"
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-muted-foreground text-[11px] font-medium">Billing Period</label>
+                            <input
+                                type="text"
+                                placeholder="/ month"
+                                value={String(values.period ?? '')}
+                                onChange={(e) => onChange({ period: e.target.value })}
+                                className="border-input bg-background focus:border-ring h-7 w-full rounded-md border px-2 text-xs"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="space-y-1">
+                        <label className="text-muted-foreground text-[11px] font-medium">Plan Description</label>
+                        <input
+                            type="text"
+                            value={String(values.description ?? '')}
+                            onChange={(e) => onChange({ description: e.target.value })}
+                            className="border-input bg-background focus:border-ring h-7 w-full rounded-md border px-2 text-xs"
+                        />
+                    </div>
+
+                    <div className="space-y-1 border-t border-border/60 pt-2.5">
+                        <div className="flex items-center justify-between">
+                            <label className="text-muted-foreground text-[11px] font-medium">Plan Features (1 per line)</label>
+                            <span className="text-[10px] text-muted-foreground">Checked bullets</span>
+                        </div>
+                        <textarea
+                            rows={4}
+                            value={String(values.featureText ?? '')}
+                            onChange={(e) => onChange({ featureText: e.target.value })}
+                            className="border-input bg-background focus:border-ring w-full rounded-md border p-2 text-xs font-mono leading-relaxed"
+                            placeholder="Unlimited access&#10;Custom domain&#10;24/7 Priority support"
+                        />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 border-t border-border/60 pt-2.5">
+                        <div className="space-y-1">
+                            <label className="text-muted-foreground text-[11px] font-medium">Button Text</label>
+                            <input
+                                type="text"
+                                value={String(values.ctaText ?? 'Start Building')}
+                                onChange={(e) => onChange({ ctaText: e.target.value })}
+                                className="border-input bg-background focus:border-ring h-7 w-full rounded-md border px-2 text-xs"
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-muted-foreground text-[11px] font-medium">Button URL</label>
+                            <input
+                                type="text"
+                                value={String(values.ctaHref ?? '#')}
+                                onChange={(e) => onChange({ ctaHref: e.target.value })}
+                                className="border-input bg-background focus:border-ring h-7 w-full rounded-md border px-2 text-xs"
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-muted-foreground text-[11px] font-medium">Accent Color</label>
+                            <input
+                                type="color"
+                                value={toHexColor(String(values.accentColor ?? '#2563eb'))}
+                                onChange={(e) => onChange({ accentColor: e.target.value })}
+                                className="border-input bg-background h-7 w-full rounded-md border p-1"
+                            />
+                        </div>
+                        <div className="flex items-center pt-4">
+                            <label className="flex items-center gap-1.5 cursor-pointer text-xs">
+                                <input
+                                    type="checkbox"
+                                    checked={values.highlighted === true}
+                                    onChange={(e) => onChange({ highlighted: e.target.checked })}
+                                    className="rounded border-input text-primary size-3.5"
+                                />
+                                <span className="text-[11px] font-semibold text-primary">Highlighted Plan</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            ) : null}
+
+            {/* STATS & METRICS CONTROLS */}
+            {nodeType === 'marketing.stats' ? (
+                <div className="border-border/80 bg-card space-y-3 rounded-lg border p-3">
+                    <div>
+                        <span className="text-foreground block text-xs font-semibold">Stats & Metrics</span>
+                        <span className="text-muted-foreground text-[10px]">Showcase key figures, traction, and results</span>
+                    </div>
+
+                    <div className="space-y-1">
+                        <label className="text-muted-foreground text-[11px] font-medium">Accent Color</label>
+                        <input
+                            type="color"
+                            value={toHexColor(String(values.accentColor ?? '#2563eb'))}
+                            onChange={(e) => onChange({ accentColor: e.target.value })}
+                            className="border-input bg-background h-7 w-full rounded-md border p-1"
+                        />
+                    </div>
+
+                    <div className="space-y-2 border-t border-border/60 pt-2.5">
+                        <div className="flex items-center justify-between">
+                            <span className="text-foreground text-xs font-semibold">Metrics List</span>
+                            <span className="text-muted-foreground text-[10px]">
+                                {(Array.isArray(values.stats) ? values.stats.length : 0)} items
+                            </span>
+                        </div>
+
+                        <div className="max-h-60 space-y-2 overflow-y-auto pr-1">
+                            {(Array.isArray(values.stats) ? values.stats : []).map((stat: any, i: number) => (
+                                <div key={i} className="border-border/50 bg-muted/30 flex items-center gap-1.5 rounded-md border p-1.5">
+                                    <input
+                                        placeholder="99%"
+                                        value={String(stat.value ?? '')}
+                                        onChange={(e) => {
+                                            const next = [...(values.stats as any[])];
+                                            next[i] = { ...next[i], value: e.target.value };
+                                            onChange({ stats: next });
+                                        }}
+                                        className="border-input bg-background h-7 w-20 shrink-0 rounded border px-2 text-xs font-bold"
+                                    />
+                                    <input
+                                        placeholder="Metric label"
+                                        value={String(stat.label ?? '')}
+                                        onChange={(e) => {
+                                            const next = [...(values.stats as any[])];
+                                            next[i] = { ...next[i], label: e.target.value };
+                                            onChange({ stats: next });
+                                        }}
+                                        className="border-input bg-background h-7 min-w-0 flex-1 rounded border px-2 text-xs"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            const next = (values.stats as any[]).filter((_, idx) => idx !== i);
+                                            onChange({ stats: next });
+                                        }}
+                                        className="text-muted-foreground hover:text-destructive flex size-6 shrink-0 items-center justify-center text-xs"
+                                        title="Remove metric"
+                                    >
+                                        ✕
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+
+                        <button
+                            type="button"
+                            className="border-border hover:bg-muted/70 text-foreground flex w-full items-center justify-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition"
+                            onClick={() => {
+                                const next = Array.isArray(values.stats) ? [...values.stats] : [];
+                                next.push({ value: '100+', label: 'New Metric' });
+                                onChange({ stats: next });
+                            }}
+                        >
+                            <Plus className="size-3" />
+                            Add metric
+                        </button>
+                    </div>
+                </div>
+            ) : null}
+
+            {/* VIDEO EMBED CONTROLS */}
+            {nodeType === 'embed.video' ? (
+                <div className="border-border/80 bg-card space-y-3 rounded-lg border p-3">
+                    <div>
+                        <span className="text-foreground block text-xs font-semibold">Video Embed</span>
+                        <span className="text-muted-foreground text-[10px]">YouTube, Vimeo, or responsive iframe</span>
+                    </div>
+
+                    <div className="space-y-1">
+                        <label className="text-muted-foreground text-[11px] font-medium">Video URL</label>
+                        <input
+                            type="text"
+                            placeholder="https://www.youtube.com/watch?v=..."
+                            value={String(values.src ?? '')}
+                            onChange={(e) => {
+                                const input = e.target.value;
+                                const normalized = normalizeVideoEmbedUrl(input);
+                                onChange({ src: normalized });
+                            }}
+                            className="border-input bg-background focus:border-ring h-7 w-full rounded-md border px-2 text-xs"
+                        />
+                        <span className="text-[10px] text-muted-foreground block">
+                            YouTube and Vimeo links are automatically formatted for embed playback.
+                        </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 border-t border-border/60 pt-2.5">
+                        <div className="space-y-1">
+                            <label className="text-muted-foreground text-[11px] font-medium">Aspect Ratio</label>
+                            <select
+                                value={String(values.aspectRatio ?? '16/9')}
+                                onChange={(e) => onChange({ aspectRatio: e.target.value })}
+                                className="border-input bg-background focus:border-ring h-7 w-full rounded-md border px-2 text-xs"
+                            >
+                                <option value="16/9">16:9 (Standard Widescreen)</option>
+                                <option value="4/3">4:3 (Classic TV)</option>
+                                <option value="1/1">1:1 (Square)</option>
+                                <option value="9/16">9:16 (Vertical / Shorts / Reels)</option>
+                                <option value="21/9">21:9 (Ultrawide Cinema)</option>
+                            </select>
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-muted-foreground text-[11px] font-medium">Accessibility Title</label>
+                            <input
+                                type="text"
+                                placeholder="Video title"
+                                value={String(values.title ?? 'Embedded video')}
+                                onChange={(e) => onChange({ title: e.target.value })}
+                                className="border-input bg-background focus:border-ring h-7 w-full rounded-md border px-2 text-xs"
+                            />
+                        </div>
+                    </div>
+                </div>
+            ) : null}
+
             {Object.entries(schema).map(([name, property]) => {
                 if (nodeType === 'content.heading' && name === 'level') return null;
                 if (supportsColoredTextSegments(nodeType) && name === 'colorSegments') return null;
+                if (nodeType === 'layout.navbar' && ['brandName', 'brandLogo', 'brandHref', 'links'].includes(name)) return null;
                 if (property.type === 'array') return null;
                 if (
                     nodeType === 'content.button' ||
                     nodeType === 'content.list' ||
                     nodeType === 'marketing.blurb' ||
+                    nodeType === 'marketing.logomarquee' ||
                     nodeType === 'marketing.imagefeature' ||
-                    nodeType === 'media.gallery'
+                    nodeType === 'media.gallery' ||
+                    nodeType === 'marketing.countdown' ||
+                    nodeType === 'content.socialicons' ||
+                    nodeType === 'content.alert' ||
+                    nodeType === 'marketing.progressbar' ||
+                    nodeType === 'content.accordion' ||
+                    nodeType === 'content.tabs' ||
+                    nodeType === 'marketing.pricing' ||
+                    nodeType === 'marketing.stats' ||
+                    nodeType === 'embed.video'
                 ) {
                     return null;
                 }

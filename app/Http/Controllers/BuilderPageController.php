@@ -10,6 +10,7 @@ use App\Builder\Persistence\TemplatePersistenceService;
 use App\Http\Requests\Builder\SaveBuilderDocumentRequest;
 use App\Models\Page;
 use App\Models\PageRevision;
+use App\Models\Template;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -40,19 +41,57 @@ final class BuilderPageController extends Controller
     public function show(Page $page): Response
     {
         Gate::authorize('view', $page);
+        $user = $page->website->user;
+        $this->templates->ensureDefaultTemplates($user);
         $document = $this->service->loadDocument($page);
+
+        $website = $page->website;
+        $website->load(['headerTemplate', 'footerTemplate']);
+
+        $allTemplates = $this->templates->available($user);
+        $headerTemplates = [];
+        $footerTemplates = [];
+        $pageTemplates = [];
+
+        foreach ($allTemplates as $t) {
+            $entry = [
+                'id' => $t->id,
+                'name' => $t->name,
+                'slug' => $t->slug,
+                'description' => $t->description,
+                'type' => $t->type,
+                'is_platform' => (bool) $t->is_platform,
+                'document' => $t->document,
+            ];
+            if ($t->type === 'header') {
+                $headerTemplates[] = $entry;
+            } elseif ($t->type === 'footer') {
+                $footerTemplates[] = $entry;
+            } elseif ($t->type === 'page') {
+                $pageTemplates[] = $entry;
+            }
+        }
 
         return Inertia::render('builder', [
             'page' => $this->pageData($page),
             'document' => $document->toArray(),
             'save' => ['status' => 'saved', 'version' => (int) $page->document_version],
-            'reusableComponents' => $this->reusableComponents->definitions($page->website->user),
+            'headerTemplateId' => $website->header_template_id,
+            'footerTemplateId' => $website->footer_template_id,
+            'headerDocument' => $website->headerTemplate?->document,
+            'footerDocument' => $website->footerTemplate?->document,
+            'headerTemplates' => $headerTemplates,
+            'footerTemplates' => $footerTemplates,
+            'pageTemplates' => $pageTemplates,
+            'reusableComponents' => $this->reusableComponents->definitions($user),
             'templates' => array_map(fn ($template): array => [
                 'id' => $template->id,
                 'name' => $template->name,
+                'slug' => $template->slug,
+                'type' => $template->type,
                 'description' => $template->description,
-            ], $this->templates->available($page->website->user)),
-            'mediaAssets' => $page->website->user->mediaAssets()->where('status', 'active')->latest()->get(['id', 'user_id', 'storage_key', 'original_filename', 'mime_type', 'file_size', 'width', 'height', 'alt_text', 'status'])->map(function ($asset) use ($page): array {
+            ], $allTemplates),
+            'mediaAssets' => $user->mediaAssets()->where('status', 'active')->latest()->get(['id', 'user_id', 'storage_key', 'original_filename', 'mime_type', 'file_size', 'width', 'height', 'alt_text', 'status'])->map(function ($asset) use ($user): array {
                 return [
                     'id' => $asset->id,
                     'originalFilename' => $asset->original_filename,
@@ -62,13 +101,121 @@ final class BuilderPageController extends Controller
                     'height' => $asset->height,
                     'altText' => $asset->alt_text,
                     'status' => $asset->status,
-                    'url' => $this->media->reference($page->website->user, $asset)->url,
+                    'url' => $this->media->reference($user, $asset)->url,
                 ];
             })->values()->all(),
         ]);
     }
 
+    public function updateThemeLayout(Request $request, Page $page): JsonResponse
+    {
+        Gate::authorize('update', $page);
+        $website = $page->website;
+        abort_unless((int) $website->user_id === (int) $request->user()->id || $request->user()->isSuperAdmin(), 403);
+
+        $validated = $request->validate([
+            'header_template_id' => ['nullable', 'exists:templates,id'],
+            'footer_template_id' => ['nullable', 'exists:templates,id'],
+        ]);
+
+        if (array_key_exists('header_template_id', $validated)) {
+            $website->header_template_id = $validated['header_template_id'];
+        }
+        if (array_key_exists('footer_template_id', $validated)) {
+            $website->footer_template_id = $validated['footer_template_id'];
+        }
+        $website->save();
+
+        $website->load(['headerTemplate', 'footerTemplate']);
+
+        return response()->json([
+            'success' => true,
+            'headerTemplateId' => $website->header_template_id,
+            'footerTemplateId' => $website->footer_template_id,
+            'headerDocument' => $website->headerTemplate?->document,
+            'footerDocument' => $website->footerTemplate?->document,
+        ]);
+    }
+
+    public function showTemplate(Template $template): Response
+    {
+        Gate::authorize('update', $template);
+        $user = $template->user;
+        $website = $user->websites()->first();
+
+        return Inertia::render('builder', [
+            'isTemplate' => true,
+            'template' => [
+                'id' => $template->id,
+                'name' => $template->name,
+                'slug' => $template->slug,
+                'type' => $template->type,
+                'description' => $template->description,
+            ],
+            'page' => [
+                'id' => $template->id,
+                'title' => $template->name,
+                'websiteName' => $website?->name ?? 'Theme Template',
+                'version' => (int) $template->schema_version,
+                'status' => $template->status,
+                'slug' => $template->slug,
+            ],
+            'document' => $template->document,
+            'save' => ['status' => 'saved', 'version' => (int) $template->schema_version],
+            'reusableComponents' => $this->reusableComponents->definitions($user),
+            'templates' => array_map(fn ($t): array => [
+                'id' => $t->id,
+                'name' => $t->name,
+                'description' => $t->description,
+            ], $this->templates->available($user)),
+            'mediaAssets' => $user->mediaAssets()->where('status', 'active')->latest()->get(['id', 'user_id', 'storage_key', 'original_filename', 'mime_type', 'file_size', 'width', 'height', 'alt_text', 'status'])->map(function ($asset) use ($user): array {
+                return [
+                    'id' => $asset->id,
+                    'originalFilename' => $asset->original_filename,
+                    'mimeType' => $asset->mime_type,
+                    'fileSize' => $asset->file_size,
+                    'width' => $asset->width,
+                    'height' => $asset->height,
+                    'altText' => $asset->alt_text,
+                    'status' => $asset->status,
+                    'url' => $this->media->reference($user, $asset)->url,
+                ];
+            })->values()->all(),
+        ]);
+    }
+
+    public function updateTemplateDocument(Request $request, Template $template): JsonResponse
+    {
+        Gate::authorize('update', $template);
+        $data = $request->validate([
+            'document' => ['required', 'array'],
+        ]);
+
+        try {
+            $updated = $this->templates->update($request->user(), $template, $data['document']);
+        } catch (\InvalidArgumentException $exception) {
+            return response()->json(['message' => $exception->getMessage(), 'save' => ['status' => 'error']], 422);
+        }
+
+        return response()->json([
+            'template' => [
+                'id' => $updated->id,
+                'name' => $updated->name,
+                'slug' => $updated->slug,
+                'type' => $updated->type,
+            ],
+            'page' => [
+                'id' => $updated->id,
+                'title' => $updated->name,
+                'slug' => $updated->slug,
+                'version' => (int) $updated->schema_version,
+            ],
+            'save' => ['status' => 'saved', 'version' => (int) $updated->schema_version],
+        ]);
+    }
+
     public function updateDocument(SaveBuilderDocumentRequest $request, Page $page): JsonResponse
+
     {
         try {
             $saved = $this->service->saveDraft($page, $request->validated('document'), (int) $request->validated('expected_version'));

@@ -11,7 +11,18 @@ class Website extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['user_id', 'name', 'site_title', 'tagline', 'favicon_url', 'slug', 'status', 'homepage_page_id'];
+    protected $fillable = [
+        'user_id',
+        'name',
+        'site_title',
+        'tagline',
+        'favicon_url',
+        'slug',
+        'status',
+        'homepage_page_id',
+        'header_template_id',
+        'footer_template_id',
+    ];
 
     /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
@@ -31,8 +42,21 @@ class Website extends Model
         return $this->belongsTo(Page::class, 'homepage_page_id');
     }
 
+    /** @return BelongsTo<Template, $this> */
+    public function headerTemplate(): BelongsTo
+    {
+        return $this->belongsTo(Template::class, 'header_template_id');
+    }
+
+    /** @return BelongsTo<Template, $this> */
+    public function footerTemplate(): BelongsTo
+    {
+        return $this->belongsTo(Template::class, 'footer_template_id');
+    }
+
     public static function current(): ?static
     {
-        return static::query()->with('homepage')->orderBy('id')->first();
+        return static::query()->with(['homepage', 'headerTemplate', 'footerTemplate'])->orderBy('id')->first();
     }
 }
+

@@ -1,0 +1,34 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('templates', function (Blueprint $table) {
+            $table->boolean('is_platform')->default(false)->after('type');
+            $table->index(['is_platform', 'status']);
+        });
+
+        Schema::table('reusable_components', function (Blueprint $table) {
+            $table->boolean('is_platform')->default(false)->after('description');
+            $table->index(['is_platform', 'status']);
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('templates', function (Blueprint $table) {
+            $table->dropIndex(['is_platform', 'status']);
+            $table->dropColumn('is_platform');
+        });
+
+        Schema::table('reusable_components', function (Blueprint $table) {
+            $table->dropIndex(['is_platform', 'status']);
+            $table->dropColumn('is_platform');
+        });
+    }
+};

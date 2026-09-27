@@ -36,10 +36,21 @@ export function pasteEditorNode(
     engine: ComponentTreeEngine,
     parentId: string,
     source: BuilderComponentNode,
+    position?: TreeInsertPosition,
 ): BuilderEditorState {
-    const document = engine.paste(state.document, parentId, source);
+    const document = engine.paste(state.document, parentId, source, position);
     const parent = findNode(document, parentId);
-    const pasted = parent?.children[parent.children.length - 1];
+    let pasted: BuilderComponentNode | undefined;
+    if (position?.mode === 'before' || position?.mode === 'after') {
+        const siblingIndex = parent?.children.findIndex((c) => c.id === position.siblingId) ?? -1;
+        if (position.mode === 'after' && siblingIndex >= 0) {
+            pasted = parent?.children[siblingIndex + 1];
+        } else if (position.mode === 'before' && siblingIndex > 0) {
+            pasted = parent?.children[siblingIndex - 1];
+        }
+    } else {
+        pasted = parent?.children[parent.children.length - 1];
+    }
     return pasted ? selectInsertedNode(setDocument(state, document), pasted.id) : setDocument(state, document);
 }
 

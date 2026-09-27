@@ -10,11 +10,20 @@ class ReusableComponent extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['user_id', 'name', 'description', 'document', 'schema_version', 'status'];
+    protected $fillable = ['user_id', 'name', 'description', 'is_platform', 'document', 'schema_version', 'status'];
 
     protected function casts(): array
     {
-        return ['document' => 'array', 'schema_version' => 'integer'];
+        return [
+            'document' => 'array',
+            'schema_version' => 'integer',
+            'is_platform' => 'boolean',
+        ];
+    }
+
+    public function isPlatform(): bool
+    {
+        return (bool) $this->is_platform;
     }
 
     /** @return BelongsTo<User, $this> */

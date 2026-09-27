@@ -25,6 +25,7 @@ export interface BuilderLayersPanelProps {
     onDropNode?: (nodeId: string, mode: 'append' | 'before' | 'after') => void;
     onEndDrag?: () => void;
     canDropOnNode?: (nodeId: string, mode: 'append' | 'before' | 'after') => boolean;
+    onContextMenu?: (nodeId: string, x: number, y: number) => void;
     showHeader?: boolean;
     className?: string;
 }
@@ -40,6 +41,7 @@ export function BuilderLayersPanel({
     onDropNode,
     onEndDrag,
     canDropOnNode,
+    onContextMenu,
     showHeader = false,
     className = '',
 }: BuilderLayersPanelProps) {
@@ -179,6 +181,7 @@ export function BuilderLayersPanel({
                                 onDropNode={onDropNode}
                                 onEndDrag={onEndDrag}
                                 canDropOnNode={canDropOnNode}
+                                onContextMenu={onContextMenu}
                                 collapsedIds={collapsedIds}
                                 onToggleExpanded={toggleNodeExpanded}
                                 filterQuery={filterQuery.trim().toLowerCase()}
@@ -205,6 +208,7 @@ interface LayerTreeNodeProps {
     onDropNode?: (nodeId: string, mode: 'append' | 'before' | 'after') => void;
     onEndDrag?: () => void;
     canDropOnNode?: (nodeId: string, mode: 'append' | 'before' | 'after') => boolean;
+    onContextMenu?: (nodeId: string, x: number, y: number) => void;
     collapsedIds: Set<string>;
     onToggleExpanded: (nodeId: string) => void;
     filterQuery: string;
@@ -222,6 +226,7 @@ function LayerTreeNode({
     onDropNode,
     onEndDrag,
     canDropOnNode,
+    onContextMenu,
     collapsedIds,
     onToggleExpanded,
     filterQuery,
@@ -310,6 +315,12 @@ function LayerTreeNode({
                 onDragOver={handleDragOver}
                 onDrop={handleDrop}
                 onDragEnd={onEndDrag}
+                onContextMenu={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onSelect(node.id);
+                    onContextMenu?.(node.id, e.clientX, e.clientY);
+                }}
             >
                 {/* Expand / Collapse Chevron */}
                 <button
@@ -378,6 +389,7 @@ function LayerTreeNode({
                                 onDropNode={onDropNode}
                                 onEndDrag={onEndDrag}
                                 canDropOnNode={canDropOnNode}
+                                onContextMenu={onContextMenu}
                                 collapsedIds={collapsedIds}
                                 onToggleExpanded={onToggleExpanded}
                                 filterQuery={filterQuery}

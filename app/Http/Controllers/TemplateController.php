@@ -25,32 +25,56 @@ final class TemplateController extends Controller
 
     public function adminIndex(Request $request): Response
     {
+        $this->templates->ensureDefaultTemplates($request->user());
+
+        $templates = Template::where('status', 'active')
+            ->where(fn ($q) => $q->where('user_id', $request->user()->id)->orWhere('is_platform', true))
+            ->latest()
+            ->get();
+
         return Inertia::render('templates/index', [
-            'templates' => $request->user()->templates()->where('status', 'active')->latest()->get()->map(fn (Template $template): array => [
+            'templates' => $templates->map(fn (Template $template): array => [
                 'id' => $template->id,
                 'name' => $template->name,
                 'slug' => $template->slug,
                 'description' => $template->description,
                 'type' => $template->type,
+                'is_platform' => (bool) $template->is_platform,
+                'is_owner' => (int) $template->user_id === (int) $request->user()->id,
                 'status' => $template->status,
                 'updatedAt' => $template->updated_at?->toISOString(),
             ])->values()->all(),
         ]);
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(Request $request)
     {
         $data = $request->validate([
             'name' => ['required', 'string', 'max:120'],
             'slug' => ['nullable', 'string', 'max:120'],
             'description' => ['nullable', 'string', 'max:1000'],
             'type' => ['nullable', 'string', 'max:40'],
-            'document' => ['required', 'array'],
+            'document' => ['nullable', 'array'],
         ]);
-        $template = $this->templates->create($request->user(), $data['name'], $data['document'], $data['slug'] ?? null, $data['description'] ?? null, $data['type'] ?? 'page');
+        $template = $this->templates->create(
+            $request->user(),
+            $data['name'],
+            $data['document'] ?? null,
+            $data['slug'] ?? null,
+            $data['description'] ?? null,
+            $data['type'] ?? 'page'
+        );
 
-        return response()->json(['template' => $this->data($template)], 201);
+        if ($request->wantsJson()) {
+            return response()->json([
+                'template' => $this->data($template),
+                'builderUrl' => route('builder.templates.show', $template->id),
+            ], 201);
+        }
+
+        return redirect()->route('builder.templates.show', $template->id);
     }
+
 
     public function update(Request $request, Template $template): JsonResponse
     {
@@ -63,7 +87,7 @@ final class TemplateController extends Controller
 
     public function archive(Request $request, Template $template): JsonResponse
     {
-        Gate::authorize('update', $template);
+        Gate::authorize('delete', $template);
         $this->templates->archive($request->user(), $template);
 
         return response()->json(['status' => 'archived']);

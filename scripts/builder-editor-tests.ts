@@ -45,6 +45,10 @@ const engine = new ComponentTreeEngine(registry);
 assert.equal(registry.get('layout.stack').name, 'Stack');
 assert.equal(registry.get('content.button').name, 'Button');
 assert.equal(registry.get('marketing.card').name, 'Card');
+assert.equal(registry.get('marketing.pricing').name, 'Pricing Card');
+assert.equal(registry.get('media.carousel').name, 'Image Carousel');
+assert.equal(registry.get('marketing.logomarquee').name, 'Logo Marquee');
+assert.equal(registry.get('form.contact').name, 'Contact Form');
 
 let operationState = createEditorState(document);
 const originalDocument = structuredClone(operationState.document);
@@ -53,6 +57,20 @@ assert.equal(operationState.document.root.children[0].children[0].children[0].ch
 assert.equal(operationState.selectedNodeId, operationState.document.root.children[0].children[0].children[0].children[1].id);
 assert.notEqual(operationState.document, originalDocument);
 assert.deepEqual(document, originalDocument);
+
+const sectionScaffoldState = insertEditorComponent(createEditorState(document), engine, document.root.id, 'layout.section');
+const scaffoldedSection = sectionScaffoldState.document.root.children.at(-1);
+assert.equal(scaffoldedSection?.type, 'layout.section');
+assert.equal(scaffoldedSection?.styles.desktop?.width, '100%');
+assert.equal(scaffoldedSection?.children.length, 1);
+assert.equal(scaffoldedSection?.children[0].type, 'layout.row');
+assert.equal(scaffoldedSection?.children[0].styles.desktop?.width, '1160px');
+assert.equal(scaffoldedSection?.children[0].styles.desktop?.maxWidth, '100%');
+assert.equal(scaffoldedSection?.children[0].children.length, 1);
+assert.equal(scaffoldedSection?.children[0].children[0].type, 'layout.column');
+assert.equal(scaffoldedSection?.children[0].children[0].styles.desktop?.width, '1140px');
+assert.equal(scaffoldedSection?.children[0].children[0].styles.desktop?.maxWidth, '100%');
+assert.equal(sectionScaffoldState.selectedNodeId, scaffoldedSection?.id);
 
 const beforeDocument = engine.insert(
     document,
@@ -286,6 +304,62 @@ assert.match(desktopImageFeatureHtml, /class="hw-image-feature[^>]*flex-directio
 assert.match(mobileImageFeatureHtml, /class="hw-image-feature[^>]*flex-direction: column;/);
 assert.doesNotMatch(desktopImageFeatureHtml, /@media/);
 assert.doesNotMatch(mobileImageFeatureHtml, /@media/);
+
+const pricingDocument = structuredClone(document);
+pricingDocument.root.children[0].children[0].children[0].children.push({
+    id: 'pricing-1',
+    type: 'marketing.pricing',
+    props: { price: '$29', featureText: 'Responsive card\nWrapped feature copy' },
+    styles: {},
+    children: [],
+    metadata: {},
+});
+const desktopPricingHtml = renderResultToHtml(renderer.renderDocument(pricingDocument));
+const mobilePricingHtml = renderResultToHtml(mobileRenderer.renderDocument(pricingDocument));
+assert.match(desktopPricingHtml, /data-builder-type="marketing\.pricing"/);
+assert.match(desktopPricingHtml, /Responsive card/);
+assert.match(desktopPricingHtml, /font-size: 2\.5rem/);
+assert.match(mobilePricingHtml, /font-size: 2rem/);
+assert.match(mobilePricingHtml, /max-width: 100%/);
+assert.match(mobilePricingHtml, /overflow-wrap: anywhere/);
+
+const essentialsDocument = structuredClone(document);
+const essentialsColumn = essentialsDocument.root.children[0].children[0].children[0].children;
+for (const [id, type, props] of [
+    ['carousel-1', 'media.carousel', {}],
+    [
+        'marquee-1',
+        'marketing.logomarquee',
+        {
+            direction: 'right',
+            logoBackground: '#f8fafc',
+            logoImages: '/images/helloweb-logo-dark.png | HelloWeb\n/images/helloweb-logo-light.png | HelloWeb Light',
+        },
+    ],
+    ['accordion-1', 'content.accordion', {}],
+    ['tabs-1', 'content.tabs', {}],
+    ['stats-1', 'marketing.stats', {}],
+    ['testimonial-1', 'marketing.testimonial', {}],
+    ['video-1', 'embed.video', {}],
+    ['contact-1', 'form.contact', {}],
+] as const) {
+    essentialsColumn.push({ id, type, props, styles: {}, children: [], metadata: {} });
+}
+const essentialsHtml = renderResultToHtml(renderer.renderDocument(essentialsDocument));
+const mobileEssentialsHtml = renderResultToHtml(mobileRenderer.renderDocument(essentialsDocument));
+assert.match(essentialsHtml, /data-builder-type="media\.carousel"/);
+assert.match(essentialsHtml, /data-builder-type="marketing\.logomarquee"/);
+assert.match(essentialsHtml, /animation-direction: reverse/);
+assert.match(essentialsHtml, /<img src="\/images\/helloweb-logo-dark\.png"/);
+assert.match(essentialsHtml, /translateX\(-33\.333333%\)/);
+assert.match(essentialsHtml, /data-builder-type="content\.accordion"/);
+assert.match(essentialsHtml, /data-builder-type="content\.tabs"/);
+assert.match(essentialsHtml, /data-builder-type="marketing\.stats"/);
+assert.match(essentialsHtml, /data-builder-type="marketing\.testimonial"/);
+assert.match(essentialsHtml, /data-builder-type="embed\.video"/);
+assert.match(essentialsHtml, /data-builder-type="form\.contact"/);
+assert.match(mobileEssentialsHtml, /grid-template-columns: repeat\(1, minmax\(0, 1fr\)\)/);
+assert.match(mobileEssentialsHtml, /max-width: 100%/);
 
 const canvasMarkup = renderToStaticMarkup(createElement(BuilderCanvas, { document }));
 assert.match(canvasMarkup, /data-builder-canvas="true"/);
@@ -538,4 +612,11 @@ assert.equal(engine.findParent(sectionPlacedCode, 'code-3')?.id, 'section-1');
 const rowPlacedCode = engine.move(sectionPlacedCode, 'code-3', 'row-1');
 assert.equal(engine.findParent(rowPlacedCode, 'code-3')?.id, 'row-1');
 
-console.log('builder editor tests: ok');
+void (async () => {
+    const { processImageFile } = await import('../resources/js/builder/utils/image-processing');
+    const mockFile = new File(['mock content'], 'test-image.png', { type: 'image/png' });
+    const untouched = await processImageFile(mockFile, { convertToWebp: false, removeBackground: false });
+    assert.equal(untouched.name, 'test-image.png');
+
+    console.log('builder editor tests: ok');
+})();

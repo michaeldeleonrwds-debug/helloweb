@@ -6,16 +6,45 @@ import type { MediaAsset } from '@/builder/persistence';
 import type { ReusableComponentDefinition } from '@/builder/reusable';
 import { usePage } from '@inertiajs/react';
 
+import type { SharedData } from '@/types';
+
 interface BuilderPageProps extends Record<string, unknown> {
     page: { id: number; title: string; websiteName: string; version: number; status?: string; slug?: string };
     document: BuilderPageDocument;
     reusableComponents: ReusableComponentDefinition[];
     templates: { id: number; name: string; description?: string | null }[];
     mediaAssets: MediaAsset[];
+    isTemplate?: boolean;
+    template?: { id: number; name: string; slug: string; type: string; description?: string | null };
+    auth?: SharedData['auth'];
+    headerTemplateId?: number | null;
+    footerTemplateId?: number | null;
+    headerDocument?: BuilderPageDocument | null;
+    footerDocument?: BuilderPageDocument | null;
+    headerTemplates?: Array<{ id: number; name: string; slug: string; type: string; description?: string | null; is_platform?: boolean; document?: any }>;
+    footerTemplates?: Array<{ id: number; name: string; slug: string; type: string; description?: string | null; is_platform?: boolean; document?: any }>;
+    pageTemplates?: Array<{ id: number; name: string; slug: string; type: string; description?: string | null; is_platform?: boolean; document?: any }>;
 }
 
 export default function Builder() {
-    const { page, document, reusableComponents, templates, mediaAssets } = usePage<BuilderPageProps>().props;
+    const {
+        page,
+        document,
+        reusableComponents,
+        templates,
+        mediaAssets,
+        isTemplate,
+        template,
+        auth,
+        headerTemplateId,
+        footerTemplateId,
+        headerDocument,
+        footerDocument,
+        headerTemplates,
+        footerTemplates,
+        pageTemplates,
+    } = usePage<BuilderPageProps>().props;
+    const isSuperAdmin = Boolean(auth?.user?.is_superadmin);
 
     return (
         <>
@@ -32,8 +61,19 @@ export default function Builder() {
                     pageName={page.title}
                     pageStatus={page.status}
                     pageSlug={page.slug}
+                    isTemplate={isTemplate}
+                    template={template}
+                    isSuperAdmin={isSuperAdmin}
+                    headerTemplateId={headerTemplateId}
+                    footerTemplateId={footerTemplateId}
+                    headerDocument={headerDocument}
+                    footerDocument={footerDocument}
+                    headerTemplates={headerTemplates}
+                    footerTemplates={footerTemplates}
+                    pageTemplates={pageTemplates}
                 />
             </div>
         </>
     );
 }
+

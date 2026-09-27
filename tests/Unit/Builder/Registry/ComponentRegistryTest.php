@@ -109,6 +109,16 @@ class ComponentRegistryTest extends TestCase
         $this->assertStringContainsString('<script>', $defaultCode);
     }
 
+    public function test_styled_list_supports_text_color_controls(): void
+    {
+        $list = BuiltInComponentDefinitions::registry()->get('content.list');
+
+        $this->assertContains('color', $list->styleCapabilities());
+        $this->assertContains('fontSize', $list->styleCapabilities());
+        $this->assertContains('fontWeight', $list->styleCapabilities());
+        $this->assertContains('lineHeight', $list->styleCapabilities());
+    }
+
     public function test_registry_does_not_mutate_through_returned_definition_arrays(): void
     {
         $registry = BuiltInComponentDefinitions::registry();
@@ -132,6 +142,134 @@ class ComponentRegistryTest extends TestCase
             name: 'Heading',
             category: 'content',
         );
+    }
+
+    public function test_logo_marquee_supports_extended_props_and_new_components_exist(): void
+    {
+        $registry = BuiltInComponentDefinitions::registry();
+
+        $this->assertTrue($registry->has('marketing.logomarquee'));
+        $marquee = $registry->get('marketing.logomarquee');
+        $schema = $marquee->propSchema();
+
+        $this->assertArrayHasKey('pauseOnHover', $schema);
+        $this->assertSame('boolean', $schema['pauseOnHover']['type']);
+        $this->assertArrayHasKey('fadeEdges', $schema);
+        $this->assertSame('boolean', $schema['fadeEdges']['type']);
+        $this->assertArrayHasKey('fadeWidth', $schema);
+        $this->assertArrayHasKey('grayscale', $schema);
+        $this->assertArrayHasKey('logoCardStyle', $schema);
+        $this->assertArrayHasKey('gap', $schema);
+
+        $this->assertTrue($registry->has('marketing.countdown'));
+        $this->assertTrue($registry->has('content.socialicons'));
+        $this->assertTrue($registry->has('content.alert'));
+        $this->assertTrue($registry->has('marketing.progressbar'));
+    }
+
+    public function test_document_validator_accepts_marquee_with_pause_on_hover_and_new_components(): void
+    {
+        $validator = new \App\Builder\Persistence\DocumentPersistenceValidator(BuiltInComponentDefinitions::registry());
+
+        $document = [
+            'schemaVersion' => 1,
+            'root' => [
+                'id' => 'root-1',
+                'type' => 'layout.root',
+                'props' => [],
+                'styles' => [],
+                'children' => [
+                    [
+                        'id' => 'sec-1',
+                        'type' => 'layout.section',
+                        'props' => [],
+                        'styles' => [],
+                        'children' => [
+                            [
+                                'id' => 'row-1',
+                                'type' => 'layout.row',
+                                'props' => [],
+                                'styles' => [],
+                                'children' => [
+                                    [
+                                        'id' => 'col-1',
+                                        'type' => 'layout.column',
+                                        'props' => [],
+                                        'styles' => [],
+                                        'children' => [
+                                            [
+                                                'id' => 'marquee-1',
+                                                'type' => 'marketing.logomarquee',
+                                                'props' => [
+                                                    'pauseOnHover' => true,
+                                                    'fadeEdges' => true,
+                                                    'fadeWidth' => '80px',
+                                                    'grayscale' => true,
+                                                    'logoCardStyle' => 'card',
+                                                    'gap' => '24px',
+                                                    'speed' => '20s',
+                                                    'direction' => 'left',
+                                                ],
+                                                'styles' => [],
+                                                'children' => [],
+                                            ],
+                                            [
+                                                'id' => 'countdown-1',
+                                                'type' => 'marketing.countdown',
+                                                'props' => [
+                                                    'targetDate' => '2026-12-31T23:59:59',
+                                                    'styleVariant' => 'card',
+                                                    'showDays' => true,
+                                                ],
+                                                'styles' => [],
+                                                'children' => [],
+                                            ],
+                                            [
+                                                'id' => 'social-1',
+                                                'type' => 'content.socialicons',
+                                                'props' => [
+                                                    'items' => [
+                                                        ['platform' => 'facebook', 'url' => 'https://facebook.com'],
+                                                    ],
+                                                    'iconStyle' => 'brand',
+                                                ],
+                                                'styles' => [],
+                                                'children' => [],
+                                            ],
+                                            [
+                                                'id' => 'alert-1',
+                                                'type' => 'content.alert',
+                                                'props' => [
+                                                    'variant' => 'info',
+                                                    'title' => 'Notice',
+                                                    'message' => 'Hello',
+                                                ],
+                                                'styles' => [],
+                                                'children' => [],
+                                            ],
+                                            [
+                                                'id' => 'prog-1',
+                                                'type' => 'marketing.progressbar',
+                                                'props' => [
+                                                    'percentage' => 75,
+                                                    'label' => 'Progress',
+                                                ],
+                                                'styles' => [],
+                                                'children' => [],
+                                            ],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        // Should not throw any InvalidArgumentException
+        $validator->validate($document);
+        $this->assertTrue(true);
     }
 
     private function definition(): ComponentDefinition

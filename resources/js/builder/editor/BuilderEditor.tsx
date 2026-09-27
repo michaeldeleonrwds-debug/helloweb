@@ -9,13 +9,17 @@ import { createBuiltInComponentRegistry } from '../registry/built-ins';
 import type { ReusableComponentDefinition } from '../reusable';
 import { resolveStyles } from '../style/style';
 import { BuilderCanvasView } from './BuilderCanvas';
+import { BuilderContextMenu, type ContextMenuTarget } from './BuilderContextMenu';
+import { BuilderFooterBar } from './BuilderFooterBar';
 import { BuilderLeftPanel } from './BuilderLeftPanel';
 import { BuilderToolbar } from './BuilderToolbar';
 import { CodeEditor } from './CodeEditor';
 import { ComponentInspector } from './ComponentInspector';
+import { KeyboardShortcutsModal } from './KeyboardShortcutsModal';
 import { LayoutTemplatesModal, type LayoutTemplateItem, type LayoutTemplateType } from './LayoutTemplatesModal';
 import { MediaManager } from './MediaManager';
 import { PanelResizeHandle } from './PanelResizeHandle';
+import { ThemeLayoutPickerModal, type ThemeTemplateOption } from './ThemeLayoutPickerModal';
 import { UnsavedChangesModal } from './UnsavedChangesModal';
 import { ImportModal } from '@/components/ImportModal';
 import {
@@ -46,6 +50,16 @@ interface BuilderEditorProps {
     pageName?: string;
     pageStatus?: string;
     pageSlug?: string;
+    isTemplate?: boolean;
+    template?: { id: number; name: string; slug: string; type: string; description?: string | null };
+    isSuperAdmin?: boolean;
+    headerTemplateId?: number | null;
+    footerTemplateId?: number | null;
+    headerDocument?: BuilderPageDocument | null;
+    footerDocument?: BuilderPageDocument | null;
+    headerTemplates?: ThemeTemplateOption[];
+    footerTemplates?: ThemeTemplateOption[];
+    pageTemplates?: ThemeTemplateOption[];
 }
 
 export function BuilderEditor({
@@ -60,7 +74,18 @@ export function BuilderEditor({
     pageName = 'Page',
     pageStatus = 'draft',
     pageSlug,
+    isTemplate = false,
+    template,
+    isSuperAdmin = false,
+    headerTemplateId = null,
+    footerTemplateId = null,
+    headerDocument = null,
+    footerDocument = null,
+    headerTemplates = [],
+    footerTemplates = [],
+    pageTemplates = [],
 }: BuilderEditorProps) {
+
     const registry = useMemo(() => createBuiltInComponentRegistry(), []);
     const engine = useMemo(() => new ComponentTreeEngine(registry), [registry]);
     const [state, dispatch] = useReducer(editorReducer, document, createEditorState);
@@ -80,16 +105,140 @@ export function BuilderEditor({
     const [importModalOpen, setImportModalOpen] = useState(false);
     const [layoutModalOpen, setLayoutModalOpen] = useState(false);
     const [layoutModalType, setLayoutModalType] = useState<LayoutTemplateType>('columns');
-    const [leftPanelWidth, setLeftPanelWidth] = useState(300);
+    const [leftPanelWidth, setLeftPanelWidth] = useState(340);
     const [rightPanelWidth, setRightPanelWidth] = useState(340);
     const [zoomLevel, setZoomLevel] = useState<number>(80);
     const [unsavedLeaveDialogOpen, setUnsavedLeaveDialogOpen] = useState(false);
     const [isLeavingWithSave, setIsLeavingWithSave] = useState(false);
+    const [currentHeaderId, setCurrentHeaderId] = useState<number | null>(headerTemplateId);
+    const [currentFooterId, setCurrentFooterId] = useState<number | null>(footerTemplateId);
+    const [currentHeaderDoc, setCurrentHeaderDoc] = useState<BuilderPageDocument | null>(headerDocument);
+    const [currentFooterDoc, setCurrentFooterDoc] = useState<BuilderPageDocument | null>(footerDocument);
+    const [themeModalOpen, setThemeModalOpen] = useState(false);
+    const [themeModalTab, setThemeModalTab] = useState<'header' | 'footer' | 'blueprints'>('header');
+    const [isUpdatingThemeLayout, setIsUpdatingThemeLayout] = useState(false);
+    const [shortcutsModalOpen, setShortcutsModalOpen] = useState(false);
+    const [contextMenuTarget, setContextMenuTarget] = useState<ContextMenuTarget | null>(null);
+
+    useEffect(() => {
+        setCurrentHeaderId(headerTemplateId);
+    }, [headerTemplateId]);
+
+    useEffect(() => {
+        setCurrentFooterId(footerTemplateId);
+    }, [footerTemplateId]);
+
+    useEffect(() => {
+        setCurrentHeaderDoc(headerDocument);
+    }, [headerDocument]);
+
+    useEffect(() => {
+        setCurrentFooterDoc(footerDocument);
+    }, [footerDocument]);
+
+    const activeHeaderName = useMemo(() => {
+        if (!currentHeaderId) return 'No Header';
+        const found = headerTemplates.find((t) => t.id === currentHeaderId);
+        return found?.name ?? 'Global Header';
+    }, [currentHeaderId, headerTemplates]);
+
+    const activeFooterName = useMemo(() => {
+        if (!currentFooterId) return 'No Footer';
+        const found = footerTemplates.find((t) => t.id === currentFooterId);
+        return found?.name ?? 'Global Footer';
+    }, [currentFooterId, footerTemplates]);
+
+    const handleSelectHeader = async (newHeaderId: number | null) => {
+        if (!pageId) return;
+        setIsUpdatingThemeLayout(true);
+        const selected = headerTemplates.find((t) => t.id === newHeaderId);
+        setCurrentHeaderId(newHeaderId);
+        setCurrentHeaderDoc((selected?.document as BuilderPageDocument) ?? null);
+
+        try {
+            const response = await fetch(route('builder.pages.theme-layout.update', pageId), {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
+                    'X-CSRF-TOKEN': window.document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? '',
+                },
+                body: JSON.stringify({ header_template_id: newHeaderId }),
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to update global header.');
+            }
+
+            const data = await response.json();
+            setCurrentHeaderId(data.headerTemplateId);
+            setCurrentHeaderDoc(data.headerDocument);
+        } catch (err) {
+            alert(err instanceof Error ? err.message : 'Failed to update global header');
+        } finally {
+            setIsUpdatingThemeLayout(false);
+        }
+    };
+
+    const handleSelectFooter = async (newFooterId: number | null) => {
+        if (!pageId) return;
+        setIsUpdatingThemeLayout(true);
+        const selected = footerTemplates.find((t) => t.id === newFooterId);
+        setCurrentFooterId(newFooterId);
+        setCurrentFooterDoc((selected?.document as BuilderPageDocument) ?? null);
+
+        try {
+            const response = await fetch(route('builder.pages.theme-layout.update', pageId), {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
+                    'X-CSRF-TOKEN': window.document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? '',
+                },
+                body: JSON.stringify({ footer_template_id: newFooterId }),
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to update global footer.');
+            }
+
+            const data = await response.json();
+            setCurrentFooterId(data.footerTemplateId);
+            setCurrentFooterDoc(data.footerDocument);
+        } catch (err) {
+            alert(err instanceof Error ? err.message : 'Failed to update global footer');
+        } finally {
+            setIsUpdatingThemeLayout(false);
+        }
+    };
+
+    const handleSelectBlueprint = (blueprint: ThemeTemplateOption) => {
+        if (!blueprint?.document) return;
+        if (window.confirm(`Apply "${blueprint.name}" blueprint? This will replace your current page layout with this blueprint.`)) {
+            run(() => setDocument(state, structuredClone(blueprint.document as BuilderPageDocument)));
+            setThemeModalOpen(false);
+        }
+    };
+
     const clipboardRef = useRef<BuilderComponentNode | null>(null);
     const undoStack = useRef<BuilderPageDocument[]>([]);
     const redoStack = useRef<BuilderPageDocument[]>([]);
-    const save = useBuilderAutosave(state.document, pageId, initialVersion);
+    const [currentTemplate, setCurrentTemplate] = useState(template);
+    const saveUrl = isTemplate && currentTemplate ? route('builder.templates.document.update', currentTemplate.id) : undefined;
+    const save = useBuilderAutosave(state.document, pageId, initialVersion, saveUrl, (payload) => {
+        if (payload.template && payload.template.id !== currentTemplate?.id) {
+            setCurrentTemplate((prev) => ({
+                id: payload.template!.id,
+                name: payload.template!.name ?? prev?.name ?? '',
+                slug: payload.template!.slug ?? prev?.slug ?? '',
+                type: payload.template!.type ?? prev?.type ?? '',
+                description: payload.template!.description ?? prev?.description,
+            }));
+            window.history.replaceState({}, '', route('builder.templates.show', payload.template.id));
+        }
+    });
     const hasPendingChanges = save.status !== 'saved';
+    const backUrl = isTemplate ? '/templates' : '/dashboard';
 
     useEffect(() => {
         if (!hasPendingChanges) return;
@@ -107,13 +256,13 @@ export function BuilderEditor({
         if (hasPendingChanges) {
             setUnsavedLeaveDialogOpen(true);
         } else {
-            window.location.href = '/dashboard';
+            window.location.href = backUrl;
         }
     };
 
     const handleDiscardAndLeave = () => {
         setUnsavedLeaveDialogOpen(false);
-        window.location.href = '/dashboard';
+        window.location.href = backUrl;
     };
 
     const handleSaveAndLeave = async () => {
@@ -121,13 +270,14 @@ export function BuilderEditor({
         try {
             const saved = await save.saveNow();
             if (saved) {
-                window.location.href = '/dashboard';
+                window.location.href = backUrl;
             } else {
                 setIsLeavingWithSave(false);
             }
         } catch {
             setIsLeavingWithSave(false);
         }
+
     };
 
     const handlePublish = async () => {
@@ -338,6 +488,94 @@ export function BuilderEditor({
         });
     };
 
+    const openNodeContextMenu = (nodeId: string, x: number, y: number) => {
+        dispatch({ type: 'selectNode', nodeId });
+        const node = engine.find(state.document, nodeId);
+        if (!node) return;
+        const parent = engine.findParent(state.document, nodeId);
+        const def = registry.has(node.type) ? registry.get(node.type) : null;
+        const parentDef = parent && registry.has(parent.type) ? registry.get(parent.type) : null;
+
+        setContextMenuTarget({
+            type: 'node',
+            x,
+            y,
+            nodeId: node.id,
+            nodeName: def?.name ?? node.type,
+            nodeType: node.type,
+            parentId: parent ? parent.id : null,
+            parentName: parentDef?.name ?? (parent?.id === state.document.root.id ? 'Page' : parent?.type ?? null),
+            canMoveUp: canMoveNode(nodeId, 'up'),
+            canMoveDown: canMoveNode(nodeId, 'down'),
+            canAcceptChildren: Boolean(def?.capabilities?.canAcceptChildren),
+            isLocked: isNodeLocked(nodeId),
+            isHidden: isNodeHidden(nodeId),
+            hasStyles: Boolean(node.styles && Object.keys(node.styles).length > 0),
+        });
+    };
+
+    const handleCanvasContextMenu = (event: React.MouseEvent) => {
+        const target = event.target as HTMLElement | null;
+        if (target?.closest('input, textarea, [contenteditable="true"]')) {
+            return;
+        }
+
+        event.preventDefault();
+        event.stopPropagation();
+
+        const nodeElement = target?.closest<HTMLElement>('[data-builder-node-id]');
+        const nodeId = nodeElement?.dataset.builderNodeId;
+
+        if (nodeId && nodeId !== state.document.root.id) {
+            openNodeContextMenu(nodeId, event.clientX, event.clientY);
+        } else {
+            setContextMenuTarget({
+                type: 'canvas',
+                x: event.clientX,
+                y: event.clientY,
+            });
+        }
+    };
+
+    const handleContextMenuPaste = (targetId: string, mode?: 'inside' | 'after') => {
+        const source = clipboardRef.current;
+        if (!source) return;
+
+        if (targetId === 'root') {
+            run(() => pasteEditorNode(state, engine, state.document.root.id, source));
+            return;
+        }
+
+        if (mode === 'after') {
+            const parent = engine.findParent(state.document, targetId);
+            if (parent && engine.canAcceptChild(state.document, parent.id, source.type)) {
+                run(() => pasteEditorNode(state, engine, parent.id, source, { mode: 'after', siblingId: targetId }));
+            }
+        } else {
+            if (engine.canAcceptChild(state.document, targetId, source.type)) {
+                run(() => pasteEditorNode(state, engine, targetId, source));
+            } else {
+                const parent = engine.findParent(state.document, targetId);
+                if (parent && engine.canAcceptChild(state.document, parent.id, source.type)) {
+                    run(() => pasteEditorNode(state, engine, parent.id, source, { mode: 'after', siblingId: targetId }));
+                }
+            }
+        }
+    };
+
+    const handleResetStyles = (nodeId: string) => {
+        run(() => {
+            const target = engine.find(state.document, nodeId);
+            if (!target || !target.styles) return state;
+            const nextDoc = structuredClone(state.document);
+            const found = engine.find(nextDoc, nodeId);
+            if (found) {
+                found.styles = {};
+            }
+            return setDocument(state, nextDoc);
+        });
+    };
+
     const run = (operation: () => ReturnType<typeof createEditorState>) => {
         try {
             commitDocument(operation());
@@ -376,6 +614,11 @@ export function BuilderEditor({
             if (modifier && event.key.toLowerCase() === 'y') {
                 event.preventDefault();
                 redo();
+                return;
+            }
+            if (modifier && event.key === '/') {
+                event.preventDefault();
+                setShortcutsModalOpen((open) => !open);
                 return;
             }
             if (modifier && event.key.toLowerCase() === 'd' && selectedNode) {
@@ -536,7 +779,17 @@ export function BuilderEditor({
     };
 
     return (
-        <div className="builder-editor bg-background text-foreground flex h-screen min-h-[620px] flex-col overflow-hidden" data-builder-editor="true">
+        <div
+            className="builder-editor bg-background text-foreground flex h-screen min-h-[620px] flex-col overflow-hidden"
+            data-builder-editor="true"
+            onContextMenu={(e) => {
+                const target = e.target as HTMLElement | null;
+                if (target?.closest('input, textarea, [contenteditable="true"]')) {
+                    return;
+                }
+                e.preventDefault();
+            }}
+        >
             <BuilderToolbar
                 websiteName={websiteName}
                 pageName={pageName}
@@ -559,11 +812,19 @@ export function BuilderEditor({
                 onSave={save.saveNow}
                 onNavigateBack={handleNavigateBack}
                 onOpenCodeSettings={() => setCodeSettingsOpen(true)}
-                onOpenImport={() => setImportModalOpen(true)}
+                onOpenImport={isSuperAdmin ? () => setImportModalOpen(true) : undefined}
                 pageStatus={currentStatus}
                 onPublish={handlePublish}
                 isPublishing={isPublishing}
+                isTemplate={isTemplate}
+                templateType={template?.type}
+                onOpenHeaderPicker={!isTemplate ? () => { setThemeModalTab('header'); setThemeModalOpen(true); } : undefined}
+                onOpenFooterPicker={!isTemplate ? () => { setThemeModalTab('footer'); setThemeModalOpen(true); } : undefined}
+                onOpenBlueprintsPicker={!isTemplate ? () => { setThemeModalTab('blueprints'); setThemeModalOpen(true); } : undefined}
+                activeHeaderName={activeHeaderName}
+                activeFooterName={activeFooterName}
             />
+
             <div className="flex min-h-0 flex-1">
                 {elementsOpen ? (
                     <>
@@ -584,7 +845,7 @@ export function BuilderEditor({
                                 }}
                                 onInsertTemplate={(id) => void insertPersistedDefinition('template', id)}
                                 onInsertReusable={(id) => void insertPersistedDefinition('reusable', id)}
-                                onOpenImport={() => setImportModalOpen(true)}
+                                onOpenImport={isSuperAdmin ? () => setImportModalOpen(true) : undefined}
                                 onUploadMedia={uploadImage}
                                 document={state.document}
                                 registry={registry}
@@ -602,12 +863,13 @@ export function BuilderEditor({
                                 onDropNode={dropNode}
                                 onEndDragNode={() => dispatch({ type: 'clearDrag' })}
                                 canDropOnNode={canDropOnNode}
+                                onLayerContextMenu={(nodeId, x, y) => openNodeContextMenu(nodeId, x, y)}
                             />
                         </div>
                         <PanelResizeHandle
                             direction="right"
                             onResize={(delta) => setLeftPanelWidth((w) => Math.min(520, Math.max(240, w + delta)))}
-                            onReset={() => setLeftPanelWidth(300)}
+                            onReset={() => setLeftPanelWidth(340)}
                         />
                     </>
                 ) : null}
@@ -684,6 +946,22 @@ export function BuilderEditor({
                             if (nodeId) setMediaManagerTarget({ kind: target, nodeId, itemIndex: payload?.itemIndex });
                         }}
                         onEditNode={(nodeId) => dispatch({ type: 'startInlineEdit', nodeId })}
+                        headerDocument={!isTemplate ? currentHeaderDoc : null}
+                        footerDocument={!isTemplate ? currentFooterDoc : null}
+                        headerName={activeHeaderName}
+                        footerName={activeFooterName}
+                        headerId={currentHeaderId}
+                        footerId={currentFooterId}
+                        onOpenHeaderPicker={() => {
+                            setThemeModalTab('header');
+                            setThemeModalOpen(true);
+                        }}
+                        onOpenFooterPicker={() => {
+                            setThemeModalTab('footer');
+                            setThemeModalOpen(true);
+                        }}
+                        isTemplate={isTemplate}
+                        onContextMenu={handleCanvasContextMenu}
                     />
                 </main>
                 {inspectorOpen ? (
@@ -715,10 +993,29 @@ export function BuilderEditor({
                             onOpenMediaManager={(target = 'image', payload?: any) => {
                                 if (selectedNode) setMediaManagerTarget({ kind: target, nodeId: selectedNode.id, itemIndex: payload?.itemIndex });
                             }}
+                            onUploadMedia={uploadImage}
                         />
                     </>
                 ) : null}
             </div>
+            <BuilderFooterBar
+                document={state.document}
+                selectedNodeId={state.selectedNodeId}
+                onSelectNode={selectNodeFromLayers}
+                registry={registry}
+                breakpoint={activeBreakpoint}
+                onBreakpointChange={handleBreakpointChange}
+                zoom={zoomLevel}
+                onZoomChange={setZoomLevel}
+                saveStatus={save.status}
+                saveError={save.error}
+                onRetry={save.retry}
+                pageId={pageId}
+                onOpenCodeSettings={() => setCodeSettingsOpen(true)}
+                onOpenShortcuts={() => setShortcutsModalOpen(true)}
+                onContextMenuCrumb={(nodeId, x, y) => openNodeContextMenu(nodeId, x, y)}
+                isTemplate={isTemplate}
+            />
             {elementPickerParentId ? (
                 <div
                     className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6 backdrop-blur-xs"
@@ -819,6 +1116,36 @@ export function BuilderEditor({
                                     }),
                                 );
                             }
+                        } else if (mediaManagerTarget.kind === 'logomarquee') {
+                            const node = findNode(state.document, mediaManagerTarget.nodeId);
+                            const currentLogos = Array.isArray(node?.props?.logos) ? [...(node.props.logos as any[])] : [];
+                            currentLogos.push({
+                                src: url,
+                                alt: alt || 'Logo',
+                            });
+                            run(() =>
+                                updateEditorProps(state, engine, mediaManagerTarget.nodeId, {
+                                    logos: currentLogos,
+                                    logoImages: undefined,
+                                }),
+                            );
+                        } else if (mediaManagerTarget.kind === 'logomarquee-replace' && typeof mediaManagerTarget.itemIndex === 'number') {
+                            const node = findNode(state.document, mediaManagerTarget.nodeId);
+                            const currentLogos = Array.isArray(node?.props?.logos) ? [...(node.props.logos as any[])] : [];
+                            const idx = mediaManagerTarget.itemIndex;
+                            if (currentLogos[idx]) {
+                                currentLogos[idx] = {
+                                    ...currentLogos[idx],
+                                    src: url,
+                                    alt: currentLogos[idx].alt || alt || 'Logo',
+                                };
+                                run(() =>
+                                    updateEditorProps(state, engine, mediaManagerTarget.nodeId, {
+                                        logos: currentLogos,
+                                        logoImages: undefined,
+                                    }),
+                                );
+                            }
                         } else {
                             run(() =>
                                 updateEditorProps(state, engine, mediaManagerTarget.nodeId, { src: url, alt }),
@@ -860,6 +1187,62 @@ export function BuilderEditor({
                 onDiscard={handleDiscardAndLeave}
                 onSaveAndLeave={handleSaveAndLeave}
                 isSaving={isLeavingWithSave || save.status === 'saving'}
+            />
+            <ThemeLayoutPickerModal
+                open={themeModalOpen}
+                onClose={() => setThemeModalOpen(false)}
+                activeTab={themeModalTab}
+                onTabChange={setThemeModalTab}
+                headerTemplates={headerTemplates}
+                footerTemplates={footerTemplates}
+                pageTemplates={pageTemplates}
+                selectedHeaderId={currentHeaderId}
+                selectedFooterId={currentFooterId}
+                onSelectHeader={handleSelectHeader}
+                onSelectFooter={handleSelectFooter}
+                onSelectBlueprint={handleSelectBlueprint}
+                isUpdating={isUpdatingThemeLayout}
+            />
+            <KeyboardShortcutsModal
+                open={shortcutsModalOpen}
+                onClose={() => setShortcutsModalOpen(false)}
+            />
+            <BuilderContextMenu
+                target={contextMenuTarget}
+                onClose={() => setContextMenuTarget(null)}
+                onDuplicate={(nodeId) => run(() => duplicateEditorNode(state, engine, nodeId))}
+                onCopy={(nodeId) => {
+                    const node = engine.find(state.document, nodeId);
+                    if (node) clipboardRef.current = structuredClone(node);
+                }}
+                onPaste={handleContextMenuPaste}
+                canPaste={Boolean(clipboardRef.current)}
+                onDelete={(nodeId) => run(() => removeEditorNode(state, engine, nodeId))}
+                onMove={(nodeId, direction) => run(() => moveEditorNodeSibling(state, engine, nodeId, direction))}
+                onSelectParent={(parentId) => selectNodeFromLayers(parentId)}
+                onToggleLock={(nodeId) => run(() => updateEditorMetadata(state, engine, nodeId, { locked: !isNodeLocked(nodeId) }))}
+                onToggleVisibility={(nodeId) => {
+                    if (isNodeHidden(nodeId)) run(() => clearEditorStyleOverride(state, engine, nodeId, activeBreakpoint, 'display'));
+                    else run(() => updateEditorStyles(state, engine, nodeId, activeBreakpoint, { display: 'none' }));
+                }}
+                onResetStyles={handleResetStyles}
+                onAddElement={(parentId) => setElementPickerParentId(parentId)}
+                onAddSectionBelow={(nodeId) => {
+                    const parent = engine.findParent(state.document, nodeId);
+                    const parentId = parent ? parent.id : state.document.root.id;
+                    run(() => insertEditorComponent(state, engine, parentId, 'layout.section', { mode: 'after', siblingId: nodeId }));
+                }}
+                onInspect={(nodeId) => {
+                    dispatch({ type: 'selectNode', nodeId });
+                    setInspectorOpen(true);
+                }}
+                onAddSection={() => run(() => insertEditorComponent(state, engine, state.document.root.id, 'layout.section'))}
+                onUndo={undo}
+                canUndo={undoStack.current.length > 0}
+                onRedo={redo}
+                canRedo={redoStack.current.length > 0}
+                onZoomReset={() => setZoomLevel(activeBreakpoint === 'desktop' ? 80 : 100)}
+                onOpenShortcuts={() => setShortcutsModalOpen(true)}
             />
             {publishNotice ? (
                 <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 rounded-2xl bg-neutral-900 px-4 py-3 text-xs font-semibold text-white shadow-2xl border border-neutral-800 animate-in fade-in slide-in-from-bottom-2">

@@ -3,11 +3,14 @@ import {
     Layers,
     LayoutGrid,
     LayoutTemplate,
+    Loader2,
     Plus,
     Search,
     Sparkles,
     UploadCloud,
+    Wand2,
     X,
+    Zap,
 } from 'lucide-react';
 import { useId, useMemo, useRef, useState } from 'react';
 
@@ -16,6 +19,7 @@ import type { BuilderComponentNode, BuilderPageDocument, ComponentType } from '.
 import type { MediaAsset } from '../persistence';
 import type { ComponentRegistry } from '../registry/component-registry';
 import type { ReusableComponentDefinition } from '../reusable';
+import { convertImageToWebp, removeImageBackground } from '../utils/image-processing';
 import { BuilderElementsPanel } from './BuilderElementsPanel';
 import { BuilderLayersPanel } from './BuilderLayersPanel';
 
@@ -43,6 +47,7 @@ export interface BuilderLeftPanelProps {
     onDropNode?: (nodeId: string, mode: 'append' | 'before' | 'after') => void;
     onEndDragNode?: () => void;
     canDropOnNode?: (nodeId: string, mode: 'append' | 'before' | 'after') => boolean;
+    onLayerContextMenu?: (nodeId: string, x: number, y: number) => void;
 }
 
 export function BuilderLeftPanel({
@@ -67,6 +72,7 @@ export function BuilderLeftPanel({
     onDropNode,
     onEndDragNode,
     canDropOnNode,
+    onLayerContextMenu,
 }: BuilderLeftPanelProps) {
     const [tab, setTab] = useState<LeftPanelTab>('elements');
 
@@ -84,12 +90,12 @@ export function BuilderLeftPanel({
     return (
         <aside className="builder-left-panel flex h-full min-h-0 w-full flex-col overflow-hidden bg-card text-card-foreground" aria-label="Builder controls">
             {/* Top Navigation Bar: 4 Equal Grid Tabs */}
-            <div className="flex h-11 shrink-0 items-center border-b border-border bg-card px-1.5">
+            <div className="flex h-11 shrink-0 items-center border-b border-border bg-card px-2.5">
                 <div className="grid grid-cols-4 gap-1 w-full">
                     <button
                         type="button"
                         onClick={() => setTab('elements')}
-                        className={`inline-flex items-center justify-center gap-1 rounded-lg py-1.5 text-xs font-medium transition ${
+                        className={`inline-flex items-center justify-center gap-1 rounded-lg px-1.5 py-1.5 text-[11px] font-medium transition ${
                             tab === 'elements'
                                 ? 'bg-primary/10 text-primary font-semibold shadow-2xs'
                                 : 'text-muted-foreground hover:bg-muted/70 hover:text-foreground'
@@ -97,13 +103,13 @@ export function BuilderLeftPanel({
                         title="Elements Catalog"
                     >
                         <LayoutGrid className="size-3.5 shrink-0" />
-                        <span className="truncate">Elements</span>
+                        <span className="whitespace-nowrap">Elements</span>
                     </button>
 
                     <button
                         type="button"
                         onClick={() => setTab('layers')}
-                        className={`inline-flex items-center justify-center gap-1 rounded-lg py-1.5 text-xs font-medium transition ${
+                        className={`inline-flex items-center justify-center gap-1 rounded-lg px-1.5 py-1.5 text-[11px] font-medium transition ${
                             tab === 'layers'
                                 ? 'bg-primary/10 text-primary font-semibold shadow-2xs'
                                 : 'text-muted-foreground hover:bg-muted/70 hover:text-foreground'
@@ -111,7 +117,7 @@ export function BuilderLeftPanel({
                         title="Layers Tree"
                     >
                         <Layers className="size-3.5 shrink-0" />
-                        <span className="truncate">Layers</span>
+                        <span className="whitespace-nowrap">Layers</span>
                         {layerCount > 0 ? (
                             <span className="rounded-full bg-muted px-1 text-[9px] font-mono text-muted-foreground">
                                 {layerCount}
@@ -122,7 +128,7 @@ export function BuilderLeftPanel({
                     <button
                         type="button"
                         onClick={() => setTab('library')}
-                        className={`inline-flex items-center justify-center gap-1 rounded-lg py-1.5 text-xs font-medium transition ${
+                        className={`inline-flex items-center justify-center gap-1 rounded-lg px-1.5 py-1.5 text-[11px] font-medium transition ${
                             tab === 'library'
                                 ? 'bg-primary/10 text-primary font-semibold shadow-2xs'
                                 : 'text-muted-foreground hover:bg-muted/70 hover:text-foreground'
@@ -130,13 +136,13 @@ export function BuilderLeftPanel({
                         title="Templates & Components"
                     >
                         <LayoutTemplate className="size-3.5 shrink-0" />
-                        <span className="truncate">Library</span>
+                        <span className="whitespace-nowrap">Library</span>
                     </button>
 
                     <button
                         type="button"
                         onClick={() => setTab('media')}
-                        className={`inline-flex items-center justify-center gap-1 rounded-lg py-1.5 text-xs font-medium transition ${
+                        className={`inline-flex items-center justify-center gap-1 rounded-lg px-1.5 py-1.5 text-[11px] font-medium transition ${
                             tab === 'media'
                                 ? 'bg-primary/10 text-primary font-semibold shadow-2xs'
                                 : 'text-muted-foreground hover:bg-muted/70 hover:text-foreground'
@@ -144,7 +150,7 @@ export function BuilderLeftPanel({
                         title="Media Assets"
                     >
                         <ImageIcon className="size-3.5 shrink-0" />
-                        <span className="truncate">Media</span>
+                        <span className="whitespace-nowrap">Media</span>
                     </button>
                 </div>
             </div>
@@ -173,6 +179,7 @@ export function BuilderLeftPanel({
                                 onDropNode={onDropNode}
                                 onEndDrag={onEndDragNode}
                                 canDropOnNode={canDropOnNode}
+                                onContextMenu={onLayerContextMenu}
                                 showHeader={true}
                             />
                         ) : null}
@@ -405,8 +412,17 @@ function MediaPanel({
 }) {
     const fileInputId = useId();
     const [uploading, setUploading] = useState(false);
+    const [uploadStatus, setUploadStatus] = useState<string | null>(null);
     const [uploadError, setUploadError] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+    // AI & Optimization Options
+    const [convertToWebp, setConvertToWebp] = useState(true);
+    const [removeBg, setRemoveBg] = useState(false);
+
+    // Per-asset operation tracking
+    const [processingAssetId, setProcessingAssetId] = useState<number | null>(null);
+    const [processingAction, setProcessingAction] = useState<string | null>(null);
 
     const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -415,20 +431,77 @@ function MediaPanel({
         setUploading(true);
         setUploadError(null);
         try {
-            await onUploadMedia(file);
+            let processedFile = file;
+
+            if (removeBg) {
+                setUploadStatus('AI: Removing background...');
+                processedFile = await removeImageBackground(file, {
+                    format: convertToWebp ? 'image/webp' : 'image/png',
+                    onProgress: (stage, percent) => {
+                        setUploadStatus(`${stage} (${percent}%)`);
+                    },
+                });
+            } else if (convertToWebp && !file.type.includes('webp') && !file.name.toLowerCase().endsWith('.webp')) {
+                setUploadStatus('Optimizing to WebP...');
+                processedFile = await convertImageToWebp(file);
+            }
+
+            setUploadStatus('Uploading to library...');
+            await onUploadMedia(processedFile);
         } catch (err) {
             setUploadError(err instanceof Error ? err.message : 'Upload failed');
         } finally {
             setUploading(false);
+            setUploadStatus(null);
             if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+    };
+
+    const handleRemoveBackground = async (asset: MediaAsset) => {
+        if (!asset.url || !onUploadMedia) return;
+        setProcessingAssetId(asset.id);
+        setProcessingAction('AI Cutout...');
+        setUploadError(null);
+        try {
+            const cutoutFile = await removeImageBackground(asset.url, {
+                format: 'image/webp',
+                fileName: asset.originalFilename,
+                onProgress: (_stage, percent) => {
+                    setProcessingAction(`Cutout ${percent}%`);
+                },
+            });
+            await onUploadMedia(cutoutFile);
+        } catch (err) {
+            setUploadError(err instanceof Error ? err.message : 'AI background removal failed');
+        } finally {
+            setProcessingAssetId(null);
+            setProcessingAction(null);
+        }
+    };
+
+    const handleConvertToWebp = async (asset: MediaAsset) => {
+        if (!asset.url || !onUploadMedia) return;
+        setProcessingAssetId(asset.id);
+        setProcessingAction('To WebP...');
+        setUploadError(null);
+        try {
+            const webpFile = await convertImageToWebp(asset.url, {
+                fileName: asset.originalFilename,
+            });
+            await onUploadMedia(webpFile);
+        } catch (err) {
+            setUploadError(err instanceof Error ? err.message : 'WebP conversion failed');
+        } finally {
+            setProcessingAssetId(null);
+            setProcessingAction(null);
         }
     };
 
     return (
         <div className="flex h-full flex-col overflow-hidden">
-            {/* Upload Area */}
+            {/* Upload & AI Options Area */}
             {onUploadMedia ? (
-                <div className="shrink-0 border-b border-border p-3">
+                <div className="shrink-0 border-b border-border p-3 space-y-2.5">
                     <label
                         htmlFor={fileInputId}
                         className="group flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed border-border/80 bg-muted/30 p-3 text-center transition hover:border-primary/50 hover:bg-muted/50"
@@ -443,17 +516,57 @@ function MediaPanel({
                             disabled={uploading}
                         />
                         <div className="flex size-8 items-center justify-center rounded-full bg-primary/10 text-primary transition group-hover:scale-105">
-                            <UploadCloud className="size-4" />
+                            {uploading ? (
+                                <Loader2 className="size-4 animate-spin text-primary" />
+                            ) : (
+                                <UploadCloud className="size-4" />
+                            )}
                         </div>
                         <div>
                             <span className="text-xs font-semibold text-foreground">
-                                {uploading ? 'Uploading image...' : 'Click to upload image'}
+                                {uploading ? (uploadStatus ?? 'Processing image...') : 'Click to upload image'}
                             </span>
                             <p className="text-[10px] text-muted-foreground">PNG, JPG, SVG, WebP</p>
                         </div>
                     </label>
+
+                    {/* Pre-upload Optimization & AI Controls */}
+                    <div className="rounded-lg border border-border/60 bg-muted/20 p-2 space-y-1.5">
+                        <div className="flex items-center justify-between text-[11px]">
+                            <label className="flex items-center gap-1.5 cursor-pointer text-foreground select-none">
+                                <input
+                                    type="checkbox"
+                                    checked={convertToWebp}
+                                    onChange={(e) => setConvertToWebp(e.target.checked)}
+                                    className="rounded border-border text-primary focus:ring-primary/20 size-3.5"
+                                />
+                                <span className="inline-flex items-center gap-1 font-medium">
+                                    <Zap className="size-3 text-amber-500 shrink-0" />
+                                    Convert to WebP
+                                </span>
+                            </label>
+                            <span className="text-[9px] text-muted-foreground font-mono">Small & Fast</span>
+                        </div>
+
+                        <div className="flex items-center justify-between text-[11px]">
+                            <label className="flex items-center gap-1.5 cursor-pointer text-foreground select-none">
+                                <input
+                                    type="checkbox"
+                                    checked={removeBg}
+                                    onChange={(e) => setRemoveBg(e.target.checked)}
+                                    className="rounded border-border text-primary focus:ring-primary/20 size-3.5"
+                                />
+                                <span className="inline-flex items-center gap-1 font-medium">
+                                    <Sparkles className="size-3 text-primary shrink-0" />
+                                    Remove Background
+                                </span>
+                            </label>
+                            <span className="text-[9px] text-primary/80 font-mono">In-Browser AI</span>
+                        </div>
+                    </div>
+
                     {uploadError ? (
-                        <p className="mt-1.5 text-[11px] text-destructive">{uploadError}</p>
+                        <p className="text-[11px] text-destructive leading-tight">{uploadError}</p>
                     ) : null}
                 </div>
             ) : null}
@@ -468,32 +581,106 @@ function MediaPanel({
                     </div>
                 ) : (
                     <div className="grid grid-cols-2 gap-2">
-                        {assets.map((asset) => (
-                            <div
-                                key={asset.id}
-                                className="group relative overflow-hidden rounded-xl border border-border/80 bg-card shadow-2xs transition hover:border-primary/50 hover:shadow-xs"
-                            >
-                                <div className="flex aspect-square items-center justify-center overflow-hidden bg-muted/40">
-                                    {asset.url ? (
-                                        <img
-                                            src={asset.url}
-                                            alt={asset.altText ?? asset.originalFilename}
-                                            className="size-full object-cover transition-transform duration-200 group-hover:scale-105"
-                                        />
-                                    ) : (
-                                        <ImageIcon className="size-6 text-muted-foreground" />
-                                    )}
+                        {assets.map((asset) => {
+                            const isCutout = asset.originalFilename.toLowerCase().includes('-nobg');
+                            const assetIsWebp = asset.originalFilename.toLowerCase().endsWith('.webp') || (asset.mimeType?.includes('webp') ?? false);
+                            const formatBadge = asset.originalFilename.split('.').pop()?.toUpperCase() || (assetIsWebp ? 'WEBP' : 'IMG');
+                            const isProcessing = processingAssetId === asset.id;
+
+                            return (
+                                <div
+                                    key={asset.id}
+                                    className="group relative overflow-hidden rounded-xl border border-border/80 bg-card shadow-2xs transition hover:border-primary/50 hover:shadow-xs flex flex-col"
+                                >
+                                    <div className="relative flex aspect-square items-center justify-center overflow-hidden bg-muted/40">
+                                        {asset.url ? (
+                                            <img
+                                                src={asset.url}
+                                                alt={asset.altText ?? asset.originalFilename}
+                                                className="size-full object-cover transition-transform duration-200 group-hover:scale-105"
+                                            />
+                                        ) : (
+                                            <ImageIcon className="size-6 text-muted-foreground" />
+                                        )}
+
+                                        {/* Format & Cutout Badges */}
+                                        <div className="absolute top-1.5 left-1.5 flex items-center gap-1 pointer-events-none">
+                                            <span className="rounded bg-black/60 px-1 py-0.5 text-[8px] font-mono font-bold text-white uppercase backdrop-blur-xs">
+                                                {formatBadge}
+                                            </span>
+                                            {isCutout ? (
+                                                <span className="rounded bg-emerald-600/90 px-1 py-0.5 text-[8px] font-semibold text-white backdrop-blur-xs flex items-center gap-0.5">
+                                                    <Sparkles className="size-2" />
+                                                    Cutout
+                                                </span>
+                                            ) : null}
+                                        </div>
+
+                                        {/* File Size */}
+                                        {asset.fileSize ? (
+                                            <span className="absolute bottom-1 right-1 rounded bg-black/60 px-1 text-[8px] font-mono text-white/90 backdrop-blur-xs pointer-events-none">
+                                                {formatFileSize(asset.fileSize)}
+                                            </span>
+                                        ) : null}
+
+                                        {/* Processing Spinner Overlay */}
+                                        {isProcessing ? (
+                                            <div className="absolute inset-0 bg-black/75 flex flex-col items-center justify-center gap-1 p-2 text-center text-white z-10">
+                                                <Loader2 className="size-4 animate-spin text-primary" />
+                                                <span className="text-[10px] font-medium leading-tight">{processingAction}</span>
+                                            </div>
+                                        ) : null}
+
+                                        {/* Hover Quick Actions */}
+                                        {!isProcessing && onUploadMedia ? (
+                                            <div className="absolute inset-x-1 bottom-1 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 z-10">
+                                                <button
+                                                    type="button"
+                                                    title="Remove background using in-browser AI"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        void handleRemoveBackground(asset);
+                                                    }}
+                                                    className="flex-1 inline-flex items-center justify-center gap-0.5 rounded bg-primary/95 hover:bg-primary text-primary-foreground py-1 text-[9px] font-semibold shadow-xs transition"
+                                                >
+                                                    <Wand2 className="size-2.5" />
+                                                    Cutout
+                                                </button>
+                                                {!assetIsWebp ? (
+                                                    <button
+                                                        type="button"
+                                                        title="Convert to lightweight WebP"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            void handleConvertToWebp(asset);
+                                                        }}
+                                                        className="flex-1 inline-flex items-center justify-center gap-0.5 rounded bg-amber-600/95 hover:bg-amber-600 text-white py-1 text-[9px] font-semibold shadow-xs transition"
+                                                    >
+                                                        <Zap className="size-2.5" />
+                                                        WebP
+                                                    </button>
+                                                ) : null}
+                                            </div>
+                                        ) : null}
+                                    </div>
+
+                                    <div className="p-1.5">
+                                        <p className="truncate text-[10px] font-medium text-foreground" title={asset.originalFilename}>
+                                            {asset.originalFilename}
+                                        </p>
+                                    </div>
                                 </div>
-                                <div className="p-1.5">
-                                    <p className="truncate text-[10px] font-medium text-foreground" title={asset.originalFilename}>
-                                        {asset.originalFilename}
-                                    </p>
-                                </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 )}
             </div>
         </div>
     );
+}
+
+function formatFileSize(bytes: number): string {
+    if (bytes < 1024) return `${bytes}B`;
+    if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)}KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
 }

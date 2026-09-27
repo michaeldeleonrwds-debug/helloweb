@@ -16,7 +16,7 @@ class ComponentLibraryTest extends TestCase
     {
         $registry = BuiltInComponentDefinitions::registry();
 
-        foreach (['layout.section', 'layout.container', 'layout.stack', 'layout.flex', 'layout.grid', 'layout.columns', 'layout.spacer', 'layout.divider', 'content.heading', 'content.text', 'content.richtext', 'content.button', 'content.link', 'media.image', 'marketing.card'] as $type) {
+        foreach (['layout.section', 'layout.container', 'layout.stack', 'layout.flex', 'layout.grid', 'layout.columns', 'layout.spacer', 'layout.divider', 'content.heading', 'content.text', 'content.richtext', 'content.button', 'content.link', 'content.accordion', 'content.tabs', 'media.image', 'media.carousel', 'embed.video', 'marketing.card', 'marketing.pricing', 'marketing.logomarquee', 'marketing.stats', 'marketing.testimonial', 'form.contact'] as $type) {
             $this->assertTrue($registry->has($type), "Missing component [{$type}].");
         }
 

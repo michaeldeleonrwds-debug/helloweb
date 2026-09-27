@@ -281,6 +281,9 @@ export function CanvasNode({
         onClick: nodeId
             ? (event: MouseEvent<HTMLElement>) => {
                   const target = event.target as HTMLElement | null;
+                  if (target?.closest('a')) {
+                      event.preventDefault();
+                  }
                   const navToggle = target?.closest<HTMLElement>('[data-hw-nav-toggle]');
                   if (navToggle) {
                       const header = navToggle.closest('header, nav, [data-builder-type="layout.navbar"]');

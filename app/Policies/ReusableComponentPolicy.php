@@ -9,16 +9,29 @@ class ReusableComponentPolicy
 {
     public function view(User $user, ReusableComponent $component): bool
     {
-        return (int) $component->user_id === (int) $user->id;
+        return (int) $component->user_id === (int) $user->id || (bool) $component->is_platform || $user->isSuperAdmin();
     }
 
     public function update(User $user, ReusableComponent $component): bool
     {
-        return $this->view($user, $component);
+        if ($component->is_platform) {
+            return $user->isSuperAdmin();
+        }
+
+        return (int) $component->user_id === (int) $user->id || $user->isSuperAdmin();
     }
 
     public function insert(User $user, ReusableComponent $component): bool
     {
-        return $this->view($user, $component);
+        return (int) $component->user_id === (int) $user->id || (bool) $component->is_platform || $user->isSuperAdmin();
+    }
+
+    public function delete(User $user, ReusableComponent $component): bool
+    {
+        if ($component->is_platform) {
+            return $user->isSuperAdmin();
+        }
+
+        return (int) $component->user_id === (int) $user->id || $user->isSuperAdmin();
     }
 }

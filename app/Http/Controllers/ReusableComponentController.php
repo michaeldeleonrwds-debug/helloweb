@@ -25,11 +25,20 @@ final class ReusableComponentController extends Controller
 
     public function adminIndex(Request $request): Response
     {
+        $this->components->ensureDefaultComponents($request->user());
+
+        $components = ReusableComponent::where('status', 'active')
+            ->where(fn ($q) => $q->where('user_id', $request->user()->id)->orWhere('is_platform', true))
+            ->latest()
+            ->get();
+
         return Inertia::render('reusable-components/index', [
-            'components' => $request->user()->reusableComponents()->where('status', 'active')->latest()->get()->map(fn (ReusableComponent $component): array => [
+            'components' => $components->map(fn (ReusableComponent $component): array => [
                 'id' => $component->id,
                 'name' => $component->name,
                 'description' => $component->description,
+                'is_platform' => (bool) $component->is_platform,
+                'is_owner' => (int) $component->user_id === (int) $request->user()->id,
                 'status' => $component->status,
                 'updatedAt' => $component->updated_at?->toISOString(),
             ])->values()->all(),
@@ -55,7 +64,7 @@ final class ReusableComponentController extends Controller
 
     public function archive(Request $request, ReusableComponent $component): JsonResponse
     {
-        Gate::authorize('update', $component);
+        Gate::authorize('delete', $component);
         $this->components->archive($request->user(), $component);
 
         return response()->json(['status' => 'archived']);

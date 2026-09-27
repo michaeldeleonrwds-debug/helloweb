@@ -28,6 +28,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('builder', [BuilderPageController::class, 'index'])->name('builder');
     Route::get('builder/pages/{page}', [BuilderPageController::class, 'show'])->name('builder.pages.show');
     Route::patch('builder/pages/{page}/document', [BuilderPageController::class, 'updateDocument'])->name('builder.pages.document.update');
+    Route::patch('builder/pages/{page}/theme-layout', [BuilderPageController::class, 'updateThemeLayout'])->name('builder.pages.theme-layout.update');
     Route::post('builder/pages/{page}/publish', [BuilderPageController::class, 'publish'])->name('builder.pages.publish');
     Route::post('builder/pages/{page}/unpublish', [BuilderPageController::class, 'unpublish'])->name('builder.pages.unpublish');
     Route::post('builder/pages/{page}/revisions', [BuilderPageController::class, 'createRevision'])->name('builder.pages.revisions.store');
@@ -35,9 +36,12 @@ Route::middleware(['auth'])->group(function () {
     Route::post('builder/pages/{page}/revisions/{revision}/restore', [BuilderPageController::class, 'restoreRevision'])->name('builder.pages.revisions.restore');
     Route::get('builder/templates', [TemplateController::class, 'index'])->name('builder.templates.index');
     Route::post('builder/templates', [TemplateController::class, 'store'])->name('builder.templates.store');
+    Route::get('builder/templates/{template}', [BuilderPageController::class, 'showTemplate'])->name('builder.templates.show');
     Route::patch('builder/templates/{template}', [TemplateController::class, 'update'])->name('builder.templates.update');
+    Route::patch('builder/templates/{template}/document', [BuilderPageController::class, 'updateTemplateDocument'])->name('builder.templates.document.update');
     Route::post('builder/templates/{template}/archive', [TemplateController::class, 'archive'])->name('builder.templates.archive');
     Route::post('builder/templates/{template}/pages/{page}/instantiate', [TemplateController::class, 'instantiate'])->name('builder.templates.instantiate');
+
     Route::get('builder/reusable-components', [ReusableComponentController::class, 'index'])->name('builder.reusable.index');
     Route::post('builder/reusable-components', [ReusableComponentController::class, 'store'])->name('builder.reusable.store');
     Route::patch('builder/reusable-components/{component}', [ReusableComponentController::class, 'update'])->name('builder.reusable.update');
@@ -48,9 +52,15 @@ Route::middleware(['auth'])->group(function () {
     Route::get('builder/media/{asset}', [MediaAssetController::class, 'show'])->name('builder.media.show');
     Route::post('builder/media/{asset}/archive', [MediaAssetController::class, 'archive'])->name('builder.media.archive');
 
-    Route::post('builder/import/analyze', [\App\Http\Controllers\ImportController::class, 'analyze'])->name('builder.import.analyze');
-    Route::post('builder/import/component', [\App\Http\Controllers\ImportController::class, 'importComponent'])->name('builder.import.component');
-    Route::post('builder/import/template', [\App\Http\Controllers\ImportController::class, 'importTemplate'])->name('builder.import.template');
+    Route::middleware(['superadmin'])->group(function () {
+        Route::get('admin', [\App\Http\Controllers\AdminPlatformController::class, 'index'])->name('admin.platform.index');
+        Route::post('admin/templates/{template}/toggle-platform', [\App\Http\Controllers\AdminPlatformController::class, 'toggleTemplatePlatform'])->name('admin.templates.toggle-platform');
+        Route::post('admin/reusable-components/{component}/toggle-platform', [\App\Http\Controllers\AdminPlatformController::class, 'toggleComponentPlatform'])->name('admin.reusable.toggle-platform');
+
+        Route::post('builder/import/analyze', [\App\Http\Controllers\ImportController::class, 'analyze'])->name('builder.import.analyze');
+        Route::post('builder/import/component', [\App\Http\Controllers\ImportController::class, 'importComponent'])->name('builder.import.component');
+        Route::post('builder/import/template', [\App\Http\Controllers\ImportController::class, 'importTemplate'])->name('builder.import.template');
+    });
 });
 
 require __DIR__.'/settings.php';
@@ -58,5 +68,5 @@ require __DIR__.'/auth.php';
 
 // Public dynamic page route (placed last to prevent collision with application routes)
 Route::get('{slug}', [PublicSiteController::class, 'show'])
-    ->where('slug', '^(?!dashboard|settings|websites|pages|templates|media|reusable-components|builder|login|register|logout|forgot-password|reset-password|verify-email|confirm-password|preview|up|api|storage)[a-zA-Z0-9_\-\/]+$')
+    ->where('slug', '^(?!dashboard|settings|websites|pages|templates|media|reusable-components|builder|admin|login|register|logout|forgot-password|reset-password|verify-email|confirm-password|preview|up|api|storage)[a-zA-Z0-9_\-\/]+$')
     ->name('public.page');

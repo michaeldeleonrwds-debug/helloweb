@@ -3,18 +3,23 @@ import { useMemo, useState } from 'react';
 
 import { AdminResourcePage, ResourceEmpty, StatusBadge } from '@/components/admin-resource-page';
 import { Button } from '@/components/ui/button';
-import { Link, router } from '@inertiajs/react';
+import { Link, router, usePage } from '@inertiajs/react';
 import { ImportModal } from '@/components/ImportModal';
+import type { SharedData } from '@/types';
 
 interface ReusableComponent {
     id: number;
     name: string;
     description: string | null;
+    is_platform?: boolean;
+    is_owner?: boolean;
     status: string;
     updatedAt: string | null;
 }
 
 export default function ReusableComponents({ components }: { components: ReusableComponent[] }) {
+    const { auth } = usePage<SharedData>().props;
+    const isSuperAdmin = Boolean(auth?.user?.is_superadmin);
     const [searchQuery, setSearchQuery] = useState('');
     const [importModalOpen, setImportModalOpen] = useState(false);
     const [deletingId, setDeletingId] = useState<number | null>(null);
@@ -61,11 +66,15 @@ export default function ReusableComponents({ components }: { components: Reusabl
             title="Reusable Blocks"
             description="Manage shared UI symbols, modular building blocks, and global components synchronized across pages."
             action={{ label: 'New Block', href: route('builder') }}
-            secondaryAction={{
-                label: 'Import Component',
-                icon: UploadCloud,
-                onClick: () => setImportModalOpen(true),
-            }}
+            secondaryAction={
+                isSuperAdmin
+                    ? {
+                          label: 'Import Component',
+                          icon: UploadCloud,
+                          onClick: () => setImportModalOpen(true),
+                      }
+                    : undefined
+            }
             empty="No reusable components yet."
             icon={Sparkles}
         >
@@ -117,16 +126,23 @@ export default function ReusableComponents({ components }: { components: Reusabl
                                             <Layers className="size-5" />
                                         </div>
                                         <div className="flex items-center gap-2">
+                                            {component.is_platform ? (
+                                                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                                                    Platform Block
+                                                </span>
+                                            ) : null}
                                             <StatusBadge status={component.status} />
-                                            <button
-                                                type="button"
-                                                onClick={() => handleDelete(component)}
-                                                disabled={deletingId === component.id}
-                                                className="size-7.5 rounded-full flex items-center justify-center text-muted-foreground/70 hover:bg-destructive/10 hover:text-destructive transition disabled:opacity-50"
-                                                title={`Delete ${component.name}`}
-                                            >
-                                                <Trash2 className="size-3.5" />
-                                            </button>
+                                            {!component.is_platform || isSuperAdmin ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleDelete(component)}
+                                                    disabled={deletingId === component.id}
+                                                    className="size-7.5 rounded-full flex items-center justify-center text-muted-foreground/70 hover:bg-destructive/10 hover:text-destructive transition disabled:opacity-50"
+                                                    title={`Delete ${component.name}`}
+                                                >
+                                                    <Trash2 className="size-3.5" />
+                                                </button>
+                                            ) : null}
                                         </div>
                                     </div>
 

@@ -76,6 +76,10 @@ export class ComponentTreeEngine {
             throw TreeOperationError.invalidComponentType(type);
         }
 
+        if (type === 'layout.section') {
+            return this.createSectionScaffold(document);
+        }
+
         const definition = this.registry.get(type);
         const existingIds = collectIds(document.root);
         const id = this.idGenerator.generate(type, existingIds);
@@ -83,6 +87,41 @@ export class ComponentTreeEngine {
         if (existingIds.has(id)) {
             throw TreeOperationError.duplicateIdGenerated(id);
         }
+
+        return {
+            id,
+            type,
+            props: structuredClone(definition.defaultProps ?? {}),
+            styles: structuredClone(definition.defaultStyles ?? {}),
+            children: [],
+        };
+    }
+
+    private createSectionScaffold(document: BuilderPageDocument): BuilderComponentNode {
+        const existingIds = collectIds(document.root);
+        const section = this.createNodeWithId('layout.section', existingIds);
+        const row = this.createNodeWithId('layout.row', existingIds);
+        const column = this.createNodeWithId('layout.column', existingIds);
+
+        row.children = [column];
+        section.children = [row];
+
+        return section;
+    }
+
+    private createNodeWithId(type: ComponentType, existingIds: Set<string>): BuilderComponentNode {
+        if (!this.registry.has(type)) {
+            throw TreeOperationError.invalidComponentType(type);
+        }
+
+        const definition = this.registry.get(type);
+        const id = this.idGenerator.generate(type, existingIds);
+
+        if (existingIds.has(id)) {
+            throw TreeOperationError.duplicateIdGenerated(id);
+        }
+
+        existingIds.add(id);
 
         return {
             id,
@@ -184,12 +223,17 @@ export class ComponentTreeEngine {
         });
     }
 
-    paste(document: BuilderPageDocument, parentId: string, source: BuilderComponentNode): BuilderPageDocument {
+    paste(
+        document: BuilderPageDocument,
+        parentId: string,
+        source: BuilderComponentNode,
+        position: TreeInsertPosition = { mode: 'append' },
+    ): BuilderPageDocument {
         const nextDocument = cloneDocument(document);
         const existingIds = collectIds(nextDocument.root);
         this.assertParentAccepts(nextDocument, parentId, source.type);
         const pasted = this.duplicateNode(source, existingIds);
-        if (!insertIntoNode(nextDocument.root, parentId, pasted, { mode: 'append' })) {
+        if (!insertIntoNode(nextDocument.root, parentId, pasted, position)) {
             throw TreeOperationError.parentNotFound(parentId);
         }
 

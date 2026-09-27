@@ -164,6 +164,74 @@ class BuilderRendererTest extends TestCase
         $this->assertStringContainsString('Hello builder', $result->toHtml());
     }
 
+    public function test_pricing_component_renders_responsive_public_markup(): void
+    {
+        $data = $this->documentArray();
+        $data['root']['children'][0]['children'][0]['children'][] = [
+            'id' => 'node_pricing_1',
+            'type' => 'marketing.pricing',
+            'props' => [
+                'planName' => '<Pro>',
+                'price' => '$29',
+                'featureText' => "Responsive layout\nNo overflow",
+                'ctaText' => 'Start',
+            ],
+            'styles' => [],
+            'children' => [],
+            'metadata' => [],
+        ];
+
+        $desktopHtml = $this->renderer()->renderDocument(BuilderDocument::fromArray($data))->toHtml();
+        $mobileHtml = $this->renderer('mobile')->renderDocument(BuilderDocument::fromArray($data))->toHtml();
+
+        $this->assertStringContainsString('data-builder-type="marketing.pricing"', $desktopHtml);
+        $this->assertStringContainsString('&lt;Pro&gt;', $desktopHtml);
+        $this->assertStringContainsString('Responsive layout', $desktopHtml);
+        $this->assertStringContainsString('font-size: 2.5rem', $desktopHtml);
+        $this->assertStringContainsString('font-size: 2rem', $mobileHtml);
+        $this->assertStringContainsString('max-width: 100%', $mobileHtml);
+        $this->assertStringContainsString('overflow-wrap: anywhere', $mobileHtml);
+    }
+
+    public function test_essential_element_pack_renders_public_markup(): void
+    {
+        $data = $this->documentArray();
+        foreach ([
+            ['id' => 'node_carousel_1', 'type' => 'media.carousel', 'props' => []],
+            ['id' => 'node_marquee_1', 'type' => 'marketing.logomarquee', 'props' => ['direction' => 'right', 'logoImages' => "/images/helloweb-logo-dark.png | HelloWeb\n/images/helloweb-logo-light.png | HelloWeb Light"]],
+            ['id' => 'node_accordion_1', 'type' => 'content.accordion', 'props' => []],
+            ['id' => 'node_tabs_1', 'type' => 'content.tabs', 'props' => []],
+            ['id' => 'node_stats_1', 'type' => 'marketing.stats', 'props' => []],
+            ['id' => 'node_testimonial_1', 'type' => 'marketing.testimonial', 'props' => []],
+            ['id' => 'node_video_1', 'type' => 'embed.video', 'props' => []],
+            ['id' => 'node_contact_1', 'type' => 'form.contact', 'props' => []],
+        ] as $node) {
+            $data['root']['children'][0]['children'][0]['children'][] = [
+                ...$node,
+                'styles' => [],
+                'children' => [],
+                'metadata' => [],
+            ];
+        }
+
+        $desktopHtml = $this->renderer()->renderDocument(BuilderDocument::fromArray($data))->toHtml();
+        $mobileHtml = $this->renderer('mobile')->renderDocument(BuilderDocument::fromArray($data))->toHtml();
+
+        $this->assertStringContainsString('data-builder-type="media.carousel"', $desktopHtml);
+        $this->assertStringContainsString('data-builder-type="marketing.logomarquee"', $desktopHtml);
+        $this->assertStringContainsString('animation-direction: reverse', $desktopHtml);
+        $this->assertStringContainsString('<img src="/images/helloweb-logo-dark.png"', $desktopHtml);
+        $this->assertStringContainsString('translateX(-33.333333%)', $desktopHtml);
+        $this->assertStringContainsString('data-builder-type="content.accordion"', $desktopHtml);
+        $this->assertStringContainsString('data-builder-type="content.tabs"', $desktopHtml);
+        $this->assertStringContainsString('data-builder-type="marketing.stats"', $desktopHtml);
+        $this->assertStringContainsString('data-builder-type="marketing.testimonial"', $desktopHtml);
+        $this->assertStringContainsString('data-builder-type="embed.video"', $desktopHtml);
+        $this->assertStringContainsString('data-builder-type="form.contact"', $desktopHtml);
+        $this->assertStringContainsString('grid-template-columns: repeat(1, minmax(0, 1fr))', $mobileHtml);
+        $this->assertStringContainsString('max-width: 100%', $mobileHtml);
+    }
+
     public function test_registry_lookup_behavior(): void
     {
         $registry = BuiltInRendererDefinitions::registry();

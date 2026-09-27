@@ -14,7 +14,13 @@ interface AutosaveResult {
     cancelPending: () => void;
 }
 
-export function useBuilderAutosave(builderDocument: BuilderPageDocument, pageId: number | null, initialVersion = 0): AutosaveResult {
+export function useBuilderAutosave(
+    builderDocument: BuilderPageDocument,
+    pageId: number | null,
+    initialVersion = 0,
+    saveUrl?: string,
+    onSaveSuccess?: (payload: { template?: { id: number; name?: string; slug?: string; type?: string; description?: string | null }; page?: { id: number; version?: number } }) => void
+): AutosaveResult {
     const [status, setStatus] = useState<BuilderSaveStatus>('saved');
     const [error, setError] = useState<string | null>(null);
     const [version, setVersion] = useState(initialVersion);
@@ -37,7 +43,8 @@ export function useBuilderAutosave(builderDocument: BuilderPageDocument, pageId:
     }, [cancelPending]);
 
     const flush = useCallback(async (): Promise<boolean> => {
-        if (!pageId) return false;
+        const targetUrl = saveUrl ?? (pageId ? route('builder.pages.document.update', pageId) : null);
+        if (!targetUrl) return false;
 
         // If a save request is already in progress, wait for it before proceeding
         if (inFlightPromiseRef.current) {
@@ -59,7 +66,8 @@ export function useBuilderAutosave(builderDocument: BuilderPageDocument, pageId:
             setError(null);
 
             try {
-                const response = await fetch(route('builder.pages.document.update', pageId), {
+                const response = await fetch(targetUrl, {
+
                     method: 'PATCH',
                     headers: {
                         'Content-Type': 'application/json',
@@ -92,6 +100,7 @@ export function useBuilderAutosave(builderDocument: BuilderPageDocument, pageId:
                 setVersion(nextVersion);
                 lastSavedRef.current = JSON.stringify(snapshot);
                 setStatus(JSON.stringify(pendingRef.current) === lastSavedRef.current ? 'saved' : 'unsaved');
+                onSaveSuccess?.(payload as any);
                 return true;
             } catch (caught) {
                 setStatus('error');

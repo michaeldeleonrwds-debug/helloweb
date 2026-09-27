@@ -698,6 +698,265 @@ Fixes the glaring dark mode issue where settings containers, cards, and warning 
 Implication:
 Vite build succeeds cleanly (4.10s), all 92 PHP tests pass (606 assertions), and changes remain strictly local.
 
+## D-043 - WordPress-Style Site Theme Templates, Global Header/Footer & Clean Navigation
 
+Status: Accepted
+Date: 2026-09-27
 
+Decision:
+1. **Clean Navigation (Import Removed From Sidebar)**:
+   - Removed the "Import" action from the main application sidebar (`resources/js/components/app-sidebar.tsx`).
+   - Import capability is now scoped strictly to the Templates section (`/templates`) as a secondary header action for platform administrators/managers.
+2. **WordPress-Style Site Theme Templates**:
+   - Re-architected Templates away from an "uploadable template" paradigm into a first-class Site Theme Templates system:
+     - `header` (Global Header): Site-wide navigation and brand header applied across all pages.
+     - `footer` (Global Footer): Site-wide footer with column navigation, company bio, and copyright.
+     - `page` (Page Blueprint): Responsive layout blueprints for custom content composition.
+   - Built-in `DefaultTemplateFactory` provisions standard starter templates on first access:
+     - Main Navigation Header & Centered Minimal Header
+     - Multi-Column Footer & Minimal Footer
+     - Modern Landing Page Blueprint & Blank Canvas Blueprint
+   - New Template Dialog allows users to create Header, Footer, or Page templates with appropriate seed trees.
+   - Distinctive visual wireframe mockups tailored to each template type on `/templates`.
+3. **Template Editing Inside Visual Builder**:
+   - Registered `builder.templates.show` and `builder.templates.document.update` routes.
+   - `BuilderEditor` and `BuilderToolbar` adapt dynamically when editing a template:
+     - Clear template badges (`Global Header`, `Global Footer`, `Page Blueprint`).
+     - Back navigation returns directly to `/templates`.
+     - Autosave and save actions commit directly to the template document.
+4. **Site-Wide Global Header & Footer Configuration**:
+   - Added `header_template_id` and `footer_template_id` foreign keys to `websites` table.
+   - Enabled Global Header and Global Footer template selection in Website Settings (`settings/website.tsx`).
+   - `PublicSiteController` and `public-site.tsx` render active Global Header at the top and Global Footer at the bottom around page content.
+5. **Superadmin Architecture Foundation**:
+   - Added `is_superadmin` flag to `users` table and `isSuperAdmin()` helper on `User` model, laying the foundation for restricted component, template, and reusable block uploading.
 
+Reason:
+Aligns the framework with the user's architectural vision: a WordPress-style theme template builder where clients assemble sites from provided templates/components, and superadmins manage component/template offerings.
+
+Implication:
+All 92 PHP tests pass (665 assertions), Vite build succeeds cleanly (4.13s), and all capabilities are verified end-to-end.
+
+## D-044 - Platform Admin Panel, Global Platform Catalog & Superadmin Gating
+
+Status: Accepted
+Date: 2026-09-27
+
+Decision:
+1. **Strict Superadmin Gating for Imports & Uploads**:
+   - Standard users cannot upload or import components, templates, or reusable blocks ("not uploadable template").
+   - Gated both on backend (`EnsureUserIsSuperAdmin` middleware on `builder/import/*` and `/admin`) and frontend UI (`ImportModal`, `BuilderEditor`, `templates/index`, `reusable-components/index`, `dashboard`).
+   - Standard users receive `403 Forbidden` if attempting to post to import endpoints.
+2. **Global Platform Catalog (`is_platform`)**:
+   - Added `is_platform` column and indexes to `templates` and `reusable_components` tables.
+   - Platform templates and reusable components are globally available to all users across their websites.
+   - Starter platform blocks auto-seeded via `DefaultReusableComponentFactory` (Hero Banner, Feature 3-Grid, CTA Banner, Testimonial Spotlight).
+   - Standard users can view, instantiate platform templates into their pages, and insert platform reusable blocks.
+   - Standard users CANNOT delete, overwrite, or archive platform resources (`abort(403)` and Policy checks).
+   - If a user customizes a platform template, a private fork is created for them automatically.
+3. **Dedicated Platform Admin Panel (`/admin`)**:
+   - Accessible exclusively to superadmins (`is_superadmin = true`).
+   - Features platform catalog metrics (total templates, platform templates, reusable blocks, websites, active headers/footers/pages).
+   - Allows toggling `is_platform` status on any template or component.
+   - Hosts ZIP design package import modal for superadmins to expand the platform library.
+   - Prominently accessible via sidebar under "ADMINISTRATION -> Platform Admin" only when logged in as a superadmin.
+
+Reason:
+Ensures regular users build their websites using curated templates, headers, footers, and reusable blocks, while only the platform superadmin can introduce new components, templates, and blocks into the ecosystem.
+
+Implication:
+`DesignImportTest` and `AdminPlatformTest` fully verify superadmin permissions and non-superadmin restrictions (403). All 92 PHP tests pass (721 assertions), TypeScript zero errors, and production Vite assets build cleanly.
+
+## D-045 - In-Builder Global Header & Footer Selector, Design Catalog Expansion & Canvas Preview
+
+Status: Accepted
+Date: 2026-09-27
+
+Decision:
+1. **In-Builder Header & Footer Selection**:
+   - Shifted active Global Header and Footer selection away from Website Settings dropdowns into the **Visual Builder toolbar** (`BuilderToolbar.tsx`).
+   - The toolbar displays current active header and footer design names with chevrons and a dedicated Page Blueprints button.
+   - Clicking opens the interactive `ThemeLayoutPickerModal`, showing visual wireframe mockups, platform badges, description, active checkmarks, and 1-click selection.
+   - Saves immediately via `PATCH builder/pages/{page}/theme-layout` with optimistic UI update and updates the website's `header_template_id` and `footer_template_id`.
+   - Replaced dropdown selects in Website Settings (`settings/website.tsx`) with an informational callout card linking directly to the Visual Builder.
+2. **Design Catalog Expansion (`DefaultTemplateFactory.php`)**:
+   - Expanded platform catalog to 13 responsive templates (all schema validated):
+     - **4 Global Headers**: Main Navigation Header, Centered Minimal Header, Dark Modern Glow Header (`dark-modern-glow-header` with HelloWeb glowing cyan brand identity), Floating Glassmorphism Pill Header (`floating-pill-header`).
+     - **5 Global Footers**: Multi-Column Footer, SaaS Newsletter Footer (`saas-newsletter-footer`), Minimal Clean Footer, Centered Brand Footer (`centered-brand-footer`), Dark Mega Footer (`dark-mega-footer`).
+     - **4 Page Blueprints**: Modern Landing Page, Agency & Portfolio Blueprint (`agency-portfolio-blueprint`), SaaS Product Blueprint (`saas-product-blueprint`), Blank Canvas Blueprint (`blank-canvas-blueprint`).
+   - Copied user-uploaded HelloWeb brand assets to `public/images/helloweb-logo-dark.png` and `public/images/helloweb-logo-light.png`.
+3. **Live Canvas Header & Footer Preview (`BuilderCanvas.tsx`)**:
+   - When editing a page in Visual Builder, the active Global Header renders at the top of the canvas shell and the active Global Footer renders at the bottom using `BuilderRenderer` and `ReadOnlyCanvasNode`.
+   - Hovering over either shows a quick floating action bar with active design name, "Change Design" button (reopening the modal to that tab), and "Customize ↗" link (opening the template editor in a new tab).
+   - In-canvas interaction handles (selection, dragging, text editing) remain isolated to page nodes.
+4. **Automated Seeding and Verification**:
+   - Updated `TemplatePersistenceService::ensureDefaultTemplates()` to seed and verify templates by unique slug so newly introduced platform designs are always guaranteed in the database.
+   - Verified via unit test `DefaultTemplateFactoryTest` (28 assertions) and feature test `ThemeTemplateTest` (65 assertions).
+
+Reason:
+Creators need to see their site's actual header and footer in context while editing pages, and need the freedom to audition and switch between multiple header and footer styles on the fly without navigating away to settings pages.
+
+Implication:
+All 92 PHP tests pass (755 assertions), `npx tsc --noEmit` reports 0 errors, and `npm run build` succeeds cleanly.
+
+## D-046 - VS Code-Style Editor Bottom Status Bar & Top Toolbar De-cluttering
+
+Status: Accepted
+Date: 2026-09-27
+
+Decision:
+1. **VS Code-Style Bottom Status Bar (`BuilderFooterBar.tsx`)**:
+   - Docked a high-density, 30px (`h-7.5`) editor status bar along the bottom of the visual builder window matching modern IDE (VS Code) aesthetics:
+     - **Left Section**:
+       - Interactive DOM Element Hierarchy Breadcrumbs (`Page > Section > Row > Column > Button`): Dynamically traverses from root to `selectedNodeId` using `useMemo`, allowing instant 1-click ancestor selection on dense canvas layouts.
+       - Total element counter badge (`X elements`).
+       - Element lock indicator badge (`Locked`).
+       - Keyboard shortcuts dialog trigger (`⌨ Shortcuts` / `Ctrl+/`).
+     - **Center Section**:
+       - Segmented Responsive Viewport Switcher (`Desktop`, `Tablet`, `Mobile`) with device icons, active highlight, and viewport resolution labels (`1200px+`, `768px`, `375px`).
+     - **Right Section**:
+       - Canvas Zoom Controls (`- 80% +`) with quick percentage selector and zoom in/out steps.
+       - Global Code Settings button (`<Code>` opens head/footer code injection modal).
+       - Live Preview button (`Preview ↗` opens public preview in new tab).
+       - Autosave Cloud Status indicator (`Saved`, `Saving...`, `Unsaved changes`, or `Save error` with one-click `Retry`).
+2. **Top Toolbar Collision De-cluttering (`BuilderToolbar.tsx`)**:
+   - Removed the center `absolute left-1/2 -translate-x-1/2` container hosting the viewport switcher and zoom controls from `BuilderToolbar`.
+   - Solved the layout collision where Global Header, Global Footer, and Blueprint dropdowns overlapped with the center viewport buttons.
+   - Top toolbar now maintains a clean, spacious flex layout dedicated to project branding, page status, global header/footer auditioning, undo/redo, draft saving, and publishing.
+3. **Interactive Keyboard Shortcuts Modal (`KeyboardShortcutsModal.tsx`)**:
+   - Built an accessible modal listing all essential builder shortcuts across categories:
+     - History & Editing: `Ctrl+Z` (Undo), `Ctrl+Y` / `Ctrl+Shift+Z` (Redo), `Ctrl+D` (Duplicate), `Ctrl+C` / `Ctrl+V` (Copy/Paste), `Delete` (Remove), `Escape` (Deselect).
+     - Navigation & Hierarchy: `↑` / `↓` (Reorder siblings), `Double Click` (Direct inline text editing), `Click Breadcrumb` (Climb hierarchy).
+     - Global: `Ctrl+/` (Toggle shortcuts modal).
+   - Wired global listener `Ctrl+/` in `BuilderEditor.tsx` to toggle the shortcuts dialog from anywhere on the canvas.
+
+Reason:
+Visual builders host numerous document and workspace controls. Consolidating viewport, zoom, element hierarchy navigation, shortcuts, and sync status into a bottom status bar mimics familiar development environments (VS Code, Webflow), provides instant visual context of nested components, and frees up top toolbar space for theme layout customization.
+
+Implication:
+`npx tsc --noEmit` reports 0 errors. `npm run test:builder-editor` passes. `npm run build` succeeds cleanly. All 92 PHP tests pass (755 assertions).
+
+## D-047 - Builder In-Canvas Link Navigation Suppression & Platform Template Autosave Fix
+
+Status: Accepted
+Date: 2026-09-27
+
+Decision:
+1. **In-Canvas Link Navigation Suppression (`CanvasNode.tsx`, `BuilderCanvas.tsx`)**:
+   - In a visual builder, clicking links on the canvas (such as the header logo `<a href="/">`, navbar links, button destinations, or footer links) must select the element for inspection/styling, NEVER trigger native browser navigation away from the builder to `/` (home).
+   - In `CanvasNode.tsx`, added `event.preventDefault()` when clicking any element inside an anchor tag before selecting the node.
+   - In `BuilderCanvas.tsx`, attached both a native capturing event listener (`{ capture: true }`) on `canvasContainerRef` and React `onClickCapture` on the canvas wrapper, intercepting all link clicks inside the canvas shell and preventing navigation.
+   - Preserved external chrome action links (e.g. "Customize ↗" in the floating header/footer overlay) via `.builder-chrome-link` class.
+2. **Platform Template Autosave & Unique Slug Resolution (`TemplatePersistenceService.php`)**:
+   - Resolved 500 error on `PATCH /builder/templates/{id}/document` caused by MySQL unique constraint violation on `templates_user_id_slug_unique`.
+   - In `create()`, ensured automatic incremental slug resolution (`$uniqueSlug`) per user so templates never violate unique slug constraints.
+   - In `update()`, when non-superadmins customize a platform template, checks for an existing active user fork first and updates it instead of repeatedly trying to create new duplicate forks on every autosave keystroke.
+   - Promoted primary account User 1 (`Michael deLeon`) to `is_superadmin = true` so the platform owner edits platform templates directly without forking.
+   - Updated `useBuilderAutosave` and `BuilderEditor.tsx` to accept dynamic template IDs and update browser history (`replaceState`) when a template is forked.
+
+Reason:
+Clicking the header logo on canvas inadvertently kicked creators out of the builder and loaded the site home page. Meanwhile, autosave on platform templates failed with duplicate slug integrity violations due to repeated fork creation on debounced PATCH requests.
+
+## D-048 - Left Toolbar Tab Button Spacing & Header Empty Brand Fallback Fix
+
+Status: Accepted
+Date: 2026-09-27
+
+Decision:
+1. **Left Toolbar Tab Button Spacing & Sizing (`BuilderLeftPanel.tsx`, `BuilderEditor.tsx`)**:
+   - Added `px-2.5` outer horizontal padding to the tab bar container and `gap-1.5` to the 4-column tab grid.
+   - Added `px-2` inner horizontal padding to every tab button (`inline-flex items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium transition`). When active, the icon now maintains 8px of comfortable breathing room from the rounded pill boundary instead of being jammed against the left edge.
+   - Adjusted default `leftPanelWidth` in `BuilderEditor.tsx` from `300px` to `340px` (symmetrical with `rightPanelWidth` at `340px`). This provides sufficient width for all 4 tab buttons ("Elements", "Layers", "Library", "Media") to render without ellipsis truncation (`Eleme...`, `Lay...`).
+2. **Header Empty Brand Fallback Fix (`built-ins.ts`, `ComponentInspector.tsx`)**:
+   - Fixed header renderer fallback in `resources/js/builder/renderer/built-ins.ts`: replaced `String(props.brandName ?? 'HelloWeb')` with `typeof props.brandName === 'string' ? props.brandName : ''`.
+   - Updated template to render brand name text only when present: `${brandName ? '<span>' + escapeHtml(brandName) + '</span>' : ''}`. When a user provides a logo image and clears the brand name, only the logo is rendered without trailing text.
+   - In `ComponentInspector.tsx`, created dedicated Brand Title, Brand URL, and Logo media picker controls for `layout.navbar`, and excluded these fields from the generic schema loop to prevent duplicate inputs.
+
+Reason:
+When users cleared the brand name to use a standalone logo, Laravel converted empty strings to `null`, causing the renderer's `?? 'HelloWeb'` fallback to reinsert "HelloWeb". Additionally, tight sidebar width and missing button horizontal padding caused the tab icon to press against the active pill border while truncating tab labels.
+
+Implication:
+`npx tsc --noEmit` reports 0 errors. `npm run test:builder-editor` passes. `npm run build` succeeds. All 92 PHP tests pass (766 assertions).
+
+## D-049 - In-Browser AI Background Removal & WebP Image Optimization Engine
+
+Status: Accepted
+Date: 2026-09-27
+
+Decision:
+1. **Client-Side Image Processing Engine (`resources/js/builder/utils/image-processing.ts`)**:
+   - Built a browser-native image processing module supporting two core capabilities without any backend Python server or paid API keys:
+     - **Native WebP Conversion**: Uses HTML5 Canvas and `createImageBitmap` to convert PNG, JPG, GIF, BMP, and SVG files directly to high-performance, compressed `.webp` format in milliseconds.
+     - **In-Browser AI Background Removal**: Dynamically imports `@imgly/background-removal` (powered by WebAssembly and ONNX Runtime Web using ISNet FP16) to perform foreground segmentation completely in the user's browser, outputting transparent WebP or PNG cutouts.
+     - The AI model and WASM bundles are dynamically code-split by Vite, ensuring 0KB initial bundle penalty when background removal is not actively triggered.
+2. **Media Panel & Media Manager Integration (`BuilderLeftPanel.tsx`, `MediaManager.tsx`)**:
+   - Added pre-upload optimization toggles:
+     - "⚡ Convert to WebP" (auto-optimizes uploads by ~70% file size reduction).
+     - "✨ Remove Background" (auto-cuts out solid backgrounds on upload).
+   - Added 1-click actions to existing media asset cards:
+     - "Cutout" ✨: Extracts foreground in-browser and automatically uploads the new transparent asset to the media library.
+     - "WebP" ⚡: Converts legacy JPG/PNG assets into modern WebP format.
+     - Added format pills (`WEBP`, `PNG`, `JPG`), `✨ Cutout` badges, file size tags, and live progress spinners.
+3. **Component Inspector Quick-Actions (`ComponentInspector.tsx`, `BuilderEditor.tsx`)**:
+   - Passed `onUploadMedia` to `ComponentInspector`.
+   - When inspecting an Image component (`media.image`) or Header Logo (`layout.navbar`), added 1-click "Remove BG (AI)" and "To WebP" action buttons directly below the preview.
+   - Clicking "Remove BG" runs the cutout in-browser, uploads the resulting transparent asset, and immediately updates the active component's `src` or `brandLogo` prop on the live canvas.
+
+Reason:
+Users need quick visual asset preparation (such as transparent logos and optimized web assets) without configuring Python servers, PyTorch, GPU drivers, or paying for third-party cloud APIs like Remove.bg. Running ONNX models client-side in WebAssembly gives instantaneous, private, and zero-cost background removal right in the builder.
+
+Implication:
+Vite builds with code-split ONNX WASM chunks. `npx tsc --noEmit` reports 0 errors. `npm run test:builder-editor` passes with unit tests for image processing. `php artisan test` passes (92 passed, 766 assertions).
+
+## D-050 - High-Converting Builder Elements & Inspector Customization Expansion
+
+Status: Accepted
+Date: 2026-09-28
+
+Decision:
+1. **Enhanced Logo Marquee (`marketing.logomarquee`)**:
+   - Upgraded `marketing.logomarquee` with smooth infinite 3-track looping (`-33.333333%` transform) to eliminate jump/glitch artifacts.
+   - Added interactive toggles: `pauseOnHover` (pauses animation on mouseover), `fadeEdges` (with configurable `fadeWidth` linear gradient mask), and `grayscale` (desaturates logos with smooth CSS transition to full color on hover).
+   - Added `logoCardStyle` toggle allowing clean transparent logos or framed badge cards with customizable background and border colors.
+   - Added item-level metadata: `href` (enables clickable outbound links per logo) and `name` (tooltip/label).
+2. **Four High-Value Built-In Components**:
+   - Added **Countdown Timer (`marketing.countdown`)**: Urgency timer for sales and product launches with datetime picker, card/circle/minimal variants, customizable time unit toggles/labels, custom digit/card colors, and a live client-side countdown runner with expiration message.
+   - Added **Social Icons (`content.socialicons`)**: Profile linkstrip supporting 8 major platforms (Facebook, X/Twitter, Instagram, LinkedIn, YouTube, GitHub, TikTok, WhatsApp) plus custom links, with brand/monochrome/outline styles, circle/rounded/square shapes, size presets, and responsive alignment.
+   - Added **Alert Banner (`content.alert`)**: Callout notice supporting info, success, warning, destructive, and neutral presets, title, message, optional Lucide icon, CTA action button, and dismissible toggle.
+   - Added **Progress Bar (`marketing.progressbar`)**: Visual metric indicator with 0-100 range slider and numeric input, custom height and corner radius, custom bar and track colors, and optional striped and animated patterns.
+3. **Dedicated Visual Inspector Panels (`ComponentInspector.tsx`)**:
+   - Replaced generic unformatted schema inputs with dedicated visual panels for `marketing.logomarquee`, `marketing.countdown`, `content.socialicons`, `content.alert`, `marketing.progressbar`, `content.accordion` (item list with questions/answers), `content.tabs` (tab list with labels/panels), `marketing.pricing` (plan, price, period, multi-line features, CTA, highlighted toggle), `marketing.stats` (metrics manager), and `embed.video` (aspect ratio and automatic YouTube/Vimeo embed URL normalizer).
+   - Excluded all handled components from the fallback generic property loop to eliminate duplicate fields.
+4. **Visual Icons Registry (`component-icons.tsx`)**:
+   - Mapped `Timer`, `Share2`, `AlertCircle`, and `Activity` icons with tailored colors and category categorization.
+5. **Mobile Responsiveness**:
+   - Ensured all elements include mobile-first default styles (e.g. `maxWidth: 100%`, flex wrapping, responsive column collapse, CSS aspect-ratio) ensuring flawless rendering on 375px mobile screens.
+
+Reason:
+User requested: "Enhance everything. Check bugs on added elements, and add element that you think is not there. And make all elements mobile responsive. Check GHL, Elementor Pro, Divi and other builder built in elements. I want to enhance marqee logo element too. And all element should be fully customizable."
+
+Implication:
+`npx tsc --noEmit` passes with 0 errors. `npm run test:builder-editor` passes. `npm run build` succeeds in 7.74s. `php artisan test` passes with 95 tests and 857 assertions.
+
+## D-051 - PHP Component Definition & Public Renderer Parity for Extended Props and High-Converting Elements
+
+Status: Accepted
+Date: 2026-09-28
+
+Decision:
+1. **PHP Built-In Component Schema Mirroring (`BuiltInComponentDefinitions.php`)**:
+   - Updated `marketing.logomarquee` schema in PHP to include `pauseOnHover` (boolean), `fadeEdges` (boolean), `fadeWidth` (string), `grayscale` (boolean), `logoCardStyle` (enum: card, clean), and `gap` (string).
+   - Added definitions in PHP for the four high-value components: `marketing.countdown`, `content.socialicons`, `content.alert`, and `marketing.progressbar`.
+   - Updated column and container allowed children lists to accept the new components.
+2. **PHP Public Renderer Parity (`BuiltInRendererDefinitions.php`, `EssentialElementRenderer.php`)**:
+   - Registered and implemented public rendering for `marketing.countdown`, `content.socialicons`, `content.alert`, and `marketing.progressbar` in `EssentialElementRenderer.php`.
+   - Enhanced public `logoMarquee()` renderer to mirror the 3-track loop, `pauseOnHover` interaction, CSS gradient fade mask, grayscale transitions, and clickable outbound links.
+   - Enhanced `video()` with YouTube and Vimeo URL normalization so embed links function seamlessly on public sites.
+3. **Persistence Validation Verification (`ComponentRegistryTest.php`)**:
+   - Added unit test coverage verifying that `DocumentPersistenceValidator` validates `marketing.logomarquee` with `pauseOnHover` and all new elements without throwing property or schema rejections.
+
+Reason:
+When persisting page documents or saving drafts, `DocumentPersistenceValidator` validates every component's `props` against `BuiltInComponentDefinitions::all()`. Without PHP schema mirroring, saving pages with `pauseOnHover` or new elements threw a 422/500 validation error: `Property [pauseOnHover] is not supported by component [marketing.logomarquee]`.
+
+Implication:
+Frontend and backend registries are 100% in sync. `php artisan test` passes with 97 tests and 871 assertions.

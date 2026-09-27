@@ -1,5 +1,5 @@
 import { Head, useForm } from '@inertiajs/react';
-import { Check, Globe, HelpCircle, Home, Image as ImageIcon, Layout, Sparkles, Type } from 'lucide-react';
+import { Check, Globe, HelpCircle, Home, Image as ImageIcon, Layout, PanelBottom, PanelTop, Sparkles, Type } from 'lucide-react';
 
 import HeadingSmall from '@/components/heading-small';
 import InputError from '@/components/input-error';
@@ -16,6 +16,8 @@ interface WebsiteSettings {
     tagline: string | null;
     faviconUrl: string | null;
     homepageId: number | null;
+    headerTemplateId: number | null;
+    footerTemplateId: number | null;
 }
 
 interface WebsitePage {
@@ -24,15 +26,33 @@ interface WebsitePage {
     slug: string;
 }
 
-export default function WebsiteSettingsPage({ website, pages }: { website: WebsiteSettings; pages: WebsitePage[] }) {
+interface TemplateOption {
+    id: number;
+    name: string;
+}
+
+export default function WebsiteSettingsPage({
+    website,
+    pages,
+    headerTemplates = [],
+    footerTemplates = [],
+}: {
+    website: WebsiteSettings;
+    pages: WebsitePage[];
+    headerTemplates?: TemplateOption[];
+    footerTemplates?: TemplateOption[];
+}) {
     const form = useForm({
         name: website.name,
         site_title: website.siteTitle,
         tagline: website.tagline ?? '',
         favicon_url: website.faviconUrl ?? '',
         homepage_page_id: website.homepageId ?? pages[0]?.id ?? '',
+        header_template_id: website.headerTemplateId ? String(website.headerTemplateId) : '',
+        footer_template_id: website.footerTemplateId ? String(website.footerTemplateId) : '',
     });
     const breadcrumbs: BreadcrumbItem[] = [{ title: 'Website settings', href: route('website.settings.edit') }];
+
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -148,6 +168,27 @@ export default function WebsiteSettingsPage({ website, pages }: { website: Websi
                             <p className="text-muted-foreground text-[11px]">This page is served when visitors navigate directly to your root URL.</p>
                             <InputError message={form.errors.homepage_page_id} />
                         </div>
+
+                        <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <div className="space-y-1">
+                                <div className="flex items-center gap-2 text-foreground font-semibold text-xs sm:text-sm">
+                                    <Sparkles className="size-4 text-primary" />
+                                    <span>Global Header &amp; Footer Selection</span>
+                                </div>
+                                <p className="text-muted-foreground text-xs leading-relaxed max-w-xl">
+                                    Global Header and Footer designs are chosen directly inside the Visual Builder toolbar with live interactive preview. Open the builder to select or switch headers and footers with 1 click.
+                                </p>
+                            </div>
+                            {pages[0] ? (
+                                <a
+                                    href={route('builder.pages.show', pages[0].id)}
+                                    className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs h-9 px-4 shadow-xs transition"
+                                >
+                                    <span>Open Visual Builder</span>
+                                </a>
+                            ) : null}
+                        </div>
+
 
                         <div className="flex items-center gap-4 pt-2">
                             <Button

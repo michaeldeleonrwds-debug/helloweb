@@ -9,8 +9,8 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
-import { type NavItem } from '@/types';
-import { Link } from '@inertiajs/react';
+import { type NavItem, type SharedData } from '@/types';
+import { Link, usePage } from '@inertiajs/react';
 import {
     Boxes,
     FileText,
@@ -20,15 +20,14 @@ import {
     Plus,
     Settings2,
     Shapes,
+    ShieldCheck,
     Sparkles,
-    UploadCloud,
 } from 'lucide-react';
-import { useState } from 'react';
 import AppLogo from './app-logo';
-import { ImportModal } from '@/components/ImportModal';
 
 export function AppSidebar() {
-    const [importModalOpen, setImportModalOpen] = useState(false);
+    const { auth } = usePage<SharedData>().props;
+    const isSuperAdmin = Boolean(auth?.user?.is_superadmin);
 
     const menuNavItems: NavItem[] = [
         {
@@ -41,11 +40,13 @@ export function AppSidebar() {
         { title: 'Templates', url: route('templates.index'), icon: Shapes },
         { title: 'Media Library', url: route('media.index'), icon: Image },
         { title: 'Reusable Blocks', url: route('reusable-components.index'), icon: Sparkles },
+    ];
+
+    const adminNavItems: NavItem[] = [
         {
-            title: 'Import',
-            url: '#',
-            icon: UploadCloud,
-            onClick: () => setImportModalOpen(true),
+            title: 'Platform Admin',
+            url: route('admin.platform.index'),
+            icon: ShieldCheck,
         },
     ];
 
@@ -90,6 +91,11 @@ export function AppSidebar() {
                 {/* Main Menu Navigation */}
                 <NavMain items={menuNavItems} label="MENU" />
 
+                {/* Superadmin Platform Administration */}
+                {isSuperAdmin ? (
+                    <NavMain items={adminNavItems} label="ADMINISTRATION" />
+                ) : null}
+
                 {/* General Navigation */}
                 <NavMain items={generalNavItems} label="GENERAL" />
             </SidebarContent>
@@ -97,8 +103,7 @@ export function AppSidebar() {
             <SidebarFooter className="border-t border-sidebar-border p-2">
                 <NavUser />
             </SidebarFooter>
-
-            <ImportModal open={importModalOpen} onOpenChange={setImportModalOpen} />
         </Sidebar>
     );
 }
+
