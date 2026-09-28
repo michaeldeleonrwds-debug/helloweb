@@ -10,6 +10,20 @@
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600" rel="stylesheet" />
 
+        <script>
+            (function() {
+                try {
+                    const appearance = localStorage.getItem('appearance') || 'light';
+                    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                    if (appearance === 'dark' || (appearance === 'system' && prefersDark)) {
+                        document.documentElement.classList.add('dark');
+                    } else {
+                        document.documentElement.classList.remove('dark');
+                    }
+                } catch (e) {}
+            })();
+        </script>
+
         @routes
         @viteReactRefresh
         @vite(['resources/js/app.tsx', "resources/js/pages/{$page['component']}.tsx"])

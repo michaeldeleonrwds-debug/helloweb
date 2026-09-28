@@ -3,6 +3,7 @@ import { ArrowRight, Boxes, Layers3, Sparkles, LayoutTemplate, Palette, Globe } 
 import type { ReactNode } from 'react';
 
 import AppLogo from '@/components/app-logo';
+import AppearanceToggleDropdown from '@/components/appearance-dropdown';
 import { type SharedData } from '@/types';
 
 export default function Welcome() {
@@ -18,6 +19,7 @@ export default function Welcome() {
                         <AppLogo />
                     </Link>
                     <nav className="flex items-center gap-3">
+                        <AppearanceToggleDropdown />
                         {auth.user ? (
                             <Link
                                 href={route('dashboard')}

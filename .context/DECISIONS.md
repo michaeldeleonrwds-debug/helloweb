@@ -960,3 +960,31 @@ When persisting page documents or saving drafts, `DocumentPersistenceValidator` 
 
 Implication:
 Frontend and backend registries are 100% in sync. `php artisan test` passes with 97 tests and 871 assertions.
+
+## D-052 - Light Mode Theme Hardening & Auth Layout Adaptation
+
+Status: Accepted
+Date: 2026-09-28
+
+Decision:
+1. **Light Mode Semantic Tokens & Emerald Brand Identity (`resources/css/app.css`)**:
+   - Aligned `:root` light mode `--primary` and `--ring` to vibrant emerald green `hsl(158, 64%, 38%)` (`#22996d`), matching the dark mode primary `hsl(158, 64%, 48%)` (`#2cc98f`) and brand logo accent.
+   - Updated light mode `--accent-foreground` to `hsl(158, 64%, 32%)` for strong contrast against subtle green accents.
+2. **Pre-Hydration Theme Script (`resources/views/app.blade.php`)**:
+   - Added an inline script in `<head>` to detect `localStorage.getItem('appearance')` and `(prefers-color-scheme: dark)` before React hydrates, guaranteeing zero theme flash or wrong class assignment.
+3. **Responsive Auth Layouts (`auth-simple-layout.tsx`, `auth-card-layout.tsx`)**:
+   - Replaced hardcoded light colors (`bg-white`, `text-neutral-900`) with theme-adaptive classes (`bg-white dark:bg-card border-neutral-200/80 dark:border-border text-neutral-900 dark:text-foreground`).
+   - Added `AppearanceToggleDropdown` in the top-right corner of all auth screens (`/login`, `/register`, `/forgot-password`, `/reset-password`), enabling immediate 1-click theme switching directly from the login card.
+4. **Input & TextLink Visibility Hardening (`input.tsx`, `text-link.tsx`, `label.tsx`, `app-logo.tsx`)**:
+   - In `Input` (`input.tsx`): Set `bg-white dark:bg-background/80`, added explicit `text-foreground` for typed text, `rounded-xl`, and an emerald focus ring (`focus-visible:ring-primary/25 focus-visible:border-primary`). Eliminates black-on-white or white-on-white text collisions.
+   - In `TextLink` (`text-link.tsx`): Set `text-primary font-semibold hover:underline` so links ("Forgot password?", "Sign up", "log in") remain prominent, high-contrast, and clearly clickable on all card backgrounds.
+   - In `Label` (`label.tsx`): Set explicit `text-foreground` and `font-semibold`.
+   - In `AppLogo` (`app-logo.tsx`): Set `text-neutral-900 dark:text-foreground` and `text-neutral-500 dark:text-muted-foreground` to prevent invisible logo text on light gray backgrounds.
+   - In `Button` (`button.tsx`): Added `rounded-xl`, `font-semibold`, and active press states.
+   - In `welcome.tsx`: Added `AppearanceToggleDropdown` to navigation header.
+
+Reason:
+Previously, `AuthSimpleLayout` and `AuthCardLayout` hardcoded light background colors (`bg-[#F4F6F9]`, `bg-white`) while `use-appearance` applied `.dark` based on system preferences. In dark mode, inputs turned pitch-black (`bg-background: #0a0a0a`), logo text turned white (`text-foreground: #fafafa`), and text links turned white against the white card, rendering auth pages illegible.
+
+Implication:
+`npx tsc --noEmit` reports 0 errors. `npm run test:builder-editor` passes. `npm run build` succeeds cleanly in 6.02s. All 97 PHP tests pass (871 assertions). Auth pages render flawlessly with crisp contrast in light mode, dark mode, and system preference.

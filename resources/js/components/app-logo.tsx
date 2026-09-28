@@ -7,11 +7,11 @@ export default function AppLogo() {
                 <AppLogoIcon className="size-5 fill-current text-white" />
             </div>
             <div className="flex flex-col text-left">
-                <span className="text-foreground flex items-center gap-1 text-sm font-bold tracking-tight">
+                <span className="text-neutral-900 dark:text-foreground flex items-center gap-1 text-sm font-bold tracking-tight">
                     HelloWeb
                     <span className="bg-primary size-1.5 rounded-full" />
                 </span>
-                <span className="text-muted-foreground -mt-0.5 text-[10px] font-medium">Website Builder</span>
+                <span className="text-neutral-500 dark:text-muted-foreground -mt-0.5 text-[10px] font-medium">Website Builder</span>
             </div>
         </div>
     );

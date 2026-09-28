@@ -2,14 +2,36 @@
 
 Updated: 2026-09-28
 Agent: Antigravity
-Phase: High-Converting Builder Elements & Inspector Customization Expansion
+Phase: Light Mode Theme Hardening & Auth Layout Adaptation
 Status: complete
 
 ## Current Objective
 
-Deliver production-grade component parity with high-converting visual builders (GHL, Elementor Pro, Divi), enhance logo marquee motion and visual controls, provide dedicated inspector panels for interactive elements, and verify mobile responsiveness end-to-end.
+Harden Light Mode and Dark Mode support across the HelloWeb platform: resolve pitch-black inputs, invisible logo text, and low-contrast links on authentication pages, ensure clean theme transitions, and verify all test suites.
 
 ## Completed
+
+- Light Mode Theme Hardening & Auth Layout Adaptation (D-052):
+  - **Light Mode Semantic Tokens & Emerald Brand Identity (`resources/css/app.css`)**:
+    - Harmonized light mode `--primary` and `--ring` to vibrant emerald green `hsl(158, 64%, 38%)` (`#22996d`), matching dark mode `--primary: hsl(158, 64%, 48%)` (`#2cc98f`) and brand logo accent.
+    - Updated light mode `--accent-foreground` to `hsl(158, 64%, 32%)` for strong contrast against light green tints.
+  - **Pre-Hydration Theme Script (`resources/views/app.blade.php`)**:
+    - Added an inline script in `<head>` to detect `localStorage.getItem('appearance')` and `(prefers-color-scheme: dark)` before React hydrates, guaranteeing zero theme flash or wrong class assignment.
+  - **Responsive Auth Layouts (`auth-simple-layout.tsx`, `auth-card-layout.tsx`)**:
+    - Replaced hardcoded light colors (`bg-white`, `text-neutral-900`) with theme-adaptive classes (`bg-white dark:bg-card border-neutral-200/80 dark:border-border text-neutral-900 dark:text-foreground`).
+    - Added `AppearanceToggleDropdown` in the top-right corner of all auth screens (`/login`, `/register`, `/forgot-password`, `/reset-password`), enabling immediate 1-click theme switching directly from the login card.
+  - **Input & TextLink Visibility Hardening (`input.tsx`, `text-link.tsx`, `label.tsx`, `app-logo.tsx`)**:
+    - In `Input` (`input.tsx`): Set `bg-white dark:bg-background/80`, added explicit `text-foreground` for typed text, `rounded-xl`, and an emerald focus ring (`focus-visible:ring-primary/25 focus-visible:border-primary`). Eliminates black-on-white or white-on-white text collisions.
+    - In `TextLink` (`text-link.tsx`): Set `text-primary font-semibold hover:underline` so links ("Forgot password?", "Sign up", "log in") remain prominent, high-contrast, and clearly clickable on all card backgrounds.
+    - In `Label` (`label.tsx`): Set explicit `text-foreground` and `font-semibold`.
+    - In `AppLogo` (`app-logo.tsx`): Set `text-neutral-900 dark:text-foreground` and `text-neutral-500 dark:text-muted-foreground` to prevent invisible logo text on light gray backgrounds.
+    - In `Button` (`button.tsx`): Added `rounded-xl`, `font-semibold`, and active press states.
+    - In `welcome.tsx`: Added `AppearanceToggleDropdown` to navigation header.
+  - **Verification**:
+    - `npx tsc --noEmit`: passed with 0 errors.
+    - `npm run test:builder-editor`: passed (100%).
+    - `npm run build`: Vite production build succeeded in 6.02s.
+    - `php artisan test`: 97 passed (871 assertions).
 
 - PHP Component Definition & Public Renderer Parity (D-051):
   - **Backend Schema Mirroring (`BuiltInComponentDefinitions.php`)**:
