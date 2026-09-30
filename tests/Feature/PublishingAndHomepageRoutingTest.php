@@ -213,4 +213,38 @@ class PublishingAndHomepageRoutingTest extends TestCase
             ->where('website.homepageId', $contactPage->id)
         );
     }
+
+    public function test_10_preview_renders_draft_document_while_public_url_renders_published_document(): void
+    {
+        $page = $this->service->createPage($this->website, 'About Us', 'about-us', published: true);
+
+        // Modify draft document with work-in-progress content
+        $modifiedDoc = $page->published_document;
+        $modifiedDoc['root']['children'][0]['children'][0]['children'][0]['children'][1]['props']['text'] = 'UNPUBLISHED DRAFT HEADLINE';
+
+        $this->actingAs($this->user)->patchJson(route('builder.pages.document.update', $page), [
+            'document' => $modifiedDoc,
+            'expected_version' => 0,
+        ])->assertOk();
+
+        // 1. Preview route (/preview/pages/{id}) MUST render the draft document with isPreview: true
+        $previewResponse = $this->actingAs($this->user)->get(route('preview.pages.show', $page));
+        $previewResponse->assertOk();
+        $previewResponse->assertInertia(fn (Assert $pageAssertion) => $pageAssertion
+            ->component('public-site')
+            ->where('isPreview', true)
+            ->where('page.title', 'About Us')
+            ->where('page.isPublished', true)
+            ->where('document.root.children.0.children.0.children.0.children.1.props.text', 'UNPUBLISHED DRAFT HEADLINE')
+        );
+
+        // 2. Public route (/about-us) MUST render the published document with isPreview: false
+        $publicResponse = $this->get('/about-us');
+        $publicResponse->assertOk();
+        $publicResponse->assertInertia(fn (Assert $pageAssertion) => $pageAssertion
+            ->component('public-site')
+            ->where('isPreview', false)
+            ->where('document.root.children.0.children.0.children.0.children.1.props.text', fn ($val) => $val !== 'UNPUBLISHED DRAFT HEADLINE')
+        );
+    }
 }

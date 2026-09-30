@@ -24,6 +24,7 @@ export function KeyboardShortcutsModal({ open, onClose }: KeyboardShortcutsModal
         {
             category: 'History & Editing',
             items: [
+                { keys: ['Ctrl', 'S'], description: 'Save current draft' },
                 { keys: ['Ctrl', 'Z'], description: 'Undo last document change' },
                 { keys: ['Ctrl', 'Y'], description: 'Redo last undone change' },
                 { keys: ['Ctrl', 'Shift', 'Z'], description: 'Alternative Redo shortcut' },

@@ -83,6 +83,8 @@ interface BuilderCanvasViewProps {
     footerId?: number | null;
     onOpenHeaderPicker?: () => void;
     onOpenFooterPicker?: () => void;
+    onRemoveHeader?: () => void;
+    onRemoveFooter?: () => void;
     isTemplate?: boolean;
     onContextMenu?: (event: React.MouseEvent) => void;
 }
@@ -133,6 +135,8 @@ export function BuilderCanvasView({
     footerId,
     onOpenHeaderPicker,
     onOpenFooterPicker,
+    onRemoveHeader,
+    onRemoveFooter,
     isTemplate = false,
     onContextMenu,
 }: BuilderCanvasViewProps) {
@@ -249,6 +253,16 @@ export function BuilderCanvasView({
                                             Customize ↗
                                         </a>
                                     ) : null}
+                                    {onRemoveHeader && (
+                                        <button
+                                            type="button"
+                                            onClick={onRemoveHeader}
+                                            className="text-destructive hover:underline font-semibold ml-1 cursor-pointer"
+                                            title="Remove global header from this website"
+                                        >
+                                            Remove
+                                        </button>
+                                    )}
                                 </div>
                                 <ReadOnlyCanvasNode result={renderedHeader} />
                             </header>
@@ -347,6 +361,16 @@ export function BuilderCanvasView({
                                             Customize ↗
                                         </a>
                                     ) : null}
+                                    {onRemoveFooter && (
+                                        <button
+                                            type="button"
+                                            onClick={onRemoveFooter}
+                                            className="text-destructive hover:underline font-semibold ml-1 cursor-pointer"
+                                            title="Remove global footer from this website"
+                                        >
+                                            Remove
+                                        </button>
+                                    )}
                                 </div>
                                 <ReadOnlyCanvasNode result={renderedFooter} />
                             </footer>
@@ -371,6 +395,7 @@ function ReadOnlyCanvasNode({ result }: { result: RenderResult }) {
                 menu.classList.toggle('is-open');
                 const isOpen = menu.classList.contains('is-open');
                 menu.style.display = isOpen ? 'flex' : 'none';
+                header?.classList.toggle('hw-nav-open', isOpen);
             }
             return;
         }

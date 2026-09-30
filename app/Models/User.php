@@ -6,6 +6,7 @@ namespace App\Models;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
@@ -72,6 +73,18 @@ class User extends Authenticatable
     public function mediaAssets(): HasMany
     {
         return $this->hasMany(MediaAsset::class);
+    }
+
+    /** @return HasMany<MediaFolder, $this> */
+    public function mediaFolders(): HasMany
+    {
+        return $this->hasMany(MediaFolder::class);
+    }
+
+    /** @return HasOne<AiSetting, $this> */
+    public function aiSetting(): HasOne
+    {
+        return $this->hasOne(AiSetting::class);
     }
 
     /** @return HasMany<ReusableComponent, $this> */

@@ -21,9 +21,38 @@ interface BuilderPageProps extends Record<string, unknown> {
     footerTemplateId?: number | null;
     headerDocument?: BuilderPageDocument | null;
     footerDocument?: BuilderPageDocument | null;
-    headerTemplates?: Array<{ id: number; name: string; slug: string; type: string; description?: string | null; is_platform?: boolean; document?: any }>;
-    footerTemplates?: Array<{ id: number; name: string; slug: string; type: string; description?: string | null; is_platform?: boolean; document?: any }>;
-    pageTemplates?: Array<{ id: number; name: string; slug: string; type: string; description?: string | null; is_platform?: boolean; document?: any }>;
+    headerTemplates?: Array<{
+        id: number;
+        name: string;
+        slug: string;
+        type: string;
+        description?: string | null;
+        is_platform?: boolean;
+        document?: any;
+    }>;
+    footerTemplates?: Array<{
+        id: number;
+        name: string;
+        slug: string;
+        type: string;
+        description?: string | null;
+        is_platform?: boolean;
+        document?: any;
+    }>;
+    pageTemplates?: Array<{
+        id: number;
+        name: string;
+        slug: string;
+        type: string;
+        description?: string | null;
+        is_platform?: boolean;
+        document?: any;
+    }>;
+    availablePages?: Array<{ id: number; title: string; slug: string; status: string; url: string }>;
+    aiStatus?: {
+        openai: { configured: boolean; connected: boolean; status: string; providerLabel?: string; model?: string; source?: string | null };
+        mcp: { configured: boolean; connected: boolean; status: string; client?: string | null };
+    };
 }
 
 export default function Builder() {
@@ -43,6 +72,8 @@ export default function Builder() {
         headerTemplates,
         footerTemplates,
         pageTemplates,
+        availablePages = [],
+        aiStatus,
     } = usePage<BuilderPageProps>().props;
     const isSuperAdmin = Boolean(auth?.user?.is_superadmin);
 
@@ -71,9 +102,10 @@ export default function Builder() {
                     headerTemplates={headerTemplates}
                     footerTemplates={footerTemplates}
                     pageTemplates={pageTemplates}
+                    availablePages={availablePages}
+                    aiStatus={aiStatus}
                 />
             </div>
         </>
     );
 }
-

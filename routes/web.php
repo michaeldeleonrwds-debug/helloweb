@@ -1,17 +1,22 @@
 <?php
 
 use App\Http\Controllers\BuilderPageController;
+use App\Http\Controllers\BuilderAiChatController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\MediaAssetController;
+use App\Http\Controllers\McpController;
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\PublicSiteController;
 use App\Http\Controllers\ReusableComponentController;
 use App\Http\Controllers\TemplateController;
 use App\Http\Controllers\WebsiteController;
+use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [PublicSiteController::class, 'home'])->name('home');
 Route::get('preview/pages/{page}', [PublicSiteController::class, 'preview'])->name('preview.pages.show');
+Route::get('mcp', [McpController::class, 'show'])->name('mcp.show');
+Route::post('mcp', [McpController::class, 'handle'])->withoutMiddleware([ValidateCsrfToken::class])->name('mcp.handle');
 
 Route::middleware(['auth'])->group(function () {
     Route::get('dashboard', DashboardController::class)->name('dashboard');
@@ -27,6 +32,9 @@ Route::middleware(['auth'])->group(function () {
 
     Route::get('builder', [BuilderPageController::class, 'index'])->name('builder');
     Route::get('builder/pages/{page}', [BuilderPageController::class, 'show'])->name('builder.pages.show');
+    Route::post('builder/pages/{page}/ai-chat', BuilderAiChatController::class)->name('builder.pages.ai-chat');
+    Route::post('builder/pages/{page}/ai-chat/plan', [BuilderAiChatController::class, 'plan'])->name('builder.pages.ai-chat.plan');
+    Route::post('builder/pages/{page}/ai-chat/execute', [BuilderAiChatController::class, 'execute'])->name('builder.pages.ai-chat.execute');
     Route::patch('builder/pages/{page}/document', [BuilderPageController::class, 'updateDocument'])->name('builder.pages.document.update');
     Route::patch('builder/pages/{page}/theme-layout', [BuilderPageController::class, 'updateThemeLayout'])->name('builder.pages.theme-layout.update');
     Route::post('builder/pages/{page}/publish', [BuilderPageController::class, 'publish'])->name('builder.pages.publish');
@@ -41,16 +49,25 @@ Route::middleware(['auth'])->group(function () {
     Route::patch('builder/templates/{template}/document', [BuilderPageController::class, 'updateTemplateDocument'])->name('builder.templates.document.update');
     Route::post('builder/templates/{template}/archive', [TemplateController::class, 'archive'])->name('builder.templates.archive');
     Route::post('builder/templates/{template}/pages/{page}/instantiate', [TemplateController::class, 'instantiate'])->name('builder.templates.instantiate');
+    Route::get('preview/templates/{template}', [PublicSiteController::class, 'previewTemplate'])->name('preview.templates.show');
 
     Route::get('builder/reusable-components', [ReusableComponentController::class, 'index'])->name('builder.reusable.index');
     Route::post('builder/reusable-components', [ReusableComponentController::class, 'store'])->name('builder.reusable.store');
     Route::patch('builder/reusable-components/{component}', [ReusableComponentController::class, 'update'])->name('builder.reusable.update');
     Route::post('builder/reusable-components/{component}/archive', [ReusableComponentController::class, 'archive'])->name('builder.reusable.archive');
     Route::post('builder/reusable-components/{component}/pages/{page}/insert', [ReusableComponentController::class, 'insert'])->name('builder.reusable.insert');
-    Route::get('builder/media', [MediaAssetController::class, 'index'])->name('builder.media.index');
-    Route::post('builder/media', [MediaAssetController::class, 'store'])->name('builder.media.store');
-    Route::get('builder/media/{asset}', [MediaAssetController::class, 'show'])->name('builder.media.show');
-    Route::post('builder/media/{asset}/archive', [MediaAssetController::class, 'archive'])->name('builder.media.archive');
+            Route::get('builder/media', [MediaAssetController::class, 'index'])->name('builder.media.index');
+            Route::post('builder/media', [MediaAssetController::class, 'store'])->name('builder.media.store');
+            Route::get('builder/media/folders', [\App\Http\Controllers\MediaFolderController::class, 'index'])->name('builder.media.folders.index');
+            Route::post('builder/media/folders', [\App\Http\Controllers\MediaFolderController::class, 'store'])->name('builder.media.folders.store');
+            Route::patch('builder/media/folders/{folder}', [\App\Http\Controllers\MediaFolderController::class, 'update'])->name('builder.media.folders.update');
+            Route::patch('builder/media/folders/{folder}/move', [\App\Http\Controllers\MediaFolderController::class, 'move'])->name('builder.media.folders.move');
+            Route::delete('builder/media/folders/{folder}', [\App\Http\Controllers\MediaFolderController::class, 'destroy'])->name('builder.media.folders.destroy');
+            Route::get('builder/media/{asset}', [MediaAssetController::class, 'show'])->name('builder.media.show');
+            Route::patch('builder/media/{asset}', [MediaAssetController::class, 'update'])->name('builder.media.update');
+            Route::delete('builder/media/{asset}', [MediaAssetController::class, 'destroy'])->name('builder.media.destroy');
+            Route::post('builder/media/{asset}/archive', [MediaAssetController::class, 'archive'])->name('builder.media.archive');
+            Route::post('builder/media/{asset}/restore', [MediaAssetController::class, 'restore'])->name('builder.media.restore');
 
     Route::middleware(['superadmin'])->group(function () {
         Route::get('admin', [\App\Http\Controllers\AdminPlatformController::class, 'index'])->name('admin.platform.index');

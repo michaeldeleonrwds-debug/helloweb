@@ -64,12 +64,30 @@ export function AppSidebar() {
     ];
     return (
         <Sidebar collapsible="icon" variant="inset" className="border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
-            <SidebarHeader className="px-4 py-4 border-b border-sidebar-border">
+            <SidebarHeader className="px-3 py-3 border-b border-sidebar-border">
                 <SidebarMenu>
                     <SidebarMenuItem>
-                        <SidebarMenuButton size="lg" asChild className="hover:bg-sidebar-accent hover:text-sidebar-accent-foreground rounded-xl transition">
-                            <Link href="/dashboard" prefetch className="flex items-center gap-2.5">
-                                <AppLogo />
+                        <SidebarMenuButton size="lg" asChild className="hover:bg-sidebar-accent hover:text-sidebar-accent-foreground rounded-xl transition h-11 px-2.5">
+                            <Link href="/dashboard" prefetch className="flex items-center gap-2.5 overflow-hidden">
+                                {/* Collapsed icon view */}
+                                <div className="hidden group-data-[collapsible=icon]:flex items-center justify-center size-8">
+                                    <img
+                                        src="/images/helloweb-logo-dark.png"
+                                        alt="HelloWeb"
+                                        className="hidden dark:block h-6 w-auto max-w-none object-left object-cover"
+                                        style={{ width: '28px', objectPosition: 'left' }}
+                                    />
+                                    <img
+                                        src="/images/helloweb-logo-light.png"
+                                        alt="HelloWeb"
+                                        className="block dark:hidden h-6 w-auto max-w-none object-left object-cover"
+                                        style={{ width: '28px', objectPosition: 'left' }}
+                                    />
+                                </div>
+                                {/* Expanded logo view */}
+                                <div className="flex group-data-[collapsible=icon]:hidden items-center">
+                                    <AppLogo className="py-0.5" />
+                                </div>
                             </Link>
                         </SidebarMenuButton>
                     </SidebarMenuItem>

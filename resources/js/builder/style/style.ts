@@ -478,6 +478,27 @@ export function resolveStyles(node: BuilderComponentNode, definition: ComponentD
         if (breakpoint !== 'desktop') Object.assign(styles, source.tablet ?? {});
         if (breakpoint === 'mobile') Object.assign(styles, source.mobile ?? {});
     });
+
+    const hasIndividualCornerRadius =
+        styles.borderTopLeftRadius !== undefined ||
+        styles.borderTopRightRadius !== undefined ||
+        styles.borderBottomRightRadius !== undefined ||
+        styles.borderBottomLeftRadius !== undefined;
+
+    if (hasIndividualCornerRadius && styles.borderRadius !== undefined) {
+        delete styles.borderRadius;
+    }
+
+    const hasIndividualBorderWidth =
+        styles.borderTopWidth !== undefined ||
+        styles.borderRightWidth !== undefined ||
+        styles.borderBottomWidth !== undefined ||
+        styles.borderLeftWidth !== undefined;
+
+    if (hasIndividualBorderWidth && styles.borderWidth !== undefined) {
+        delete styles.borderWidth;
+    }
+
     return Object.fromEntries(Object.entries(styles).sort(([a], [b]) => a.localeCompare(b))) as ResolvedStyle;
 }
 

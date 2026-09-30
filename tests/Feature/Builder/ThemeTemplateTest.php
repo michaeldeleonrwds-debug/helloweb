@@ -336,5 +336,200 @@ class ThemeTemplateTest extends TestCase
 
         $this->assertSame($header->id, $website->fresh()->header_template_id);
         $this->assertSame($footer->id, $website->fresh()->footer_template_id);
+
+        $responseNull = $this->actingAs($user)->patchJson(route('builder.pages.theme-layout.update', $home), [
+            'header_template_id' => null,
+            'footer_template_id' => null,
+        ]);
+
+        $responseNull->assertOk();
+        $responseNull->assertJson([
+            'success' => true,
+            'headerTemplateId' => null,
+            'footerTemplateId' => null,
+            'headerDocument' => null,
+            'footerDocument' => null,
+        ]);
+
+        $this->assertNull($website->fresh()->header_template_id);
+        $this->assertNull($website->fresh()->footer_template_id);
+    }
+
+    public function test_superadmin_customized_platform_header_survives_editor_reload(): void
+    {
+        $admin = User::factory()->create(['is_superadmin' => true]);
+        $service = app(BuilderPagePersistenceService::class);
+        $website = $service->createWebsite($admin, 'Persisted Site', 'persisted-site');
+
+        $this->actingAs($admin)->get(route('templates.index'))->assertOk();
+
+        $website = $website->fresh(['homepage']);
+        $header = Template::find($website->header_template_id);
+        $this->assertNotNull($header);
+        $this->assertTrue((bool) $header->is_platform);
+        $this->assertFalse((bool) $header->is_customized);
+
+        $doc = $header->document;
+        $doc['root']['children'][0]['props']['brandName'] = 'PersistedBrand';
+
+        $this->actingAs($admin)
+            ->patchJson(route('builder.templates.document.update', $header), ['document' => $doc])
+            ->assertOk()
+            ->assertJsonPath('save.status', 'saved');
+
+        $saved = $header->fresh()->document;
+        $this->assertSame('PersistedBrand', $saved['root']['children'][0]['props']['brandName']);
+
+        $this->actingAs($admin)->get(route('builder.pages.show', $website->homepage))->assertOk();
+
+        $this->assertSame($saved, $header->fresh()->document);
+    }
+
+    public function test_fresh_platform_header_is_still_refreshed_until_customized(): void
+    {
+        $admin = User::factory()->create(['is_superadmin' => true]);
+        $service = app(BuilderPagePersistenceService::class);
+        $website = $service->createWebsite($admin, 'Refresh Site', 'refresh-site');
+
+        $this->actingAs($admin)->get(route('templates.index'))->assertOk();
+
+        $website = $website->fresh(['homepage']);
+        $header = Template::find($website->header_template_id);
+
+        $stale = $header->document;
+        $stale['root']['children'][0]['props']['brandName'] = 'StaleBrand';
+        $header->forceFill(['document' => $stale, 'is_customized' => false])->save();
+
+        $this->actingAs($admin)->get(route('builder.pages.show', $website->homepage))->assertOk();
+
+        $this->assertSame(
+            'HelloWeb',
+            $header->fresh()->document['root']['children'][0]['props']['brandName']
+        );
+    }
+
+    public function test_customizing_platform_header_repoints_website_to_user_fork(): void
+    {
+        $admin = User::factory()->create(['is_superadmin' => true]);
+        $user = User::factory()->create(['is_superadmin' => false]);
+        $service = app(BuilderPagePersistenceService::class);
+        $website = $service->createWebsite($user, 'Fork Site', 'fork-site');
+
+        $templates = new TemplatePersistenceService;
+        $platformHeader = $templates->create(
+            $admin,
+            'Platform Fork Header',
+            DefaultTemplateFactory::darkGlowHeaderDocument(),
+            'platform-fork-header',
+            null,
+            'header',
+            true,
+            false
+        );
+        $website->update(['header_template_id' => $platformHeader->id]);
+
+        $doc = $platformHeader->document;
+        $doc['root']['children'][0]['props']['brandName'] = 'ForkedBrand';
+
+        $response = $this->actingAs($user)
+            ->patchJson(route('builder.templates.document.update', $platformHeader), ['document' => $doc])
+            ->assertOk();
+
+        $forkedId = $response->json('template.id');
+        $this->assertNotEquals($platformHeader->id, $forkedId);
+        $this->assertSame($forkedId, $website->fresh()->header_template_id);
+
+        $doc['root']['children'][0]['props']['brandName'] = 'ForkedBrandAgain';
+        $this->actingAs($user)
+            ->patchJson(route('builder.templates.document.update', $platformHeader), ['document' => $doc])
+            ->assertOk();
+
+        $this->assertSame($forkedId, $website->fresh()->header_template_id);
+        $this->assertSame(
+            'ForkedBrandAgain',
+            Template::find($forkedId)->document['root']['children'][0]['props']['brandName']
+        );
+    }
+
+    public function test_template_preview_overlays_header_on_site_page(): void
+    {
+        $user = User::factory()->create();
+        $service = app(BuilderPagePersistenceService::class);
+        $website = $service->createWebsite($user, 'Preview Site', 'preview-site');
+
+        $templates = new TemplatePersistenceService;
+        $assignedHeader = $templates->create($user, 'Assigned Header', DefaultTemplateFactory::mainHeaderDocument(), 'assigned-header', null, 'header');
+
+        $previewDoc = DefaultTemplateFactory::darkGlowHeaderDocument();
+        $previewDoc['root']['children'][0]['props']['brandName'] = 'PreviewOnlyBrand';
+        $previewHeader = $templates->create($user, 'Preview Header', $previewDoc, 'preview-header', null, 'header');
+
+        $website->update(['header_template_id' => $assignedHeader->id]);
+
+        $response = $this->actingAs($user)->get(route('preview.templates.show', $previewHeader));
+
+        $response->assertOk();
+        $response->assertInertia(fn ($page) => $page
+            ->component('public-site')
+            ->where('isPreview', true)
+            ->where('page.id', $website->homepage_page_id)
+            ->where('headerDocument.root.children.0.props.brandName', 'PreviewOnlyBrand')
+        );
+    }
+
+    public function test_template_preview_renders_page_template_as_body(): void
+    {
+        $user = User::factory()->create();
+        $service = app(BuilderPagePersistenceService::class);
+        $website = $service->createWebsite($user, 'Page Preview Site', 'page-preview-site');
+
+        $templates = new TemplatePersistenceService;
+        $pageDoc = DefaultTemplateFactory::documentForType('page');
+        $this->assertTrue($this->setFirstTextNode($pageDoc['root'], 'PreviewOnlyBody'));
+        $pageTemplate = $templates->create($user, 'Preview Page', $pageDoc, 'preview-page', null, 'page');
+
+        $response = $this->actingAs($user)->get(route('preview.templates.show', $pageTemplate));
+
+        $response->assertOk();
+        $this->assertStringContainsString('PreviewOnlyBody', $response->getContent());
+        $response->assertInertia(fn ($page) => $page
+            ->component('public-site')
+            ->where('isPreview', true)
+            ->where('page.id', $website->homepage_page_id)
+            ->where('headerDocument', null)
+            ->where('footerDocument', null)
+            ->where('document', $pageTemplate->document)
+        );
+    }
+
+    public function test_template_preview_is_restricted_to_owner(): void
+    {
+        $owner = User::factory()->create();
+        $other = User::factory()->create();
+
+        $templates = new TemplatePersistenceService;
+        $template = $templates->create($owner, 'Private Header', DefaultTemplateFactory::mainHeaderDocument(), 'private-header', null, 'header');
+
+        $this->get(route('preview.templates.show', $template))->assertRedirect();
+        $this->actingAs($other)->get(route('preview.templates.show', $template))->assertForbidden();
+    }
+
+    /** @param array<string, mixed> $node */
+    private function setFirstTextNode(array &$node, string $value): bool
+    {
+        if (isset($node['props']['text']) && is_string($node['props']['text'])) {
+            $node['props']['text'] = $value;
+
+            return true;
+        }
+
+        foreach ($node['children'] ?? [] as $index => $child) {
+            if ($this->setFirstTextNode($node['children'][$index], $value)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
+

@@ -1,6 +1,7 @@
 import { Code2 } from 'lucide-react';
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 
+import { ImportModal } from '@/components/ImportModal';
 import type { BuilderBreakpoint, BuilderComponentNode, BuilderPageDocument, BuilderRecord, ComponentType, JsonValue } from '../document';
 import { ComponentTreeEngine } from '../engine/component-tree-engine';
 import { afterPosition, appendPosition, beforePosition } from '../engine/tree-position';
@@ -8,6 +9,7 @@ import type { MediaAsset } from '../persistence';
 import { createBuiltInComponentRegistry } from '../registry/built-ins';
 import type { ReusableComponentDefinition } from '../reusable';
 import { resolveStyles } from '../style/style';
+import { BuilderAiPanel } from './BuilderAiPanel';
 import { BuilderCanvasView } from './BuilderCanvas';
 import { BuilderContextMenu, type ContextMenuTarget } from './BuilderContextMenu';
 import { BuilderFooterBar } from './BuilderFooterBar';
@@ -15,13 +17,6 @@ import { BuilderLeftPanel } from './BuilderLeftPanel';
 import { BuilderToolbar } from './BuilderToolbar';
 import { CodeEditor } from './CodeEditor';
 import { ComponentInspector } from './ComponentInspector';
-import { KeyboardShortcutsModal } from './KeyboardShortcutsModal';
-import { LayoutTemplatesModal, type LayoutTemplateItem, type LayoutTemplateType } from './LayoutTemplatesModal';
-import { MediaManager } from './MediaManager';
-import { PanelResizeHandle } from './PanelResizeHandle';
-import { ThemeLayoutPickerModal, type ThemeTemplateOption } from './ThemeLayoutPickerModal';
-import { UnsavedChangesModal } from './UnsavedChangesModal';
-import { ImportModal } from '@/components/ImportModal';
 import {
     clearEditorStyleOverride,
     duplicateEditorNode,
@@ -36,6 +31,12 @@ import {
 } from './editor-operations';
 import { editorReducer } from './editor-reducer';
 import { createEditorState, findNode, getSelectedNode, setDocument } from './editor-state';
+import { KeyboardShortcutsModal } from './KeyboardShortcutsModal';
+import { LayoutTemplatesModal, type LayoutTemplateItem, type LayoutTemplateType } from './LayoutTemplatesModal';
+import { MediaManager } from './MediaManager';
+import { PanelResizeHandle } from './PanelResizeHandle';
+import { ThemeLayoutPickerModal, type ThemeTemplateOption } from './ThemeLayoutPickerModal';
+import { UnsavedChangesModal } from './UnsavedChangesModal';
 import { useBuilderAutosave } from './use-builder-autosave';
 
 interface BuilderEditorProps {
@@ -60,6 +61,11 @@ interface BuilderEditorProps {
     headerTemplates?: ThemeTemplateOption[];
     footerTemplates?: ThemeTemplateOption[];
     pageTemplates?: ThemeTemplateOption[];
+    availablePages?: Array<{ id: number; title: string; slug: string; status: string; url: string }>;
+    aiStatus?: {
+        openai: { configured: boolean; connected: boolean; status: string; providerLabel?: string; model?: string; source?: string | null };
+        mcp: { configured: boolean; connected: boolean; status: string; client?: string | null };
+    };
 }
 
 export function BuilderEditor({
@@ -84,8 +90,9 @@ export function BuilderEditor({
     headerTemplates = [],
     footerTemplates = [],
     pageTemplates = [],
+    availablePages = [],
+    aiStatus,
 }: BuilderEditorProps) {
-
     const registry = useMemo(() => createBuiltInComponentRegistry(), []);
     const engine = useMemo(() => new ComponentTreeEngine(registry), [registry]);
     const [state, dispatch] = useReducer(editorReducer, document, createEditorState);
@@ -100,6 +107,7 @@ export function BuilderEditor({
     const [elementPickerParentId, setElementPickerParentId] = useState<string | null>(null);
     const [elementsOpen, setElementsOpen] = useState(true);
     const [inspectorOpen, setInspectorOpen] = useState(true);
+    const [aiPanelOpen, setAiPanelOpen] = useState(false);
     const [mediaManagerTarget, setMediaManagerTarget] = useState<{ kind: string; nodeId: string; itemIndex?: number } | null>(null);
     const [codeSettingsOpen, setCodeSettingsOpen] = useState(false);
     const [importModalOpen, setImportModalOpen] = useState(false);
@@ -120,21 +128,8 @@ export function BuilderEditor({
     const [shortcutsModalOpen, setShortcutsModalOpen] = useState(false);
     const [contextMenuTarget, setContextMenuTarget] = useState<ContextMenuTarget | null>(null);
 
-    useEffect(() => {
-        setCurrentHeaderId(headerTemplateId);
-    }, [headerTemplateId]);
-
-    useEffect(() => {
-        setCurrentFooterId(footerTemplateId);
-    }, [footerTemplateId]);
-
-    useEffect(() => {
-        setCurrentHeaderDoc(headerDocument);
-    }, [headerDocument]);
-
-    useEffect(() => {
-        setCurrentFooterDoc(footerDocument);
-    }, [footerDocument]);
+    // Header/footer IDs and docs are initialized from props via useState above.
+    // Subsequent changes are managed by handleSelectHeader / handleSelectFooter.
 
     const activeHeaderName = useMemo(() => {
         if (!currentHeaderId) return 'No Header';
@@ -150,6 +145,9 @@ export function BuilderEditor({
 
     const handleSelectHeader = async (newHeaderId: number | null) => {
         if (!pageId) return;
+        const prevHeaderId = currentHeaderId;
+        const prevHeaderDoc = currentHeaderDoc;
+
         setIsUpdatingThemeLayout(true);
         const selected = headerTemplates.find((t) => t.id === newHeaderId);
         setCurrentHeaderId(newHeaderId);
@@ -166,14 +164,18 @@ export function BuilderEditor({
                 body: JSON.stringify({ header_template_id: newHeaderId }),
             });
 
+            const data = await response.json().catch(() => ({}));
+
             if (!response.ok) {
-                throw new Error('Failed to update global header.');
+                const validationMessage = data.errors ? Object.values(data.errors).flat().join(' ') : null;
+                throw new Error(validationMessage || data.message || 'Failed to update global header.');
             }
 
-            const data = await response.json();
-            setCurrentHeaderId(data.headerTemplateId);
-            setCurrentHeaderDoc(data.headerDocument);
+            setCurrentHeaderId(data.headerTemplateId ?? null);
+            setCurrentHeaderDoc(data.headerDocument ?? null);
         } catch (err) {
+            setCurrentHeaderId(prevHeaderId);
+            setCurrentHeaderDoc(prevHeaderDoc);
             alert(err instanceof Error ? err.message : 'Failed to update global header');
         } finally {
             setIsUpdatingThemeLayout(false);
@@ -182,6 +184,9 @@ export function BuilderEditor({
 
     const handleSelectFooter = async (newFooterId: number | null) => {
         if (!pageId) return;
+        const prevFooterId = currentFooterId;
+        const prevFooterDoc = currentFooterDoc;
+
         setIsUpdatingThemeLayout(true);
         const selected = footerTemplates.find((t) => t.id === newFooterId);
         setCurrentFooterId(newFooterId);
@@ -198,14 +203,18 @@ export function BuilderEditor({
                 body: JSON.stringify({ footer_template_id: newFooterId }),
             });
 
+            const data = await response.json().catch(() => ({}));
+
             if (!response.ok) {
-                throw new Error('Failed to update global footer.');
+                const validationMessage = data.errors ? Object.values(data.errors).flat().join(' ') : null;
+                throw new Error(validationMessage || data.message || 'Failed to update global footer.');
             }
 
-            const data = await response.json();
-            setCurrentFooterId(data.footerTemplateId);
-            setCurrentFooterDoc(data.footerDocument);
+            setCurrentFooterId(data.footerTemplateId ?? null);
+            setCurrentFooterDoc(data.footerDocument ?? null);
         } catch (err) {
+            setCurrentFooterId(prevFooterId);
+            setCurrentFooterDoc(prevFooterDoc);
             alert(err instanceof Error ? err.message : 'Failed to update global footer');
         } finally {
             setIsUpdatingThemeLayout(false);
@@ -239,6 +248,13 @@ export function BuilderEditor({
     });
     const hasPendingChanges = save.status !== 'saved';
     const backUrl = isTemplate ? '/templates' : '/dashboard';
+    const previewUrl = isTemplate
+        ? currentTemplate
+            ? route('preview.templates.show', currentTemplate.id)
+            : null
+        : pageId
+          ? route('preview.pages.show', pageId)
+          : null;
 
     useEffect(() => {
         if (!hasPendingChanges) return;
@@ -277,7 +293,14 @@ export function BuilderEditor({
         } catch {
             setIsLeavingWithSave(false);
         }
+    };
 
+    const handlePreview = async () => {
+        if (!previewUrl) return;
+        if (hasPendingChanges) {
+            await save.saveNow();
+        }
+        window.open(previewUrl, '_blank', 'noreferrer');
     };
 
     const handlePublish = async () => {
@@ -338,13 +361,9 @@ export function BuilderEditor({
             let targetSectionId: string | null = null;
             if (
                 selectedNode &&
-                (selectedNode.type === 'layout.section' ||
-                    engine.findParent(currentDoc, selectedNode.id)?.type === 'layout.section')
+                (selectedNode.type === 'layout.section' || engine.findParent(currentDoc, selectedNode.id)?.type === 'layout.section')
             ) {
-                targetSectionId =
-                    selectedNode.type === 'layout.section'
-                        ? selectedNode.id
-                        : engine.findParent(currentDoc, selectedNode.id)!.id;
+                targetSectionId = selectedNode.type === 'layout.section' ? selectedNode.id : engine.findParent(currentDoc, selectedNode.id)!.id;
             } else {
                 const firstSection = currentDoc.root.children.find((c) => c.type === 'layout.section');
                 if (firstSection) {
@@ -440,7 +459,7 @@ export function BuilderEditor({
                             id: t.id,
                             name: t.name,
                             description: t.description,
-                        }))
+                        })),
                     );
                 }
             }
@@ -504,7 +523,7 @@ export function BuilderEditor({
             nodeName: def?.name ?? node.type,
             nodeType: node.type,
             parentId: parent ? parent.id : null,
-            parentName: parentDef?.name ?? (parent?.id === state.document.root.id ? 'Page' : parent?.type ?? null),
+            parentName: parentDef?.name ?? (parent?.id === state.document.root.id ? 'Page' : (parent?.type ?? null)),
             canMoveUp: canMoveNode(nodeId, 'up'),
             canMoveDown: canMoveNode(nodeId, 'down'),
             canAcceptChildren: Boolean(def?.capabilities?.canAcceptChildren),
@@ -601,10 +620,17 @@ export function BuilderEditor({
     useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
             const target = event.target as HTMLElement | null;
+            const modifier = event.metaKey || event.ctrlKey;
+            if (modifier && event.key.toLowerCase() === 's') {
+                event.preventDefault();
+                event.stopPropagation();
+                void save.saveNow();
+                return;
+            }
+
             const editingText = target?.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target?.tagName ?? '');
             if (editingText && event.key !== 'Escape') return;
 
-            const modifier = event.metaKey || event.ctrlKey;
             if (modifier && event.key.toLowerCase() === 'z') {
                 event.preventDefault();
                 if (event.shiftKey) redo();
@@ -761,9 +787,10 @@ export function BuilderEditor({
         }
     };
 
-    const uploadImage = async (file: File): Promise<MediaAsset> => {
+    const uploadImage = async (file: File, folderId?: number | null): Promise<MediaAsset> => {
         const form = new FormData();
         form.append('file', file);
+        if (folderId !== undefined && folderId !== null) form.append('folder_id', String(folderId));
         const response = await fetch(route('builder.media.store'), {
             method: 'POST',
             headers: {
@@ -802,9 +829,17 @@ export function BuilderEditor({
                 saveError={save.error}
                 onRetry={save.retry}
                 onToggleElements={() => setElementsOpen((value) => !value)}
-                onToggleInspector={() => setInspectorOpen((value) => !value)}
+                onToggleInspector={() => {
+                    setInspectorOpen((value) => !value);
+                    setAiPanelOpen(false);
+                }}
+                onToggleAiPanel={() => {
+                    setAiPanelOpen((value) => !value);
+                    setInspectorOpen(false);
+                }}
                 elementsOpen={elementsOpen}
                 inspectorOpen={inspectorOpen}
+                aiPanelOpen={aiPanelOpen}
                 canUndo={undoStack.current.length > 0}
                 canRedo={redoStack.current.length > 0}
                 onUndo={undo}
@@ -813,16 +848,40 @@ export function BuilderEditor({
                 onNavigateBack={handleNavigateBack}
                 onOpenCodeSettings={() => setCodeSettingsOpen(true)}
                 onOpenImport={isSuperAdmin ? () => setImportModalOpen(true) : undefined}
+                onPreview={handlePreview}
+                previewUrl={previewUrl ?? undefined}
                 pageStatus={currentStatus}
                 onPublish={handlePublish}
                 isPublishing={isPublishing}
                 isTemplate={isTemplate}
                 templateType={template?.type}
-                onOpenHeaderPicker={!isTemplate ? () => { setThemeModalTab('header'); setThemeModalOpen(true); } : undefined}
-                onOpenFooterPicker={!isTemplate ? () => { setThemeModalTab('footer'); setThemeModalOpen(true); } : undefined}
-                onOpenBlueprintsPicker={!isTemplate ? () => { setThemeModalTab('blueprints'); setThemeModalOpen(true); } : undefined}
+                onOpenHeaderPicker={
+                    !isTemplate
+                        ? () => {
+                              setThemeModalTab('header');
+                              setThemeModalOpen(true);
+                          }
+                        : undefined
+                }
+                onOpenFooterPicker={
+                    !isTemplate
+                        ? () => {
+                              setThemeModalTab('footer');
+                              setThemeModalOpen(true);
+                          }
+                        : undefined
+                }
+                onOpenBlueprintsPicker={
+                    !isTemplate
+                        ? () => {
+                              setThemeModalTab('blueprints');
+                              setThemeModalOpen(true);
+                          }
+                        : undefined
+                }
                 activeHeaderName={activeHeaderName}
                 activeFooterName={activeFooterName}
+                aiStatus={aiStatus}
             />
 
             <div className="flex min-h-0 flex-1">
@@ -892,8 +951,8 @@ export function BuilderEditor({
                         dropTargetId={
                             state.dropTarget
                                 ? state.dropTarget.position.mode === 'append'
-                                ? state.dropTarget.parentId
-                                : state.dropTarget.position.siblingId
+                                    ? state.dropTarget.parentId
+                                    : state.dropTarget.position.siblingId
                                 : null
                         }
                         dropTargetMode={state.dropTarget?.position.mode ?? null}
@@ -960,6 +1019,16 @@ export function BuilderEditor({
                             setThemeModalTab('footer');
                             setThemeModalOpen(true);
                         }}
+                        onRemoveHeader={() => {
+                            if (window.confirm('Remove the global header from this website?')) {
+                                void handleSelectHeader(null);
+                            }
+                        }}
+                        onRemoveFooter={() => {
+                            if (window.confirm('Remove the global footer from this website?')) {
+                                void handleSelectFooter(null);
+                            }
+                        }}
                         isTemplate={isTemplate}
                         onContextMenu={handleCanvasContextMenu}
                     />
@@ -994,6 +1063,30 @@ export function BuilderEditor({
                                 if (selectedNode) setMediaManagerTarget({ kind: target, nodeId: selectedNode.id, itemIndex: payload?.itemIndex });
                             }}
                             onUploadMedia={uploadImage}
+                            availablePages={availablePages}
+                            document={state.document}
+                        />
+                    </>
+                ) : null}
+                {aiPanelOpen ? (
+                    <>
+                        <PanelResizeHandle
+                            direction="left"
+                            onResize={(delta) => setRightPanelWidth((w) => Math.min(600, Math.max(300, w + delta)))}
+                            onReset={() => setRightPanelWidth(340)}
+                        />
+                        <BuilderAiPanel
+                            width={rightPanelWidth}
+                            pageId={pageId}
+                            document={state.document}
+                            selectedNodeId={state.selectedNodeId}
+                            connected={aiStatus?.openai.connected === true}
+                            providerLabel={aiStatus?.openai.providerLabel}
+                            onBeforeApply={save.saveNow}
+                            onApplyDocument={(nextDocument, version) => {
+                                dispatch({ type: 'setDocument', document: nextDocument });
+                                save.sync(nextDocument, version);
+                            }}
                         />
                     </>
                 ) : null}
@@ -1011,6 +1104,8 @@ export function BuilderEditor({
                 saveError={save.error}
                 onRetry={save.retry}
                 pageId={pageId}
+                onPreview={handlePreview}
+                previewUrl={previewUrl ?? undefined}
                 onOpenCodeSettings={() => setCodeSettingsOpen(true)}
                 onOpenShortcuts={() => setShortcutsModalOpen(true)}
                 onContextMenuCrumb={(nodeId, x, y) => openNodeContextMenu(nodeId, x, y)}
@@ -1045,9 +1140,10 @@ export function BuilderEditor({
                                         onClick={() => {
                                             const actualParent = findInsertionParentId(definition.type, elementPickerParentId);
                                             // Navbar should be prepended at the top of root's children
-                                            const position = definition.type === 'layout.navbar' && state.document.root.children.length > 0
-                                                ? { mode: 'before' as const, siblingId: state.document.root.children[0].id }
-                                                : { mode: 'append' as const };
+                                            const position =
+                                                definition.type === 'layout.navbar' && state.document.root.children.length > 0
+                                                    ? { mode: 'before' as const, siblingId: state.document.root.children[0].id }
+                                                    : { mode: 'append' as const };
                                             run(() => insertEditorComponent(state, engine, actualParent, definition.type, position));
                                             setElementPickerParentId(null);
                                         }}
@@ -1126,7 +1222,6 @@ export function BuilderEditor({
                             run(() =>
                                 updateEditorProps(state, engine, mediaManagerTarget.nodeId, {
                                     logos: currentLogos,
-                                    logoImages: undefined,
                                 }),
                             );
                         } else if (mediaManagerTarget.kind === 'logomarquee-replace' && typeof mediaManagerTarget.itemIndex === 'number') {
@@ -1142,14 +1237,11 @@ export function BuilderEditor({
                                 run(() =>
                                     updateEditorProps(state, engine, mediaManagerTarget.nodeId, {
                                         logos: currentLogos,
-                                        logoImages: undefined,
                                     }),
                                 );
                             }
                         } else {
-                            run(() =>
-                                updateEditorProps(state, engine, mediaManagerTarget.nodeId, { src: url, alt }),
-                            );
+                            run(() => updateEditorProps(state, engine, mediaManagerTarget.nodeId, { src: url, alt }));
                         }
                         setMediaManagerTarget(null);
                     }}
@@ -1203,10 +1295,7 @@ export function BuilderEditor({
                 onSelectBlueprint={handleSelectBlueprint}
                 isUpdating={isUpdatingThemeLayout}
             />
-            <KeyboardShortcutsModal
-                open={shortcutsModalOpen}
-                onClose={() => setShortcutsModalOpen(false)}
-            />
+            <KeyboardShortcutsModal open={shortcutsModalOpen} onClose={() => setShortcutsModalOpen(false)} />
             <BuilderContextMenu
                 target={contextMenuTarget}
                 onClose={() => setContextMenuTarget(null)}
@@ -1245,15 +1334,15 @@ export function BuilderEditor({
                 onOpenShortcuts={() => setShortcutsModalOpen(true)}
             />
             {publishNotice ? (
-                <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 rounded-2xl bg-neutral-900 px-4 py-3 text-xs font-semibold text-white shadow-2xl border border-neutral-800 animate-in fade-in slide-in-from-bottom-2">
-                    <span className="flex size-2 rounded-full bg-emerald-400 animate-pulse" />
+                <div className="animate-in fade-in slide-in-from-bottom-2 fixed right-6 bottom-6 z-50 flex items-center gap-3 rounded-2xl border border-neutral-800 bg-neutral-900 px-4 py-3 text-xs font-semibold text-white shadow-2xl">
+                    <span className="flex size-2 animate-pulse rounded-full bg-emerald-400" />
                     <span>{publishNotice}</span>
                     {pageSlug ? (
                         <a
                             href={pageSlug === 'home' ? '/' : `/${pageSlug}`}
                             target="_blank"
                             rel="noreferrer"
-                            className="underline text-emerald-400 hover:text-emerald-300 ml-1 font-bold"
+                            className="ml-1 font-bold text-emerald-400 underline hover:text-emerald-300"
                         >
                             View Live ↗
                         </a>
@@ -1310,7 +1399,7 @@ function GlobalCodeModal({
 
     return (
         <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 sm:p-6 backdrop-blur-xs"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs sm:p-6"
             role="dialog"
             aria-modal="true"
             aria-label="Global code"
@@ -1339,7 +1428,9 @@ function GlobalCodeModal({
                     <button
                         type="button"
                         className={`flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium transition ${
-                            activeTab === 'head' ? 'bg-background text-foreground shadow-xs font-semibold' : 'text-muted-foreground hover:text-foreground'
+                            activeTab === 'head'
+                                ? 'bg-background text-foreground font-semibold shadow-xs'
+                                : 'text-muted-foreground hover:text-foreground'
                         }`}
                         onClick={() => setActiveTab('head')}
                     >
@@ -1349,7 +1440,9 @@ function GlobalCodeModal({
                     <button
                         type="button"
                         className={`flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium transition ${
-                            activeTab === 'footer' ? 'bg-background text-foreground shadow-xs font-semibold' : 'text-muted-foreground hover:text-foreground'
+                            activeTab === 'footer'
+                                ? 'bg-background text-foreground font-semibold shadow-xs'
+                                : 'text-muted-foreground hover:text-foreground'
                         }`}
                         onClick={() => setActiveTab('footer')}
                     >
@@ -1362,7 +1455,9 @@ function GlobalCodeModal({
                     {activeTab === 'head' ? (
                         <div className="space-y-2">
                             <p className="text-muted-foreground text-xs leading-relaxed">
-                                Injected before the closing <code className="bg-muted text-foreground rounded px-1 py-0.5 font-mono text-[11px]">&lt;/head&gt;</code> tag on published pages. Ideal for Google Fonts, CSS stylesheets, and pre-load tags.
+                                Injected before the closing{' '}
+                                <code className="bg-muted text-foreground rounded px-1 py-0.5 font-mono text-[11px]">&lt;/head&gt;</code> tag on
+                                published pages. Ideal for Google Fonts, CSS stylesheets, and pre-load tags.
                             </p>
                             <CodeEditor
                                 language="html"
@@ -1371,15 +1466,15 @@ function GlobalCodeModal({
                                 maxHeight="550px"
                                 placeholder='<link rel="stylesheet" href="https://fonts.googleapis.com/...">'
                                 value={headCode}
-                                onChange={(next) =>
-                                    onChange({ globalHeadCode: next.trim() === '' ? undefined : next })
-                                }
+                                onChange={(next) => onChange({ globalHeadCode: next.trim() === '' ? undefined : next })}
                             />
                         </div>
                     ) : (
                         <div className="space-y-2">
                             <p className="text-muted-foreground text-xs leading-relaxed">
-                                Injected before the closing <code className="bg-muted text-foreground rounded px-1 py-0.5 font-mono text-[11px]">&lt;/body&gt;</code> tag on published pages. Ideal for Google Analytics, tracking pixels, chatbots, and deferred scripts.
+                                Injected before the closing{' '}
+                                <code className="bg-muted text-foreground rounded px-1 py-0.5 font-mono text-[11px]">&lt;/body&gt;</code> tag on
+                                published pages. Ideal for Google Analytics, tracking pixels, chatbots, and deferred scripts.
                             </p>
                             <CodeEditor
                                 language="html"
@@ -1388,9 +1483,7 @@ function GlobalCodeModal({
                                 maxHeight="550px"
                                 placeholder='<script src="https://cdn.example.com/analytics.js"></script>'
                                 value={footerCode}
-                                onChange={(next) =>
-                                    onChange({ globalFooterCode: next.trim() === '' ? undefined : next })
-                                }
+                                onChange={(next) => onChange({ globalFooterCode: next.trim() === '' ? undefined : next })}
                             />
                         </div>
                     )}

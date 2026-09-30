@@ -20,6 +20,12 @@ final readonly class LinkRenderer implements ComponentRenderer
         $text = (string) ($props['text'] ?? '');
         $hasIcon = (! empty($props['icon']) || ! empty($props['customIcon'])) && ($props['showIcon'] ?? true);
 
+        $extraAttrs = ['href' => (string) ($props['href'] ?? '#')];
+        if (($props['linkTarget'] ?? '') === '_blank') {
+            $extraAttrs['target'] = '_blank';
+            $extraAttrs['rel'] = 'noopener noreferrer';
+        }
+
         if ($hasIcon) {
             $icon = (string) ($props['customIcon'] ?? $props['icon'] ?? '');
             $iconPos = (string) ($props['iconPosition'] ?? 'left');
@@ -29,7 +35,7 @@ final readonly class LinkRenderer implements ComponentRenderer
 
             return new RenderResult(
                 tag: 'a',
-                attributes: NodeAttributes::for($node, ['href' => (string) ($props['href'] ?? '#')]),
+                attributes: NodeAttributes::for($node, $extraAttrs),
                 styles: $this->styleResolver->resolve($node, $definition, $context->breakpoint()),
                 children: $children,
                 html: $html,
@@ -38,7 +44,7 @@ final readonly class LinkRenderer implements ComponentRenderer
 
         return new RenderResult(
             tag: 'a',
-            attributes: NodeAttributes::for($node, ['href' => (string) ($props['href'] ?? '#')]),
+            attributes: NodeAttributes::for($node, $extraAttrs),
             styles: $this->styleResolver->resolve($node, $definition, $context->breakpoint()),
             text: $text,
             children: $children,

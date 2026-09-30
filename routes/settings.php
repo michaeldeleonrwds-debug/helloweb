@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Settings\PasswordController;
 use App\Http\Controllers\Settings\ProfileController;
+use App\Http\Controllers\Settings\AiSettingsController;
 use App\Http\Controllers\Settings\WebsiteSettingsController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -22,4 +23,8 @@ Route::middleware('auth')->group(function () {
 
     Route::get('settings/website', [WebsiteSettingsController::class, 'edit'])->name('website.settings.edit');
     Route::patch('settings/website', [WebsiteSettingsController::class, 'update'])->name('website.settings.update');
+
+    Route::get('settings/ai', [AiSettingsController::class, 'edit'])->name('ai.settings.edit');
+    Route::patch('settings/ai', [AiSettingsController::class, 'update'])->name('ai.settings.update');
+    Route::post('settings/ai/openai/test', [AiSettingsController::class, 'testOpenAi'])->name('ai.settings.openai.test');
 });

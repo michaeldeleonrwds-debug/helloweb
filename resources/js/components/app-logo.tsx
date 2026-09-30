@@ -1,18 +1,18 @@
-import AppLogoIcon from './app-logo-icon';
-
-export default function AppLogo() {
+export default function AppLogo({ className = '' }: { className?: string }) {
     return (
-        <div className="flex items-center gap-2.5">
-            <div className="bg-primary flex size-8.5 items-center justify-center rounded-xl text-white shadow-xs transition-transform group-hover:scale-105">
-                <AppLogoIcon className="size-5 fill-current text-white" />
-            </div>
-            <div className="flex flex-col text-left">
-                <span className="text-neutral-900 dark:text-foreground flex items-center gap-1 text-sm font-bold tracking-tight">
-                    HelloWeb
-                    <span className="bg-primary size-1.5 rounded-full" />
-                </span>
-                <span className="text-neutral-500 dark:text-muted-foreground -mt-0.5 text-[10px] font-medium">Website Builder</span>
-            </div>
+        <div className={`flex items-center ${className}`}>
+            {/* Dark mode logo */}
+            <img
+                src="/images/helloweb-logo-dark.png"
+                alt="HelloWeb"
+                className="hidden dark:block h-8 w-auto max-w-[150px] object-contain"
+            />
+            {/* Light mode logo */}
+            <img
+                src="/images/helloweb-logo-light.png"
+                alt="HelloWeb"
+                className="block dark:hidden h-8 w-auto max-w-[150px] object-contain"
+            />
         </div>
     );
 }

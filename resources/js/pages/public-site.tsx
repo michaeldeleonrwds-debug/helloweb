@@ -1,5 +1,5 @@
-import { Head, usePage } from '@inertiajs/react';
-import { ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { Head, Link, usePage } from '@inertiajs/react';
+import { ArrowLeft, ChevronLeft, ChevronRight, Eye, Sparkles, X } from 'lucide-react';
 import { createElement, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { BuilderBreakpoint, BuilderPageDocument, JsonValue } from '@/builder/document';
@@ -13,16 +13,17 @@ import { ComponentRendererRegistry } from '@/builder/renderer/renderer-registry'
 
 interface PublicSiteProps extends Record<string, unknown> {
     website: { name: string; title: string; tagline: string | null; faviconUrl: string | null };
-    page: { title: string; slug: string };
+    page: { id?: number; title: string; slug: string; status?: string; isPublished?: boolean };
     document: BuilderPageDocument;
     headerDocument?: BuilderPageDocument | null;
     footerDocument?: BuilderPageDocument | null;
+    isPreview?: boolean;
 }
 
 const voidElements = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr']);
 
 export default function PublicSite() {
-    const { website, page, document, headerDocument, footerDocument } = usePage<PublicSiteProps>().props;
+    const { website, page, document, headerDocument, footerDocument, isPreview } = usePage<PublicSiteProps>().props;
     const breakpoint = useViewportBreakpoint();
     const scopedCss = typeof document.metadata?.scopedCss === 'string' ? document.metadata.scopedCss : '';
     const globalHeadCode = (typeof document.metadata?.globalHeadCode === 'string' ? document.metadata.globalHeadCode : '') +
@@ -47,6 +48,7 @@ export default function PublicSite() {
                     menu.classList.toggle('is-open');
                     const isOpen = menu.classList.contains('is-open');
                     menu.style.display = isOpen ? 'flex' : 'none';
+                    header?.classList.toggle('hw-nav-open', isOpen);
                 }
                 return;
             }
@@ -63,6 +65,25 @@ export default function PublicSite() {
                 }));
                 const index = items.indexOf(galleryItem);
                 setLightbox({ images, activeIndex: Math.max(0, index) });
+                return;
+            }
+
+            // Handle Anchor / Scroll to Element
+            const anchor = target.closest<HTMLAnchorElement>('a[href^="#"]');
+            if (anchor) {
+                const href = anchor.getAttribute('href') || '';
+                const targetId = href.slice(1);
+                if (targetId && targetId !== '') {
+                    const element =
+                        window.document.getElementById(targetId) ||
+                        window.document.querySelector(`[data-builder-id="${targetId}"]`) ||
+                        window.document.querySelector(`[id="${targetId}"]`);
+                    if (element) {
+                        e.preventDefault();
+                        element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        window.history.pushState(null, '', `#${targetId}`);
+                    }
+                }
             }
         };
 
@@ -109,6 +130,30 @@ export default function PublicSite() {
                 {website.tagline ? <meta name="description" content={website.tagline} /> : null}
             </Head>
             <GlobalCodeEffects headCode={globalHeadCode} footerCode={globalFooterCode} />
+            {isPreview ? (
+                <div className="sticky top-0 z-50 flex items-center justify-between border-b border-amber-500/30 bg-amber-500/10 px-4 py-2 text-xs font-medium text-amber-900 dark:text-amber-200 backdrop-blur-md">
+                    <div className="flex items-center gap-2">
+                        <span className="flex size-2 rounded-full bg-amber-500 animate-pulse" />
+                        <span className="font-bold uppercase tracking-wider text-[11px] text-amber-600 dark:text-amber-400">Preview Mode</span>
+                        <span className="hidden sm:inline text-amber-700/80 dark:text-amber-300/80">•</span>
+                        <span className="hidden sm:inline">Viewing latest draft of <strong className="font-semibold">{page.title}</strong></span>
+                        <span className="rounded-full bg-amber-500/15 border border-amber-500/25 px-2 py-0.5 text-[10px] font-semibold">
+                            {page.isPublished ? 'Published + Draft changes' : 'Unpublished Draft'}
+                        </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        {page.id ? (
+                            <Link
+                                href={route('builder.pages.show', page.id)}
+                                className="inline-flex items-center gap-1 rounded-md bg-amber-600 dark:bg-amber-500 px-2.5 py-1 text-[11px] font-semibold text-white shadow-2xs transition hover:brightness-110 active:scale-95"
+                            >
+                                <Sparkles className="size-3" />
+                                <span>Edit in Builder</span>
+                            </Link>
+                        ) : null}
+                    </div>
+                </div>
+            ) : null}
             <main className="min-h-screen bg-white text-slate-950 flex flex-col justify-between">
                 {headerResult ? <header className="w-full shrink-0"><PublicRenderNode result={headerResult} /></header> : null}
                 <div className="flex-1 w-full"><PublicRenderNode result={result} /></div>

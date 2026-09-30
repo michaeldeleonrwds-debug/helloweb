@@ -212,10 +212,13 @@ export const buttonRenderer: ComponentRenderer = {
 
         const hasIcon = showIcon && Boolean(icon || customIcon);
 
+        const linkTarget = props.linkTarget === '_blank' ? '_blank' : undefined;
+        const targetAttrs: Record<string, string> = linkTarget ? { target: '_blank', rel: 'noopener noreferrer' } : {};
+
         if (!hasIcon) {
             return {
                 tag: 'a',
-                attributes: { ...nodeAttributes(node), href },
+                attributes: { ...nodeAttributes(node), href, ...targetAttrs },
                 styles: applyBackgroundStyles(styles),
                 text,
                 children,
@@ -233,7 +236,7 @@ export const buttonRenderer: ComponentRenderer = {
 
         return {
             tag: 'a',
-            attributes: { ...nodeAttributes(node), href },
+            attributes: { ...nodeAttributes(node), href, ...targetAttrs },
             styles: applyBackgroundStyles(styles),
             html,
             children,
@@ -244,9 +247,12 @@ export const buttonRenderer: ComponentRenderer = {
 const linkRenderer: ComponentRenderer = {
     render(node, definition, context, children) {
         const props = { ...(definition.defaultProps ?? {}), ...node.props };
+        const linkTarget = props.linkTarget === '_blank' ? '_blank' : undefined;
+        const targetAttrs: Record<string, string> = linkTarget ? { target: '_blank', rel: 'noopener noreferrer' } : {};
+
         return {
             tag: 'a',
-            attributes: { ...nodeAttributes(node), href: String(props.href ?? '#') },
+            attributes: { ...nodeAttributes(node), href: String(props.href ?? '#'), ...targetAttrs },
             styles: resolveStyles(node, definition, context.breakpoint),
             text: String(props.text ?? ''),
             children,
@@ -321,18 +327,26 @@ export const navbarRenderer: ComponentRenderer = {
                     return {
                         label: String(record.label ?? ''),
                         href: String(record.href ?? '#'),
+                        target: record.target === '_blank' ? '_blank' : undefined,
                     };
                 }
                 return {
                     label: String(l ?? ''),
                     href: '#',
+                    target: undefined,
                 };
             })
             .filter((l) => l.label);
         const showCta = props.showCta !== false;
         const ctaText = String(props.ctaText ?? 'Get Started');
         const ctaHref = String(props.ctaHref ?? '#');
+        const ctaTarget = props.ctaTarget === '_blank' ? ' target="_blank" rel="noopener noreferrer"' : '';
         const isMobileNav = context.breakpoint === 'mobile';
+
+        const formatLinkTag = (l: { label: string; href: string; target?: string }, extraStyle = '') => {
+            const targetAttr = l.target === '_blank' ? ' target="_blank" rel="noopener noreferrer"' : '';
+            return `<a href="${escapeHtml(l.href)}"${targetAttr} style="text-decoration: none; color: inherit; opacity: 0.85; transition: opacity 0.15s; ${extraStyle}">${escapeHtml(l.label)}</a>`;
+        };
 
         const html = `
 <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; width: 100%; max-width: 1200px; margin: 0 auto; flex-wrap: wrap;">
@@ -341,27 +355,37 @@ export const navbarRenderer: ComponentRenderer = {
         ${brandName ? `<span>${escapeHtml(brandName)}</span>` : ''}
     </a>
     <nav class="hw-navbar-desktop-links" style="display: ${isMobileNav ? 'none' : 'flex'}; align-items: center; gap: 24px; font-size: 0.875rem; font-weight: 500;">
-        ${links.map((l) => `<a href="${escapeHtml(l.href)}" style="text-decoration: none; color: inherit; opacity: 0.85; transition: opacity 0.15s;">${escapeHtml(l.label)}</a>`).join('')}
+        ${links.map((l) => formatLinkTag(l)).join('')}
     </nav>
     <div style="display: flex; align-items: center; gap: 12px;">
-        ${showCta ? `<a href="${escapeHtml(ctaHref)}" class="hw-navbar-cta" style="display: ${isMobileNav ? 'none' : 'inline-flex'}; align-items: center; justify-content: center; padding: 8px 18px; border-radius: 9999px; background: #0f172a; color: #ffffff; font-size: 0.75rem; font-weight: 600; text-decoration: none; box-shadow: 0 1px 2px rgba(0,0,0,0.1); transition: opacity 0.15s;">${escapeHtml(ctaText)}</a>` : ''}
+        ${showCta ? `<a href="${escapeHtml(ctaHref)}"${ctaTarget} class="hw-navbar-cta" style="display: ${isMobileNav ? 'none' : 'inline-flex'}; align-items: center; justify-content: center; padding: 8px 18px; border-radius: 9999px; background: #0f172a; color: #ffffff; font-size: 0.75rem; font-weight: 600; text-decoration: none; box-shadow: 0 1px 2px rgba(0,0,0,0.1); transition: opacity 0.15s;">${escapeHtml(ctaText)}</a>` : ''}
         <button type="button" class="hw-navbar-toggle-btn" data-hw-nav-toggle="true" aria-label="Toggle navigation" style="display: ${isMobileNav ? 'inline-flex' : 'none'}; padding: 6px; border-radius: 8px; border: 1px solid rgba(0,0,0,0.15); background: transparent; cursor: pointer;">
             <svg style="width: 20px; height: 20px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
         </button>
     </div>
 </div>
 <div class="hw-navbar-mobile-menu" data-hw-nav-menu="true" style="display: none; flex-direction: column; gap: 12px; width: 100%; padding-top: 16px; border-top: 1px solid rgba(0,0,0,0.08); margin-top: 12px;">
-    ${links.map((l) => `<a href="${escapeHtml(l.href)}" style="text-decoration: none; color: inherit; font-size: 0.875rem; font-weight: 500; padding: 4px 0;">${escapeHtml(l.label)}</a>`).join('')}
-    ${showCta ? `<a href="${escapeHtml(ctaHref)}" style="display: inline-flex; align-items: center; justify-content: center; padding: 8px 18px; border-radius: 9999px; background: #0f172a; color: #ffffff; font-size: 0.75rem; font-weight: 600; text-decoration: none; margin-top: 4px; text-align: center;">${escapeHtml(ctaText)}</a>` : ''}
+    ${links.map((l) => formatLinkTag(l, 'padding: 4px 0; font-size: 0.875rem;')).join('')}
+    ${showCta ? `<a href="${escapeHtml(ctaHref)}"${ctaTarget} style="display: inline-flex; align-items: center; justify-content: center; padding: 8px 18px; border-radius: 9999px; background: #0f172a; color: #ffffff; font-size: 0.75rem; font-weight: 600; text-decoration: none; margin-top: 4px; text-align: center;">${escapeHtml(ctaText)}</a>` : ''}
 </div>
 <style>
     .hw-navbar-mobile-menu.is-open { display: flex; }
+    header.hw-nav-open,
+    header[data-builder-type="layout.navbar"]:has(.hw-navbar-mobile-menu.is-open),
+    nav.hw-nav-open,
+    nav:has(.hw-navbar-mobile-menu.is-open) {
+        border-radius: 20px !important;
+        transition: border-radius 0.2s ease;
+    }
 </style>
 `;
 
+        const attrs = nodeAttributes(node);
+        attrs.class = attrs.class ? `${attrs.class} hw-navbar-wrapper` : 'hw-navbar-wrapper';
+
         return {
             tag: 'header',
-            attributes: nodeAttributes(node),
+            attributes: attrs,
             styles: applyBackgroundStyles(styles),
             html,
             children: [],
@@ -576,23 +600,44 @@ export const logoMarqueeRenderer: ComponentRenderer = {
         const logoCardStyle = String(props.logoCardStyle ?? 'card');
         const logoBackground = String(props.logoBackground ?? '#ffffff');
         const borderColor = String(props.borderColor ?? '#e2e8f0');
-        const logoHeight = String(props.logoHeight ?? (context.breakpoint === 'mobile' ? '28px' : '36px'));
+        const logoHeight = String(props.logoHeight ?? (context.breakpoint === 'mobile' ? '32px' : '48px'));
+        const itemHeight = props.itemHeight ? String(props.itemHeight) : '';
+        const itemWidth = props.itemWidth ? String(props.itemWidth) : '';
+        const badgeShape = String(props.badgeShape ?? 'rounded');
+        const objectFit = String(props.objectFit ?? 'contain');
         const gap = String(props.gap ?? (context.breakpoint === 'mobile' ? '16px' : '28px'));
         const className = `hw-marquee-${node.id.replace(/[^a-zA-Z0-9_-]/g, '')}`;
 
+        const showPartnerNames = Boolean(props.showPartnerNames);
         const isCard = logoCardStyle === 'card';
+
+        let borderRadius = '12px';
+        if (badgeShape === 'circle') {
+            borderRadius = '50%';
+        } else if (badgeShape === 'pill') {
+            borderRadius = '9999px';
+        } else if (badgeShape === 'square') {
+            borderRadius = '0px';
+        }
+
+        const sizeStyles = [
+            itemHeight ? `height: ${escapeHtml(itemHeight)};` : '',
+            itemWidth && itemWidth !== 'auto' ? `width: ${escapeHtml(itemWidth)};` : '',
+            badgeShape === 'circle' && itemHeight && (!itemWidth || itemWidth === 'auto') ? `width: ${escapeHtml(itemHeight)}; aspect-ratio: 1 / 1;` : '',
+        ].filter(Boolean).join(' ');
+
         const cardStyleString = isCard
-            ? `border: 1px solid ${escapeHtml(borderColor)}; border-radius: 12px; background: ${escapeHtml(logoBackground)}; padding: ${context.breakpoint === 'mobile' ? '8px 14px' : '10px 20px'}; box-shadow: 0 1px 3px rgba(0,0,0,0.04);`
-            : `background: transparent; padding: 4px;`;
+            ? `border: 1px solid ${escapeHtml(borderColor)}; border-radius: ${borderRadius}; background: ${escapeHtml(logoBackground)}; padding: ${context.breakpoint === 'mobile' ? '8px 14px' : '10px 20px'}; box-shadow: 0 1px 3px rgba(0,0,0,0.06); ${sizeStyles}`
+            : `background: transparent; padding: 4px; ${sizeStyles}`;
 
         const logoItemHtml = (logo: { src: string; alt: string; href?: string; name?: string }) => {
-            const inner = `<img src="${escapeHtml(logo.src)}" alt="${escapeHtml(logo.alt)}" loading="lazy" style="display: block; width: auto; height: ${escapeHtml(logoHeight)}; max-width: 180px; object-fit: contain; ${grayscale ? 'filter: grayscale(100%) opacity(0.7); transition: filter 0.25s, opacity 0.25s, transform 0.2s;' : 'transition: transform 0.2s;'}" class="${grayscale ? 'hw-marquee-logo-img' : ''}" />${logo.name ? `<span style="font-size: 11px; font-weight: 600; color: inherit; opacity: 0.8; white-space: nowrap;">${escapeHtml(logo.name)}</span>` : ''}`;
+            const inner = `<img src="${escapeHtml(logo.src)}" alt="${escapeHtml(logo.alt)}" loading="lazy" style="display: block; width: auto; height: ${escapeHtml(logoHeight)}; max-width: 100%; object-fit: ${escapeHtml(objectFit)}; ${badgeShape === 'circle' ? `border-radius: 50%;` : ''} ${grayscale ? 'filter: grayscale(100%) opacity(0.75); transition: filter 0.25s, opacity 0.25s, transform 0.2s;' : 'transition: transform 0.2s;'}" class="${grayscale ? 'hw-marquee-logo-img' : ''}" />${showPartnerNames && logo.name ? `<span style="font-size: 11px; font-weight: 600; color: inherit; opacity: 0.85; white-space: nowrap;">${escapeHtml(logo.name)}</span>` : ''}`;
 
             if (logo.href && logo.href.trim() !== '') {
-                return `<a href="${escapeHtml(logo.href)}" target="_blank" rel="noopener noreferrer" style="display: inline-flex; flex: 0 0 auto; min-width: max-content; align-items: center; justify-content: center; gap: 8px; text-decoration: none; ${cardStyleString}" class="hw-marquee-item">${inner}</a>`;
+                return `<a href="${escapeHtml(logo.href)}" target="_blank" rel="noopener noreferrer" style="display: inline-flex; flex: 0 0 auto; min-width: max-content; align-items: center; justify-content: center; gap: 8px; text-decoration: none; box-sizing: border-box; ${cardStyleString}" class="hw-marquee-item">${inner}</a>`;
             }
 
-            return `<span style="display: inline-flex; flex: 0 0 auto; min-width: max-content; align-items: center; justify-content: center; gap: 8px; ${cardStyleString}" class="hw-marquee-item">${inner}</span>`;
+            return `<span style="display: inline-flex; flex: 0 0 auto; min-width: max-content; align-items: center; justify-content: center; gap: 8px; box-sizing: border-box; ${cardStyleString}" class="hw-marquee-item">${inner}</span>`;
         };
 
         const logoGroup = logoImages.map(logoItemHtml).join('');
@@ -603,7 +648,7 @@ export const logoMarqueeRenderer: ComponentRenderer = {
 
         const html = `
 <div class="${className} hw-marquee-wrapper" style="display: flex; overflow: hidden; width: 100%; position: relative; ${maskStyle}">
-    <div class="hw-marquee-track" style="display: flex; width: max-content; min-width: max-content; animation: ${className}-scroll ${escapeHtml(speed)} linear infinite; animation-direction: ${direction}; will-change: transform;">
+    <div class="hw-marquee-track" style="display: flex; width: max-content; min-width: max-content; align-items: center; animation: ${className}-scroll ${escapeHtml(speed)} linear infinite; animation-direction: ${direction}; will-change: transform;">
         <div style="display: flex; flex: 0 0 auto; align-items: center; gap: ${gap}; padding-right: ${gap};">${logoGroup}</div>
         <div aria-hidden="true" style="display: flex; flex: 0 0 auto; align-items: center; gap: ${gap}; padding-right: ${gap};">${logoGroup}</div>
         <div aria-hidden="true" style="display: flex; flex: 0 0 auto; align-items: center; gap: ${gap}; padding-right: ${gap};">${logoGroup}</div>
@@ -617,7 +662,7 @@ export const logoMarqueeRenderer: ComponentRenderer = {
     ${pauseOnHover ? `.${className}:hover .hw-marquee-track { animation-play-state: paused !important; }` : ''}
     ${grayscale ? `.${className} .hw-marquee-item:hover .hw-marquee-logo-img { filter: grayscale(0%) opacity(1) !important; transform: scale(1.05); }` : ''}
     .${className} .hw-marquee-item { transition: transform 0.2s, box-shadow 0.2s; }
-    .${className} .hw-marquee-item:hover { transform: translateY(-1px); }
+    .${className} .hw-marquee-item:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
 </style>
 `;
 

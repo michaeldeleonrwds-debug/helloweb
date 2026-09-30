@@ -24,6 +24,16 @@ class Website extends Model
         'footer_template_id',
     ];
 
+    protected function casts(): array
+    {
+        return [
+            'user_id' => 'integer',
+            'homepage_page_id' => 'integer',
+            'header_template_id' => 'integer',
+            'footer_template_id' => 'integer',
+        ];
+    }
+
     /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
     {

@@ -23,7 +23,7 @@ final readonly class TemplatePersistenceService
         $this->validator = $validator ?? new DocumentPersistenceValidator(BuiltInComponentDefinitions::registry());
     }
 
-    public function create(User $user, string $name, ?array $document = null, ?string $slug = null, ?string $description = null, string $type = 'page', ?bool $isPlatform = null): Template
+    public function create(User $user, string $name, ?array $document = null, ?string $slug = null, ?string $description = null, string $type = 'page', ?bool $isPlatform = null, bool $isCustomized = true): Template
     {
         $doc = $document ?: DefaultTemplateFactory::documentForType($type);
         $validated = $this->validator->validate($doc);
@@ -42,6 +42,7 @@ final readonly class TemplatePersistenceService
             'description' => $description,
             'type' => $type,
             'is_platform' => $isPlatform ?? $user->isSuperAdmin(),
+            'is_customized' => $isCustomized,
             'document' => $validated->toArray(),
             'schema_version' => $validated->schemaVersion(),
             'status' => 'active',
@@ -60,13 +61,14 @@ final readonly class TemplatePersistenceService
                     $def['slug'],
                     $def['description'],
                     $def['type'],
-                    true
+                    true,
+                    false
                 );
 
                 continue;
             }
 
-            if ($existing->is_platform) {
+            if ($existing->is_platform && ! $existing->is_customized) {
                 $validated = $this->validator->validate($def['document']);
                 $existing->forceFill([
                     'name' => $def['name'],
@@ -118,6 +120,9 @@ final readonly class TemplatePersistenceService
                 ->first();
 
             if ($existingFork) {
+                // Repair a re-point that was missed on an earlier save.
+                $this->reattachToWebsite($user, $template, $existingFork);
+
                 return $this->update($user, $existingFork, $document, $name, $description);
             }
 
@@ -132,14 +137,7 @@ final readonly class TemplatePersistenceService
                 false
             );
 
-            $website = $user->websites()->first();
-            if ($website) {
-                if ($website->header_template_id === $template->id) {
-                    $website->update(['header_template_id' => $forked->id]);
-                } elseif ($website->footer_template_id === $template->id) {
-                    $website->update(['footer_template_id' => $forked->id]);
-                }
-            }
+            $this->reattachToWebsite($user, $template, $forked);
 
             return $forked;
         }
@@ -151,9 +149,36 @@ final readonly class TemplatePersistenceService
             'description' => $description ?? $template->description,
             'document' => $validated->toArray(),
             'schema_version' => $validated->schemaVersion(),
+            'is_customized' => true,
         ])->save();
 
         return $template->fresh();
+    }
+
+    /**
+     * Point the user's website at the forked template when it is currently
+     * assigned to the platform original this fork replaces.
+     */
+    private function reattachToWebsite(User $user, Template $original, Template $replacement): void
+    {
+        $website = $user->websites()->first();
+        if (! $website) {
+            return;
+        }
+
+        $originalId = (int) $original->id;
+        $updates = [];
+
+        if ((int) $website->header_template_id === $originalId) {
+            $updates['header_template_id'] = $replacement->id;
+        }
+        if ((int) $website->footer_template_id === $originalId) {
+            $updates['footer_template_id'] = $replacement->id;
+        }
+
+        if ($updates !== []) {
+            $website->update($updates);
+        }
     }
 
     /** @return list<Template> */

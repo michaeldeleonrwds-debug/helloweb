@@ -1,5 +1,125 @@
 # Decisions
 
+## D-060 - OpenAI and MCP must adapt through a shared editor command service
+
+Status: Accepted
+Date: 2026-09-30
+
+Decision:
+Introduce `EditorCommandService` as the backend command boundary for AI operations. Built-in OpenAI and future MCP adapters must call this service rather than mutating Eloquent documents, React state, SQL, PHP, or the DOM directly. AI status exposed to React is safe metadata only; API keys stay server-side and encrypted when stored in the database.
+
+Reason:
+The AI-native builder request requires both native OpenAI and external MCP clients to inspect and change the live builder while sharing validation, permissions, versioning, persistence, and future realtime events. A command boundary prevents duplicate edit logic and prevents fake/unrestricted MCP endpoints.
+
+Implication:
+MCP transport/session work and OpenAI chat/tool loops should be thin adapters over `EditorCommandService`. Do not display connected AI controls unless a real provider/session is connected.
+
+Do not:
+Create a disconnected chatbot, a fake MCP "connected" endpoint, arbitrary SQL/PHP/filesystem tools, or a second element mutation system for AI.
+
+## D-059 - Media Manager is a file-explorer primitive shared by the builder and the dashboard
+
+Status: Accepted
+Date: 2026-09-29
+
+Decision:
+Rebuild the media experience around a single reusable explorer primitive in `resources/js/media/` (`MediaExplorer` + `useMediaExplorer` + `FolderTree` + `MediaGridView` + `MediaListView` + `AssetContextMenu`) that is mounted in two surfaces: the builder's ~80vw modal (`MediaManager.tsx`) in select mode, and the dashboard `/media` page inside `AdminResourcePage`.
+1. **Folder model**: nested folders use a `media_folders` adjacency list (`user_id`, `parent_id`, `name`) with `media_assets.folder_id` (`nullOnDelete`). Uniqueness, normalization, cycle rejection, and ownership are enforced in `MediaFolderService` — never by a MySQL unique index (NULL `parent_id` is not deduplicated by MySQL) or by the controller.
+2. **Trash model**: `status = archived` remains the soft-delete state. Explorer surfaces expose an Archive/Restore/Permanent-delete cycle (`builder.media.archive|restore|destroy`) plus a Trash view; permanent delete removes the storage object and the row.
+3. **API shape**: `GET builder/media?status=all` returns `{ media, folders }`; folders are registered before `builder/media/{asset}` so `folders.*` are not swallowed by the asset wildcard binding.
+4. **Editor boundary**: the left-rail `MediaPanel` stays a lightweight display/upload panel; the explorer owns browse, search, folder CRUD, drag-to-move, right-click actions, and upload. AI cutout/WebP conversion stays in `MediaManager` and is injected through `toolbarExtra` / `cardExtra` / `processing` so the explorer itself has no AI dependency.
+5. **Feedback**: `sonner` toasts are mounted once in `resources/js/app.tsx` (client-only `createRoot`, so no SSR/hydration concern); explorer errors also render inline.
+
+Reason:
+Media had become a per-surface CRUD folder (one grid in the dashboard, a different flat grid in the builder) with no way to organize assets. A file-explorer primitive keeps folder semantics, trash semantics, and ownership in one place instead of two, while the injection points keep builder-only AI features out of the framework core.
+
+Implication:
+New media capabilities (selection mode, AI actions, bulk operations, additional surfaces) extend the explorer's props/controller rather than adding another media UI. `resources/js/builder/editor/MediaPanel` remains intentionally out of scope.
+
+Do not:
+Reintroduce per-surface media grids, enforce folder name uniqueness in MySQL, or let controllers own folder business rules.
+
+## D-058 - Platform template customization is an explicit persisted flag; template preview is a first-class route
+
+Status: Accepted
+Date: 2026-09-29
+
+Decision:
+1. **`templates.is_customized`** is the durable marker distinguishing a platform template that has been intentionally edited from one that is still stock. `TemplatePersistenceService::ensureDefaultTemplates()` refreshes platform templates only while `is_platform && !is_customized`; `update()` sets `is_customized = true`; a migration backfills the flag for platform templates whose document already differs from `DefaultTemplateFactory`. Forking a platform template for a non-owner now also re-points that user's `websites.header_template_id` / `footer_template_id` to the new fork (`reattachToWebsite`), so edits survive an editor reload instead of silently reverting to the stock platform document.
+2. **`GET preview/templates/{template}`** (`PublicSiteController::previewTemplate`, `Gate::authorize('view')`) overlays the template's document as the header/footer on the site's homepage in Preview Mode, with `renderPage(..., headerOverride, footerOverride)` as the shared extension point. The builder derives a stable `previewUrl` and `BuilderToolbar` / `BuilderFooterBar` render an `<a>` when no `onPreview` handler is supplied, so preview keeps working outside the full editor.
+
+Reason:
+Superadmin header/footer customizations were being re-seeded over on every editor load because "platform template" and "unmodified template" were the same condition. There was also no way to preview a header/footer design in site context without a page attached to it.
+
+Implication:
+Any future "reset to default design" action must explicitly clear `is_customized`. Template preview must stay owner-gated and must render through the normal public renderer rather than a bespoke template view.
+
+Do not:
+Detect customization by diffing documents on every boot, or expose template preview on unauthenticated routes.
+
+## D-056 - Logo Marquee Uniform Dimensions, Full Section Width, Badge Shapes, and Effects Capabilities
+
+Status: Accepted
+Date: 2026-09-29
+
+Decision:
+Upgrade `marketing.logomarquee` across PHP definitions, TypeScript registry, renderer, and visual editor inspector:
+1. **Uniform Logo & Container Dimensions**: Expose `itemHeight` (container height), `itemWidth` (container width), `logoHeight`, and `objectFit` (`contain` | `cover`). Enforce uniform flex container height (`height: ${itemHeight}`) and `box-sizing: border-box` so logos with varying aspect ratios or circular badges are strictly identical in height and vertically centered without vertical jumpiness.
+2. **Badge Shapes & Styles**: Support `badgeShape` (`rounded`, `pill`, `circle`, `square`) in addition to `logoCardStyle` (`card` | `clean`). For `circle`, automatically enforce a 1:1 aspect ratio with `50%` border-radius and centered content.
+3. **Full Section Width Control**: Add `marketing.logomarquee` to `supportsWidthMode` in `ComponentInspector.tsx`. Enable 1-click toggling between constrained content width (`1140px`) and full section/viewport width (`100%`, `margin: 0`), with defaults set to full section width (`100%`) for clean modern marquee strips.
+4. **Full Effects Capabilities**: Register complete styling capabilities (`boxShadow`, `dropShadowX/Y/Blur/Spread/Color`, `innerShadow*`, `layerBlur`, `backgroundBlur`, `filter`, `backdropFilter`, `borderWidth`, `borderStyle`, `borderColor`, `borderRadius`, `borderTopLeftRadius`, etc.) in both `BuiltInComponentDefinitions.php` and `built-ins.ts`. The inspector Style tab now unlocks the comprehensive Effects control panel for shadow, blur, and glow styling.
+
+Reason:
+Users frequently build brand showcases and partner badge rows (such as circular awards or cards) that need to stretch edge-to-edge across the section, have identical heights across all items regardless of individual image aspect ratio, and support drop shadows, borders, and effects.
+
+Implication:
+Logo Marquee elements look uniform, modern, and aligned with design badges out of the box, with full control over container sizing, full-bleed section layout, and visual effects.
+
+Do not:
+Hardcode card dimensions or allow mismatched heights to distort the marquee track alignment.
+
+## D-055 - Action Destination Control with Internal Page Picker, Smooth Scroll, and New Tab Target
+
+Status: Accepted
+Date: 2026-09-29
+
+Decision:
+Implement an action and link destination system across the visual builder (for buttons, text links, navbar links, and CTA buttons):
+1. **Destination Types**: Support Website URL (`https://...`), Internal Page selector (choosing from existing website pages with automated URL resolution), Scroll to Element (listing section and element IDs with automatic smooth-scroll support on the canvas and public site), Email (`mailto:`), Phone (`tel:`), and SMS (`sms:`).
+2. **Target Window Control**: Add an "Open in new tab" option (`target="_blank"`, `rel="noopener noreferrer"`) for external/internal links across all button, link, and navbar items.
+3. **Internal Page Registry**: Load all available pages for the active website in `BuilderPageController` (`availablePages: id, title, slug, status, url`) and pass down through the editor to `ComponentInspector` and `LinkActionControl`.
+4. **Smooth Scroll Engine**: Extend `public-site.tsx` with smooth scrolling for anchor links (`href="#..."`), targeting matching elements by element ID or `data-builder-id`.
+5. **Full Parity in Renderers**: Support `linkTarget` in TypeScript `buttonRenderer`, `linkRenderer`, and `navbarRenderer`, as well as PHP `LinkRenderer`.
+
+Reason:
+Users need intuitive control over button and navbar destinations, allowing them to select pages from a dropdown rather than typing URLs manually, jump to sections on the page, and specify whether links open in a new tab.
+
+Implication:
+`LinkActionControl` acts as a shared primitive for any component that renders links or buttons.
+
+Do not:
+Hardcode page URLs or require users to remember internal slugs or type `target="_blank"` manually.
+
+## D-054 - Preview renders draft document with auto-save flush; Public routes render published document
+
+Status: Accepted
+Date: 2026-09-29
+
+Decision:
+Make the preview route (`/preview/pages/{id}`) strictly render the draft document (`draft_document`) while the public routes (`/{slug}` and `/`) strictly render the published document (`published_document`). Additionally:
+1. Pass `isPreview: true` to the public renderer Inertia component when viewed through the preview route, and render an amber top banner displaying preview status with a quick action to return to the Builder editor.
+2. Intercept the Preview buttons in the visual builder toolbar and footer bar: if there are pending unsaved canvas changes, immediately trigger `save.saveNow()` before opening the preview tab so that work-in-progress state is guaranteed to be saved and visible.
+3. Feature tests verify both paths: draft edits are immediately visible on `/preview/pages/{id}` and remain isolated from the live public `/slug` route until published.
+
+Reason:
+Users need to preview their work-in-progress draft exactly as it will look live before committing to publishing. Requiring a publish step just to preview defeated the draft workflow.
+
+Implication:
+`PublicSiteController::preview()` renders the draft document, while `show()` and `home()` query only published pages and load `published_document`.
+
+Do not:
+Expose draft changes on public routes or serve outdated draft snapshots when clicking Preview in the builder.
+
 ## D-000 - Adopt ContextOS for project memory
 
 Status: Accepted
@@ -988,3 +1108,24 @@ Previously, `AuthSimpleLayout` and `AuthCardLayout` hardcoded light background c
 
 Implication:
 `npx tsc --noEmit` reports 0 errors. `npm run test:builder-editor` passes. `npm run build` succeeds cleanly in 6.02s. All 97 PHP tests pass (871 assertions). Auth pages render flawlessly with crisp contrast in light mode, dark mode, and system preference.
+
+## D-053 - Corner Radius Precedence Resolution & Style Capabilities Parity
+
+Status: Accepted
+Date: 2026-09-28
+
+Decision:
+1. **Corner Radius Cascade Precedence**:
+   - In both `resolveStyles()` (`resources/js/builder/style/style.ts`) and PHP `StyleResolver::resolve()` (`app/Builder/Renderer/StyleResolver.php`), whenever any individual corner radius property (`borderTopLeftRadius`, `borderTopRightRadius`, `borderBottomRightRadius`, `borderBottomLeftRadius`) is defined, the shorthand `borderRadius` property is removed from the resolved style set.
+   - Applied identical precedence logic for `borderWidth` and individual side widths (`borderTopWidth`, `borderRightWidth`, `borderBottomWidth`, `borderLeftWidth`).
+   - In `renderStyleToReactStyle()` (`resources/js/builder/editor/render-result-utils.ts`), explicit check filters out `borderRadius` and `borderWidth` when individual corner/side overrides exist, preventing alphabetical sort order in CSS object spread from overwriting bottom corners.
+   - In `ComponentInspector.tsx` (`CornerRadiusControl` and `StrokeControl`), mutating linked corners or individual corners proactively clears the shorthand property (`onClear('borderRadius')` / `onClear('borderWidth')`), eliminating stale shorthand collisions.
+2. **Component Style Capabilities Parity (`content.socialicons`, `marketing.progressbar`)**:
+   - Added `'backgroundColor'` to `styleCapabilities` in both PHP (`BuiltInComponentDefinitions.php`) and TypeScript (`built-ins.ts`) for `content.socialicons` and `marketing.progressbar`.
+   - Resolves the 422 Unprocessable Content error (`Style property [backgroundColor] is not supported by component [content.socialicons]`) when saving templates or pages containing social icons.
+
+Reason:
+Alphabetical sorting in `resolveStyles` placed shorthand `borderRadius` after `borderBottom*Radius` and before `borderTop*Radius`, causing bottom corners to revert to default 16px while top corners respected 0px overrides. Furthermore, `content.socialicons` specified `backgroundColor: 'transparent'` in its defaultStyles, but lacked `backgroundColor` in `styleCapabilities`, triggering persistence validation errors on document save.
+
+Implication:
+All corner radius changes now apply cleanly and symmetrically across all corners. Templates and pages with social icons and progress bars save without 422 validation errors. Full test suites and production build succeed.

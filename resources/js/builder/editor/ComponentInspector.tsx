@@ -36,7 +36,7 @@ import { useEffect, useState } from 'react';
 
 import type { ComponentDefinition } from '../component/definition';
 import { HELLOWEB_DESIGN_TOKENS } from '../design-tokens';
-import type { BuilderBreakpoint, BuilderComponentNode, BuilderRecord, JsonValue } from '../document';
+import type { BuilderBreakpoint, BuilderComponentNode, BuilderPageDocument, BuilderRecord, JsonValue } from '../document';
 import { HELLOWEB_FONT_LIBRARY, HELLOWEB_FONT_WEIGHT_OPTIONS } from '../fonts/font-library';
 import type { MediaAsset } from '../persistence';
 import { normalizeVideoEmbedUrl } from '../renderer/built-ins';
@@ -54,6 +54,7 @@ import { BackgroundColorField } from './BackgroundColorField';
 import { CodeEditor } from './CodeEditor';
 import { CssValueEditor } from './CssValueEditor';
 import { IconPicker } from './IconPicker';
+import { LinkActionControl, type AvailablePage } from './LinkActionControl';
 import { readRecentColors, rememberRecentColor } from './recent-colors';
 
 interface ComponentInspectorProps {
@@ -70,6 +71,8 @@ interface ComponentInspectorProps {
     onAddChild?: (type: `${string}.${string}`) => void;
     onOpenMediaManager?: (target?: string, payload?: any) => void;
     onUploadMedia?: (file: File) => Promise<MediaAsset>;
+    availablePages?: AvailablePage[];
+    document?: BuilderPageDocument;
 }
 
 const HANDLED_LAYOUT_KEYS = new Set<string>([
@@ -176,6 +179,8 @@ export function ComponentInspector({
     onAddChild,
     onOpenMediaManager,
     onUploadMedia,
+    availablePages,
+    document,
     width,
 }: ComponentInspectorProps) {
     const [inspectorTab, setInspectorTab] = useState<'content' | 'layout' | 'style' | 'more'>('layout');
@@ -202,7 +207,7 @@ export function ComponentInspector({
 
     const styles = getStyleDefinitions(definition);
     const schema = definition.propSchema ?? {};
-    const supportsWidthMode = ['layout.row', 'layout.column', 'layout.container'].includes(node.type);
+    const supportsWidthMode = ['layout.row', 'layout.column', 'layout.container', 'marketing.logomarquee'].includes(node.type);
     const usesFullWidthProp = node.type === 'layout.row';
     const supportsAdvancedBackground = definition.styleCapabilities?.includes('backgroundType') === true;
     const maxWidth = inheritedStyleValue(node, definition, breakpoint, 'maxWidth').value;
@@ -249,7 +254,7 @@ export function ComponentInspector({
                     <div>
                         <p className="text-foreground text-xs font-medium">Width mode</p>
                         <p className="text-muted-foreground mt-0.5 text-[10px]">
-                            {isFullWidth ? 'Full viewport width' : `${usesFullWidthProp ? '1140px' : '900px'} content width`}
+                            {isFullWidth ? 'Full viewport width' : `${usesFullWidthProp || node.type === 'marketing.logomarquee' ? '1140px' : '900px'} content width`}
                         </p>
                     </div>
                     <button
@@ -260,7 +265,9 @@ export function ComponentInspector({
                                 onChange({ fullWidth: !isFullWidth });
                                 return;
                             }
-                            onStyleChange('maxWidth', isFullWidth ? '900px' : '100%');
+                            const defaultWidth = node.type === 'marketing.logomarquee' ? '1140px' : '900px';
+                            onStyleChange('maxWidth', isFullWidth ? defaultWidth : '100%');
+                            onStyleChange('width', '100%');
                             onStyleChange('margin', isFullWidth ? '0 auto' : '0px');
                         }}
                     >
@@ -306,6 +313,8 @@ export function ComponentInspector({
                             imageNode={node.type === 'media.image'}
                             onOpenMediaManager={onOpenMediaManager}
                             onUploadMedia={onUploadMedia}
+                            availablePages={availablePages}
+                            document={document}
                         />
                     </div>
                 )}
@@ -375,7 +384,7 @@ export function ComponentInspector({
                                         onClear={onStyleClear}
                                     />
                                 </div>
-                            ))}
+                           ))}
                     </div>
                 )}
 
@@ -2492,6 +2501,14 @@ function BoxModelGroup({
         parsedValues.Top.unit === parsedValues.Left.unit;
 
     const [linked, setLinked] = useState<boolean>(true);
+    const [allText, setAllText] = useState<string>('');
+    const [isFocusedAll, setIsFocusedAll] = useState<boolean>(false);
+
+    useEffect(() => {
+        if (!isFocusedAll) {
+            setAllText(areSidesEqual && hasAnyValue ? String(parsedValues.Top.value) : '');
+        }
+    }, [areSidesEqual, hasAnyValue, parsedValues.Top.value, isFocusedAll]);
 
     const setAllSides = (val: number | string, unit: 'px' | '%' | 'rem' | 'em' | 'vw' | 'vh' | 'auto') => {
         const styleVal: StyleValue = unit === 'auto' ? 'auto' : { value: typeof val === 'number' ? val : Number(val) || 0, unit };
@@ -2568,15 +2585,24 @@ function BoxModelGroup({
                                 aria-label={`${label} all sides`}
                                 className="border-input bg-background focus:border-ring focus:ring-ring/20 h-7 w-full rounded-md border pr-2 pl-8 text-right text-xs outline-none focus:ring-1"
                                 placeholder={areSidesEqual ? (hasAnyValue ? String(parsedValues.Top.value) : '0') : 'Mixed'}
-                                value={areSidesEqual && hasAnyValue ? String(parsedValues.Top.value) : ''}
+                                value={isFocusedAll ? allText : (areSidesEqual && hasAnyValue ? String(parsedValues.Top.value) : '')}
+                                onFocus={() => {
+                                    setIsFocusedAll(true);
+                                    setAllText(areSidesEqual && hasAnyValue ? String(parsedValues.Top.value) : '');
+                                }}
+                                onBlur={() => {
+                                    setIsFocusedAll(false);
+                                }}
                                 onChange={(e) => {
-                                    const val = e.target.value.trim();
-                                    if (val === 'auto' && property === 'margin') {
+                                    const val = e.target.value;
+                                    setAllText(val);
+                                    const trimmed = val.trim();
+                                    if (trimmed === 'auto' && property === 'margin') {
                                         setAllSides('auto', 'auto');
-                                    } else if (val === '') {
+                                    } else if (trimmed === '') {
                                         clearAll();
                                     } else {
-                                        const num = Number(val);
+                                        const num = Number(trimmed);
                                         if (!isNaN(num)) {
                                             setAllSides(num, parsedValues.Top.unit === 'auto' ? 'px' : parsedValues.Top.unit);
                                         }
@@ -2610,7 +2636,10 @@ function BoxModelGroup({
                                 key={preset}
                                 type="button"
                                 className="border-border hover:bg-muted text-muted-foreground hover:text-foreground h-5 min-w-5 rounded border px-1 text-[10px] font-medium transition"
-                                onClick={() => setAllSides(preset, parsedValues.Top.unit === 'auto' ? 'px' : parsedValues.Top.unit)}
+                                onClick={() => {
+                                    setAllSides(preset, parsedValues.Top.unit === 'auto' ? 'px' : parsedValues.Top.unit);
+                                    setAllText(String(preset));
+                                }}
                             >
                                 {preset}
                             </button>
@@ -2624,6 +2653,7 @@ function BoxModelGroup({
                             const current = values[side];
                             const parsed = parsedValues[side];
                             const isOverridden = node.styles[breakpoint]?.[`${property}${side}` as StylePropertyKey] !== undefined;
+                            const isAuto = parsed.unit === 'auto' || parsed.value === 'auto';
                             return (
                                 <div key={side} className="space-y-0.5">
                                     <div className="relative">
@@ -2654,9 +2684,31 @@ function BoxModelGroup({
                                             }}
                                         />
                                     </div>
-                                    <span className="text-muted-foreground block text-center text-[9px]">
-                                        {side === 'Top' ? 'Top' : side === 'Right' ? 'Right' : side === 'Bottom' ? 'Bottom' : 'Left'}
-                                    </span>
+                                    <div className="flex items-center justify-between px-0.5">
+                                        <span className="text-muted-foreground text-[9px]">
+                                            {side === 'Top' ? 'Top' : side === 'Right' ? 'Right' : side === 'Bottom' ? 'Bottom' : 'Left'}
+                                        </span>
+                                        {property === 'margin' ? (
+                                            <button
+                                                type="button"
+                                                title={`Toggle auto for ${side}`}
+                                                className={`rounded px-1 py-0.2 text-[8px] font-medium transition ${
+                                                    isAuto
+                                                        ? 'bg-primary/20 text-primary font-bold'
+                                                        : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                                                }`}
+                                                onClick={() => {
+                                                    if (isAuto) {
+                                                        setSide(side, 0, 'px');
+                                                    } else {
+                                                        setSide(side, 'auto', 'auto');
+                                                    }
+                                                }}
+                                            >
+                                                auto
+                                            </button>
+                                        ) : null}
+                                    </div>
                                 </div>
                             );
                         })}
@@ -2784,10 +2836,19 @@ function StrokeControl({
         parsedValues.Top.unit === parsedValues.Left.unit;
 
     const [linked, setLinked] = useState<boolean>(true);
+    const [allText, setAllText] = useState<string>('');
+    const [isFocusedAll, setIsFocusedAll] = useState<boolean>(false);
+
+    useEffect(() => {
+        if (!isFocusedAll) {
+            setAllText(areSidesEqual && hasAnyValue ? String(parsedValues.Top.value) : '');
+        }
+    }, [areSidesEqual, hasAnyValue, parsedValues.Top.value, isFocusedAll]);
 
     const setAllSides = (val: number | string, unit: 'px' | '%' | 'rem' | 'em' | 'vw' | 'vh') => {
         const num = typeof val === 'number' ? val : Number(val) || 0;
         const styleVal: StyleValue = { value: num, unit };
+        onClear('borderWidth');
         strokeSides.forEach(([, key]) => onChange(key, styleVal));
         if (supportsStyle && num > 0) {
             const currentStyle = inheritedStyleValue(node, definition, breakpoint, 'borderStyle').value;
@@ -2799,6 +2860,7 @@ function StrokeControl({
 
     const setSide = (key: StylePropertyKey, val: number | string, unit: 'px' | '%' | 'rem' | 'em' | 'vw' | 'vh') => {
         const num = typeof val === 'number' ? val : Number(val) || 0;
+        onClear('borderWidth');
         onChange(key, { value: num, unit });
         if (supportsStyle && num > 0) {
             const currentStyle = inheritedStyleValue(node, definition, breakpoint, 'borderStyle').value;
@@ -2857,13 +2919,22 @@ function StrokeControl({
                                 aria-label="Stroke width"
                                 className="border-input bg-background focus:border-ring focus:ring-ring/20 h-7 w-full rounded-md border pr-2 pl-12 text-right text-xs outline-none focus:ring-1"
                                 placeholder={areSidesEqual ? (hasAnyValue ? String(parsedValues.Top.value) : '0') : 'Mixed'}
-                                value={areSidesEqual && hasAnyValue ? String(parsedValues.Top.value) : ''}
+                                value={isFocusedAll ? allText : (areSidesEqual && hasAnyValue ? String(parsedValues.Top.value) : '')}
+                                onFocus={() => {
+                                    setIsFocusedAll(true);
+                                    setAllText(areSidesEqual && hasAnyValue ? String(parsedValues.Top.value) : '');
+                                }}
+                                onBlur={() => {
+                                    setIsFocusedAll(false);
+                                }}
                                 onChange={(e) => {
-                                    const val = e.target.value.trim();
-                                    if (val === '') {
+                                    const val = e.target.value;
+                                    setAllText(val);
+                                    const trimmed = val.trim();
+                                    if (trimmed === '') {
                                         clearAll();
                                     } else {
-                                        const num = Number(val);
+                                        const num = Number(trimmed);
                                         if (!isNaN(num)) {
                                             setAllSides(num, parsedValues.Top.unit === 'auto' ? 'px' : parsedValues.Top.unit);
                                         }
@@ -2892,7 +2963,10 @@ function StrokeControl({
                                 key={preset}
                                 type="button"
                                 className="border-border hover:bg-muted text-muted-foreground hover:text-foreground h-5 min-w-5 rounded border px-1 text-[10px] font-medium transition"
-                                onClick={() => setAllSides(preset, parsedValues.Top.unit === 'auto' ? 'px' : parsedValues.Top.unit)}
+                                onClick={() => {
+                                    setAllSides(preset, parsedValues.Top.unit === 'auto' ? 'px' : parsedValues.Top.unit);
+                                    setAllText(String(preset));
+                                }}
                             >
                                 {preset}px
                             </button>
@@ -3021,15 +3095,25 @@ function CornerRadiusControl({
         parsedValues.TL.unit === parsedValues.BL.unit;
 
     const [linked, setLinked] = useState<boolean>(true);
+    const [allText, setAllText] = useState<string>('');
+    const [isFocusedAll, setIsFocusedAll] = useState<boolean>(false);
+
+    useEffect(() => {
+        if (!isFocusedAll) {
+            setAllText(areSidesEqual && hasAnyValue ? String(parsedValues.TL.value) : '');
+        }
+    }, [areSidesEqual, hasAnyValue, parsedValues.TL.value, isFocusedAll]);
 
     const setAllCorners = (val: number | string, unit: 'px' | '%' | 'rem' | 'em' | 'vw' | 'vh') => {
         const num = typeof val === 'number' ? val : Number(val) || 0;
         const styleVal: StyleValue = { value: num, unit };
+        onClear('borderRadius');
         radiusCorners.forEach(([, , key]) => onChange(key, styleVal));
     };
 
     const setCorner = (key: StylePropertyKey, val: number | string, unit: 'px' | '%' | 'rem' | 'em' | 'vw' | 'vh') => {
         const num = typeof val === 'number' ? val : Number(val) || 0;
+        onClear('borderRadius');
         onChange(key, { value: num, unit });
     };
 
@@ -3079,13 +3163,22 @@ function CornerRadiusControl({
                                 aria-label="Corner radius"
                                 className="border-input bg-background focus:border-ring focus:ring-ring/20 h-7 w-full rounded-md border pr-2 pl-14 text-right text-xs outline-none focus:ring-1"
                                 placeholder={areSidesEqual ? (hasAnyValue ? String(parsedValues.TL.value) : '0') : 'Mixed'}
-                                value={areSidesEqual && hasAnyValue ? String(parsedValues.TL.value) : ''}
+                                value={isFocusedAll ? allText : (areSidesEqual && hasAnyValue ? String(parsedValues.TL.value) : '')}
+                                onFocus={() => {
+                                    setIsFocusedAll(true);
+                                    setAllText(areSidesEqual && hasAnyValue ? String(parsedValues.TL.value) : '');
+                                }}
+                                onBlur={() => {
+                                    setIsFocusedAll(false);
+                                }}
                                 onChange={(e) => {
-                                    const val = e.target.value.trim();
-                                    if (val === '') {
+                                    const val = e.target.value;
+                                    setAllText(val);
+                                    const trimmed = val.trim();
+                                    if (trimmed === '') {
                                         clearAll();
                                     } else {
-                                        const num = Number(val);
+                                        const num = Number(trimmed);
                                         if (!isNaN(num)) {
                                             setAllCorners(num, parsedValues.TL.unit === 'auto' ? 'px' : parsedValues.TL.unit);
                                         }
@@ -3115,7 +3208,10 @@ function CornerRadiusControl({
                                 key={preset}
                                 type="button"
                                 className="border-border hover:bg-muted text-muted-foreground hover:text-foreground h-5 min-w-5 rounded border px-1 text-[10px] font-medium transition"
-                                onClick={() => setAllCorners(preset, parsedValues.TL.unit === 'auto' ? 'px' : parsedValues.TL.unit)}
+                                onClick={() => {
+                                    setAllCorners(preset, parsedValues.TL.unit === 'auto' ? 'px' : parsedValues.TL.unit);
+                                    setAllText(String(preset));
+                                }}
                             >
                                 {preset === 9999 ? 'Pill' : `${preset}px`}
                             </button>
@@ -3237,6 +3333,8 @@ function PropControls({
     imageNode,
     onOpenMediaManager,
     onUploadMedia,
+    availablePages = [],
+    document,
 }: {
     nodeType: BuilderComponentNode['type'];
     schema: NonNullable<ComponentDefinition['propSchema']>;
@@ -3246,6 +3344,8 @@ function PropControls({
     imageNode?: boolean;
     onOpenMediaManager?: (target?: string, payload?: any) => void;
     onUploadMedia?: (file: File) => Promise<MediaAsset>;
+    availablePages?: AvailablePage[];
+    document?: BuilderPageDocument;
 }) {
     const [imageActionLoading, setImageActionLoading] = useState<string | null>(null);
     const [imageActionError, setImageActionError] = useState<string | null>(null);
@@ -3391,13 +3491,22 @@ function PropControls({
                         />
                     </div>
                     <div className="space-y-1.5">
-                        <label className="text-foreground text-xs font-semibold">Link URL</label>
-                        <input
-                            type="text"
-                            value={String(values.href ?? '#')}
-                            onChange={(e) => onChange({ href: e.target.value })}
-                            placeholder="https://... or #section"
-                            className="border-input bg-background focus:border-ring focus:ring-ring/20 h-8 w-full rounded-md border px-2 text-xs outline-none focus:ring-1"
+                        <LinkActionControl
+                            label="Action / Link Destination"
+                            href={String(values.href ?? '#')}
+                            target={values.linkTarget === '_blank' ? '_blank' : '_self'}
+                            linkType={typeof values.linkType === 'string' ? values.linkType : undefined}
+                            scrollTarget={typeof values.scrollTarget === 'string' ? values.scrollTarget : undefined}
+                            availablePages={availablePages}
+                            document={document}
+                            onChange={(patch) => {
+                                onChange({
+                                    href: patch.href,
+                                    linkTarget: patch.target,
+                                    linkType: patch.linkType,
+                                    scrollTarget: patch.scrollTarget,
+                                });
+                            }}
                         />
                     </div>
                     <div className="border-t border-border/60 pt-2.5 space-y-2.5">
@@ -3747,9 +3856,18 @@ function PropControls({
                         <div className="space-y-1">
                             <label className="text-muted-foreground text-[11px] font-medium">Logo Height</label>
                             <input
-                                value={String(values.logoHeight ?? '36px')}
-                                placeholder="36px"
+                                value={String(values.logoHeight ?? '48px')}
+                                placeholder="48px"
                                 onChange={(event) => onChange({ logoHeight: event.target.value })}
+                                className="border-input bg-background focus:border-ring h-7 w-full rounded-md border px-2 text-xs"
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-muted-foreground text-[11px] font-medium">Container Height</label>
+                            <input
+                                value={String(values.itemHeight ?? '64px')}
+                                placeholder="64px (equal height)"
+                                onChange={(event) => onChange({ itemHeight: event.target.value })}
                                 className="border-input bg-background focus:border-ring h-7 w-full rounded-md border px-2 text-xs"
                             />
                         </div>
@@ -3762,20 +3880,46 @@ function PropControls({
                                 className="border-input bg-background focus:border-ring h-7 w-full rounded-md border px-2 text-xs"
                             />
                         </div>
+                        <div className="space-y-1">
+                            <label className="text-muted-foreground text-[11px] font-medium">Image Fit</label>
+                            <select
+                                value={String(values.objectFit ?? 'contain')}
+                                onChange={(event) => onChange({ objectFit: event.target.value })}
+                                className="border-input bg-background focus:border-ring h-7 w-full rounded-md border px-2 text-xs"
+                            >
+                                <option value="contain">Contain (Scale)</option>
+                                <option value="cover">Cover (Crop)</option>
+                            </select>
+                        </div>
                     </div>
 
                     {/* Visual Style & Hover Settings */}
                     <div className="space-y-2 border-t border-border/60 pt-2.5">
-                        <div className="space-y-1">
-                            <label className="text-muted-foreground text-[11px] font-medium">Display Style</label>
-                            <select
-                                value={String(values.logoCardStyle ?? 'card')}
-                                onChange={(event) => onChange({ logoCardStyle: event.target.value })}
-                                className="border-input bg-background focus:border-ring h-7 w-full rounded-md border px-2 text-xs"
-                            >
-                                <option value="card">Cards (Badge with border & background)</option>
-                                <option value="clean">Clean (Transparent logos only)</option>
-                            </select>
+                        <div className="grid grid-cols-2 gap-2">
+                            <div className="space-y-1">
+                                <label className="text-muted-foreground text-[11px] font-medium">Display Style</label>
+                                <select
+                                    value={String(values.logoCardStyle ?? 'card')}
+                                    onChange={(event) => onChange({ logoCardStyle: event.target.value })}
+                                    className="border-input bg-background focus:border-ring h-7 w-full rounded-md border px-2 text-xs"
+                                >
+                                    <option value="card">Cards / Badges</option>
+                                    <option value="clean">Clean (Logos only)</option>
+                                </select>
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-muted-foreground text-[11px] font-medium">Badge Shape</label>
+                                <select
+                                    value={String(values.badgeShape ?? 'rounded')}
+                                    onChange={(event) => onChange({ badgeShape: event.target.value })}
+                                    className="border-input bg-background focus:border-ring h-7 w-full rounded-md border px-2 text-xs"
+                                >
+                                    <option value="rounded">Rounded Box</option>
+                                    <option value="pill">Pill / Oval</option>
+                                    <option value="circle">Circle (1:1)</option>
+                                    <option value="square">Square</option>
+                                </select>
+                            </div>
                         </div>
 
                         {values.logoCardStyle !== 'clean' ? (
@@ -3843,6 +3987,16 @@ function PropControls({
                                 />
                                 <span className="text-foreground text-[11px] font-medium">Grayscale logos (full color on hover)</span>
                             </label>
+
+                            <label className="flex items-center gap-2 cursor-pointer text-xs">
+                                <input
+                                    type="checkbox"
+                                    checked={Boolean(values.showPartnerNames)}
+                                    onChange={(e) => onChange({ showPartnerNames: e.target.checked })}
+                                    className="rounded border-input text-primary size-3.5"
+                                />
+                                <span className="text-foreground text-[11px] font-medium">Show partner text name next to logo</span>
+                            </label>
                         </div>
                     </div>
 
@@ -3870,7 +4024,7 @@ function PropControls({
                                             onChange={(event) => {
                                                 const next = [...(Array.isArray(values.logos) ? values.logos : [])];
                                                 next[i] = { ...(next[i] as Record<string, any>), src: event.target.value };
-                                                onChange({ logos: next, logoImages: undefined });
+                                                onChange({ logos: next });
                                             }}
                                             className="border-input bg-background h-7 min-w-0 flex-1 rounded border px-2 text-xs"
                                         />
@@ -3888,7 +4042,7 @@ function PropControls({
                                             type="button"
                                             onClick={() => {
                                                 const next = (Array.isArray(values.logos) ? values.logos : []).filter((_, index) => index !== i);
-                                                onChange({ logos: next, logoImages: undefined });
+                                                onChange({ logos: next });
                                             }}
                                             className="text-muted-foreground hover:text-destructive flex size-6 shrink-0 items-center justify-center text-xs"
                                             title="Remove logo"
@@ -3903,7 +4057,7 @@ function PropControls({
                                             onChange={(event) => {
                                                 const next = [...(Array.isArray(values.logos) ? values.logos : [])];
                                                 next[i] = { ...(next[i] as Record<string, any>), alt: event.target.value };
-                                                onChange({ logos: next, logoImages: undefined });
+                                                onChange({ logos: next });
                                             }}
                                             className="border-input bg-background h-6 rounded border px-2 text-[11px]"
                                         />
@@ -3913,11 +4067,25 @@ function PropControls({
                                             onChange={(event) => {
                                                 const next = [...(Array.isArray(values.logos) ? values.logos : [])];
                                                 next[i] = { ...(next[i] as Record<string, any>), href: event.target.value };
-                                                onChange({ logos: next, logoImages: undefined });
+                                                onChange({ logos: next });
                                             }}
                                             className="border-input bg-background h-6 rounded border px-2 text-[11px]"
                                         />
                                     </div>
+                                    {values.showPartnerNames ? (
+                                        <div>
+                                            <input
+                                                placeholder="Partner name (optional)"
+                                                value={String(logo.name ?? '')}
+                                                onChange={(event) => {
+                                                    const next = [...(Array.isArray(values.logos) ? values.logos : [])];
+                                                    next[i] = { ...(next[i] as Record<string, any>), name: event.target.value };
+                                                    onChange({ logos: next });
+                                                }}
+                                                className="border-input bg-background h-6 w-full rounded border px-2 text-[11px]"
+                                            />
+                                        </div>
+                                    ) : null}
                                 </div>
                             ))}
                         </div>
@@ -3927,8 +4095,8 @@ function PropControls({
                             className="border-border hover:bg-muted/70 text-foreground flex w-full items-center justify-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition"
                             onClick={() => {
                                 const next = Array.isArray(values.logos) ? [...values.logos] : [];
-                                next.push({ src: '/images/helloweb-logo-dark.png', alt: 'Logo', href: '', name: 'Logo' });
-                                onChange({ logos: next, logoImages: undefined });
+                                next.push({ src: '/images/helloweb-logo-dark.png', alt: 'Logo', href: '', name: '' });
+                                onChange({ logos: next });
                             }}
                         >
                             <Plus className="size-3" />
@@ -4728,7 +4896,7 @@ function PropControls({
 
             {/* NAVBAR LINKS */}
             {nodeType === 'layout.navbar' ? (
-                <div className="border-border/80 bg-card space-y-2.5 rounded-lg border p-3">
+                <div className="border-border/80 bg-card space-y-3 rounded-lg border p-3">
                     <div className="flex items-center justify-between">
                         <span className="text-foreground text-xs font-semibold">Navigation Links</span>
                         <button
@@ -4736,50 +4904,112 @@ function PropControls({
                             className="text-primary text-[11px] font-semibold hover:underline"
                             onClick={() => {
                                 const currentLinks = Array.isArray(values.links) ? [...values.links] : [];
-                                currentLinks.push({ label: 'New Link', href: '#' });
+                                currentLinks.push({ label: 'New Link', href: '#', target: '_self' });
                                 onChange({ links: currentLinks });
                             }}
                         >
                             + Add Link
                         </button>
                     </div>
-                    <div className="space-y-2">
-                        {(Array.isArray(values.links) ? values.links : []).map((link: any, i: number) => (
-                            <div key={i} className="flex items-center gap-1.5 bg-muted/40 p-1.5 rounded-md min-w-0">
-                                <input
-                                    placeholder="Label"
-                                    value={String(link.label ?? '')}
-                                    onChange={(e) => {
-                                        const next = [...(values.links as any[])];
-                                        next[i] = { ...next[i], label: e.target.value };
-                                        onChange({ links: next });
-                                    }}
-                                    className="h-7 min-w-0 flex-1 border border-input rounded bg-background px-2 text-xs"
-                                />
-                                <input
-                                    placeholder="URL"
-                                    value={String(link.href ?? '')}
-                                    onChange={(e) => {
-                                        const next = [...(values.links as any[])];
-                                        next[i] = { ...next[i], href: e.target.value };
-                                        onChange({ links: next });
-                                    }}
-                                    className="h-7 min-w-0 flex-1 border border-input rounded bg-background px-2 text-xs"
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        const next = (values.links as any[]).filter((_, idx) => idx !== i);
-                                        onChange({ links: next });
-                                    }}
-                                    className="text-muted-foreground hover:text-destructive size-6 flex shrink-0 items-center justify-center text-xs"
-                                    title="Remove link"
-                                >
-                                    ✕
-                                </button>
-                            </div>
-                        ))}
+                    <div className="space-y-3">
+                        {(Array.isArray(values.links) ? values.links : []).map((link: any, i: number) => {
+                            const linkHref = String(link.href ?? '#');
+                            const linkTarget = link.target === '_blank' ? '_blank' : '_self';
+                            const linkType = link.linkType;
+                            const scrollTarget = link.scrollTarget;
+
+                            return (
+                                <div key={i} className="space-y-2 rounded-md border border-border/60 bg-muted/20 p-2">
+                                    <div className="flex items-center justify-between gap-1.5">
+                                        <input
+                                            placeholder="Link Label"
+                                            value={String(link.label ?? '')}
+                                            onChange={(e) => {
+                                                const next = [...(values.links as any[])];
+                                                next[i] = { ...next[i], label: e.target.value };
+                                                onChange({ links: next });
+                                            }}
+                                            className="h-7 min-w-0 flex-1 border border-input rounded bg-background px-2 text-xs font-medium"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const next = (values.links as any[]).filter((_, idx) => idx !== i);
+                                                onChange({ links: next });
+                                            }}
+                                            className="text-muted-foreground hover:text-destructive size-6 flex shrink-0 items-center justify-center text-xs rounded hover:bg-destructive/10 transition"
+                                            title="Remove link"
+                                        >
+                                            ✕
+                                        </button>
+                                    </div>
+                                    <LinkActionControl
+                                        compact
+                                        href={linkHref}
+                                        target={linkTarget}
+                                        linkType={linkType}
+                                        scrollTarget={scrollTarget}
+                                        availablePages={availablePages}
+                                        document={document}
+                                        onChange={(patch) => {
+                                            const next = [...(values.links as any[])];
+                                            next[i] = {
+                                                ...next[i],
+                                                href: patch.href,
+                                                target: patch.target,
+                                                linkType: patch.linkType,
+                                                scrollTarget: patch.scrollTarget,
+                                            };
+                                            onChange({ links: next });
+                                        }}
+                                    />
+                                </div>
+                            );
+                        })}
                     </div>
+                </div>
+            ) : null}
+
+            {/* NAVBAR CTA BUTTON */}
+            {nodeType === 'layout.navbar' ? (
+                <div className="border-border/80 bg-card space-y-3 rounded-lg border p-3">
+                    <div className="flex items-center justify-between">
+                        <label className="text-foreground text-xs font-semibold">CTA Button</label>
+                        <input
+                            type="checkbox"
+                            checked={values.showCta !== false}
+                            onChange={(e) => onChange({ showCta: e.target.checked })}
+                            className="accent-primary size-3.5 rounded"
+                            title="Show/Hide CTA Button"
+                        />
+                    </div>
+                    {values.showCta !== false ? (
+                        <div className="space-y-2.5">
+                            <div className="space-y-1">
+                                <label className="text-[11px] text-muted-foreground font-medium">Button Text</label>
+                                <input
+                                    type="text"
+                                    placeholder="Button label..."
+                                    value={String(values.ctaText ?? 'Get Started')}
+                                    onChange={(e) => onChange({ ctaText: e.target.value })}
+                                    className="border-input bg-background focus:border-ring h-7 w-full rounded-md border px-2 text-xs"
+                                />
+                            </div>
+                            <LinkActionControl
+                                label="CTA Link Destination"
+                                href={String(values.ctaHref ?? '#')}
+                                target={values.ctaTarget === '_blank' ? '_blank' : '_self'}
+                                availablePages={availablePages}
+                                document={document}
+                                onChange={(patch) => {
+                                    onChange({
+                                        ctaHref: patch.href,
+                                        ctaTarget: patch.target,
+                                    });
+                                }}
+                            />
+                        </div>
+                    ) : null}
                 </div>
             ) : null}
 
@@ -5420,7 +5650,7 @@ function PropControls({
             {Object.entries(schema).map(([name, property]) => {
                 if (nodeType === 'content.heading' && name === 'level') return null;
                 if (supportsColoredTextSegments(nodeType) && name === 'colorSegments') return null;
-                if (nodeType === 'layout.navbar' && ['brandName', 'brandLogo', 'brandHref', 'links'].includes(name)) return null;
+                if (nodeType === 'layout.navbar' && ['brandName', 'brandLogo', 'brandHref', 'links', 'ctaText', 'ctaHref', 'ctaTarget', 'showCta'].includes(name)) return null;
                 if (property.type === 'array') return null;
                 if (
                     nodeType === 'content.button' ||
@@ -5630,7 +5860,7 @@ function StyleControl({
                         <option key={option.value} value={option.value}>
                             {option.label}
                         </option>
-                    ))}
+                   ))}
                 </select>
             ) : property.type === 'enum' && options.length > 0 ? (
                 <select
@@ -5643,7 +5873,7 @@ function StyleControl({
                         <option key={option} value={option}>
                             {option}
                         </option>
-                    ))}
+                   ))}
                 </select>
             ) : property.type === 'length' ? (
                 <CssValueEditor
@@ -5705,46 +5935,22 @@ function ColoredTextSegmentsControl({
                     <p className="text-xs font-semibold">Colored text</p>
                     <p className="text-muted-foreground mt-0.5 text-[10px]">Split copy into colorable spans.</p>
                 </div>
-                <button
-                    type="button"
-                    className="border-border hover:bg-muted inline-flex size-7 items-center justify-center rounded-md border"
-                    aria-label="Add color segment"
-                    onClick={() => onChange([...segments, { text: 'Text', color: '#000000' }])}
-                >
-                    <Plus className="size-3.5" />
-                </button>
-            </div>
-            <div className="space-y-2">
-                {segments.map((segment, index) => (
-                    <div key={index} className="bg-muted/30 space-y-2 rounded-md border p-2">
-                        <div className="flex gap-1.5">
-                            <input
-                                className="border-input bg-background h-8 min-w-0 flex-1 rounded-md border px-2 text-xs outline-none"
-                                value={String(segment.text ?? '')}
-                                aria-label={`Text segment ${index + 1}`}
-                                onChange={(event) => updateSegment(index, { text: event.target.value })}
+                                {/* Only color picker for each segment */}
+                <div className="space-y-2">
+                    {segments.map((segment, index) => (
+                        <div key={index} className="bg-muted/30 rounded-md border p-2">
+                            <ColorValueControl
+                                label={`Segment ${index + 1}`}
+                                value={typeof segment.color === 'string' ? segment.color : '#000000'}
+                                onChange={(color) => {
+                                    if (typeof color === 'string') updateSegment(index, { color });
+                                }}
+                                compact
                             />
-                            <button
-                                type="button"
-                                className="text-muted-foreground hover:bg-muted hover:text-foreground inline-flex size-8 items-center justify-center rounded-md"
-                                aria-label={`Remove text segment ${index + 1}`}
-                                onClick={() => onChange(segments.filter((_, nextIndex) => nextIndex !== index))}
-                            >
-                                <X className="size-3.5" />
-                            </button>
                         </div>
-                        <ColorValueControl
-                            label={`Segment ${index + 1}`}
-                            value={typeof segment.color === 'string' ? segment.color : '#000000'}
-                            onChange={(color) => {
-                                if (typeof color === 'string') updateSegment(index, { color });
-                            }}
-                            compact
-                        />
-                    </div>
-                ))}
-            </div>
-        </div>
+                   ))}
+                </div>
+        </div></div>
     );
 }
 
@@ -5867,7 +6073,7 @@ function ColorValueControl({
                             title={swatch}
                             onClick={() => commitColor(swatch)}
                         />
-                    ))}
+                   ))}
                 </div>
             ) : null}
             {expanded && !compact ? (
@@ -5882,7 +6088,7 @@ function ColorValueControl({
                             <span className="border-border size-3 rounded-sm border" style={{ backgroundColor: token }} />
                             <span className="truncate">{name}</span>
                         </button>
-                    ))}
+                   ))}
                 </div>
             ) : null}
         </div>

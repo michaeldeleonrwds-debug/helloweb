@@ -1,15 +1,164 @@
 # Project Status
 
-Updated: 2026-09-28
-Agent: Antigravity
-Phase: Light Mode Theme Hardening & Auth Layout Adaptation
-Status: complete
+Updated: 2026-09-30
+Agent: Codex
+Phase: AI Native Builder Foundation
+Status: in-progress
 
 ## Current Objective
 
-Harden Light Mode and Dark Mode support across the HelloWeb platform: resolve pitch-black inputs, invisible logo text, and low-contrast links on authentication pages, ensure clean theme transitions, and verify all test suites.
+Add the first honest AI-native foundation for HelloWeb without fake chat or fake MCP: encrypted OpenAI settings/status, safe builder AI status display, and a central `EditorCommandService` that future OpenAI/MCP adapters can share.
 
 ## Completed
+
+- Added encrypted per-user AI settings storage (`ai_settings`) with OpenAI model/enabled/status fields and MCP configuration placeholder.
+- Added Settings -> AI page and routes for saving OpenAI/MCP settings and testing OpenAI server-side.
+- Added safe `AiConnectionStatusService`; React receives status/model/source only, never API keys.
+- Builder payload now includes `aiStatus`; toolbar only shows an AI status link when OpenAI or MCP is actually connected.
+- Added `EditorCommandService` for shared AI command execution against existing page documents via the builder tree engine and persistence/versioning.
+- Recorded D-060: OpenAI and MCP are adapters over the shared editor command service.
+
+## In Progress
+
+- Full OpenAI chat/tool loop is not implemented yet.
+- Real MCP Streamable HTTP transport, authentication, session lifecycle, and realtime editor synchronization are not implemented yet.
+
+## Blocked
+
+- PHP CLI is unavailable on PATH in the current shell, so PHP syntax/tests could not be run in this session.
+- Existing worktree contains many unrelated modified/untracked files from prior builder/media/template work; this AI slice avoids reverting them.
+
+## Next Action
+
+Implement and test the native OpenAI adapter (`HelloWebAIService`) over `EditorCommandService`, then add feature tests for AI settings persistence/status.
+
+## Validation
+
+- Typecheck: pass - `npx tsc --noEmit --pretty false`
+- Formatting: pass - `npx prettier --write` on touched TS/TSX files
+- Whitespace: pass - `git diff --check` on touched files
+- PHP lint/tests: not-run - `php` executable not found on PATH
+
+## Git
+
+Branch: master
+Latest verified commit: not updated this session
+Dirty files: yes - substantial pre-existing builder/media/template changes plus new AI foundation files
+
+## Previous Snapshot
+
+Ship three approved workstreams end to end: (A) superadmin header/footer customizations survive an editor reload via `templates.is_customized`; (B) a working, owner-gated template preview route behind a stable `previewUrl`; (C) a file-explorer Media Manager shared by an ~80vw builder modal and the `/media` dashboard page.
+
+- Header/Footer Persistence, Template Preview & File-Explorer Media Manager (D-058, D-059):
+  - **A. Platform template customization flag (D-058)**:
+    - Migration `2026_09_29_000001_add_is_customized_to_templates_table.php` adds `templates.is_customized` and backfills platform templates whose document already differs from `DefaultTemplateFactory`.
+    - `TemplatePersistenceService`: `create()` takes an `$isCustomized` flag (default `true`); `ensureDefaultTemplates()` refreshes platform templates only when `is_platform && !is_customized` (stock seeds use `false`); `update()` sets `is_customized = true`; both fork branches call `reattachToWebsite()` so `websites.header_template_id` / `footer_template_id` follow the fork instead of pointing at the replaced row.
+    - `Website` casts `user_id`, `homepage_page_id`, `header_template_id`, `footer_template_id` to integer; `Template` fills/casts `is_customized`.
+    - New coverage in `ThemeTemplateTest`: customized platform header survives reload, stock platform header still refreshes until customized, customizing repoints the website at the user fork.
+  - **B. Template preview route (D-058)**:
+    - `PublicSiteController::previewTemplate()` (owner-gated) renders the template's document as a header/footer overlay on the site homepage; `renderPage()` gained `headerOverride` / `footerOverride` extension points.
+    - `routes/web.php`: `GET preview/templates/{template}` → `preview.templates.show` inside the `auth` group.
+    - `use-builder-autosave.ts` keeps `saveUrl` / `onSaveSuccess` in refs so `flush` stays referentially stable.
+    - `BuilderEditor.tsx` derives `previewUrl` (template mode → `preview.templates.show`, else `preview.pages.show`) and passes it to `BuilderToolbar` / `BuilderFooterBar`, which render a `<button>` when `onPreview` is supplied and a plain `<a>` otherwise.
+    - New coverage in `ThemeTemplateTest`: header overlay on the site page, page template as body, non-owner restricted.
+  - **C. Media file explorer (D-059)**:
+    - Migrations `...000002_create_media_folders_table.php` and `...000003_add_folder_id_to_media_assets_table.php` (`folder_id` nullable `nullOnDelete`); `MediaFolder` model + `User::mediaFolders()`; `MediaAsset.folderId` in the TS `MediaAsset` interface.
+    - `MediaFolderService` (tree/create/rename/move/delete + sibling-scope name uniqueness, cycle guard, `abort_unless` ownership) and `MediaAssetService` (`store(..., ?folder)`, new `update()` for `original_filename` / `alt_text` / `folder_id`, `restore()`, `destroy()`).
+    - `MediaFolderController` (index/store/update/move/destroy) and `MediaAssetController` (`index` with `status` + `folder_id` filters returning `{media, folders}`, `adminIndex` now also returns `folders`, `store` accepts `folder_id`, new `update`/`restore`/`destroy`); `builder.media.folders*` routes registered **before** `builder.media/{asset}`.
+    - Frontend primitives in `resources/js/media/`: `types.ts`, `api.ts`, `format.ts`, `tree-utils.ts`, `useMediaExplorer.ts` (+ `MediaExplorerController`), `FolderTree.tsx`, `AssetContextMenu.tsx` (+ `startAssetDrag`), `MediaGridView.tsx`, `MediaListView.tsx`, `MediaExplorer.tsx` (breadcrumb, search, grid/list toggle, new folder, upload + drag-drop, folder/asset drag-to-move, trash row, inline error banner).
+    - Radix `components/ui/context-menu.tsx` added; `sonner` installed and `<Toaster />` mounted in `resources/js/app.tsx`.
+    - `MediaManager.tsx` rebuilt as an ~80vw shell hosting `MediaExplorer` in select mode, preserving the WebP / AI-cutout toggles as `toolbarExtra`, per-card Cutout/WebP as `cardExtra`, and progress as `processing`; `BuilderEditor.uploadImage` now accepts `folderId` and appends `folder_id`.
+    - `/media` dashboard page rewritten to mount `MediaExplorer` with server-provided `media` + `folders`.
+    - New `tests/Feature/MediaLibraryTest.php` (12 tests): nested tree, cycle rejection, sibling name uniqueness, folder-delete asset fallback, folder ownership, asset move/root-move, foreign-folder 422, foreign asset/folder 403, archived index filtering, restore/destroy, upload into folder.
+  - **C follow-ups (same session)**:
+    - `absoluteUrl()` in `media/format.ts` resolves `asset.url` against `window.location.origin`, so "Copy link" yields a full URL instead of `/storage/...`.
+    - New `components/ui/prompt-dialog.tsx` (`PromptDialog`, `ConfirmDialog`) replaces every `window.prompt` / `window.confirm` in the explorer: create folder, folder rename, folder delete, file rename, permanent delete — with inline validation errors.
+    - Folder `assetCount` is now **derived from `assets`** in `useMediaExplorer` (active-only, matching the server's `withCount`) instead of trusted from the API payload, so dragging an image between folders updates the badge immediately without a refetch.
+    - New `media/MediaSkeleton.tsx` (`MediaGridSkeleton`, `MediaListSkeleton`, `FolderListSkeleton`); `MediaExplorer` shows skeletons for the folder list and asset pane while `loading` instead of a spinner/empty text — this is the builder modal's loading state too.
+  - **Verification (all run this session)**:
+    - `php artisan test`: **`Tests: 102 deprecated, 97 passed (1004 assertions)` — 0 failures/errors**. The "deprecated" bucket is the pre-existing PHP 8.5 `PDO::MYSQL_ATTR_SSL_CA` notice from `config/database.php`, not a test problem; the 12 new `MediaLibraryTest` cases all ran and passed.
+    - `npx tsc --noEmit -p tsconfig.json`: **0 errors** (fixed 2 pre-existing errors in `builder/renderer/built-ins.ts` `linkTarget` typing).
+    - `npm run build`: **Vite production build succeeded** (2159 modules, `MediaExplorer` code-split to its own chunk).
+    - `npm run lint`: **118 errors / 2 warnings — at or below the pre-existing baseline (~119)**; zero problems reported in any file added or rewritten this session (`resources/js/media/**`, `MediaManager.tsx`, `pages/media/index.tsx`, `app.tsx`).
+    - `npm run test:builder-editor`: **passed** (`builder editor tests: ok`).
+
+- Mobile Pill Header Open Radius, Fresh Footer Preview & Clean Scroll Targets (D-057):
+  - **Floating Pill Header Mobile Menu Radius (`built-ins.ts`, `CanvasNode.tsx`, `BuilderCanvas.tsx`, `public-site.tsx`)**:
+    - Resolved circular / elliptical clipping on mobile when the burger menu opens inside pill navbars (`borderRadius: 9999px`).
+    - Added `.hw-navbar-wrapper` class and scoped rules:
+      `header.hw-nav-open, header[data-builder-type="layout.navbar"]:has(.hw-navbar-mobile-menu.is-open), nav.hw-nav-open, nav:has(.hw-navbar-mobile-menu.is-open) { border-radius: 20px !important; }`.
+    - `CanvasNode`, `BuilderCanvas`, and `public-site` toggle `hw-nav-open` on the header element during hamburger open/close events for cross-browser reliability.
+  - **Fresh Global Footer / Header Loading on Preview (`PublicSiteController.php`)**:
+    - Reloaded fresh website relationships (`$website = $page->website->fresh(['headerTemplate', 'footerTemplate'])`) during preview requests so unassigning or assigning global footers/headers reflects immediately without stale model relations.
+  - **Clean Scroll-to-Element Target List (`LinkActionControl.tsx`)**:
+    - Filtered out `node.id === 'root'` and `node.type === 'layout.root'` from `extractScrollTargets()` so users only see actual scrollable sections, headings, and custom-id elements.
+  - **Verification**:
+    - `npm run test:builder-editor`: passed.
+    - `php artisan test`: 97 passed (908 assertions).
+    - `npm run build`: Vite build completed cleanly in 6.25s.
+
+- Logo Marquee Uniform Sizing, Full Section Width & Effects (D-056):
+  - **Uniform Dimensions & Sizing Engine (`resources/js/builder/renderer/built-ins.ts`)**:
+    - Added `itemHeight`, `itemWidth`, `objectFit` (`contain` | `cover`), and `badgeShape` (`rounded`, `pill`, `circle`, `square`) support.
+    - Set default logo height to `48px` and container height to `64px` so items maintain equal heights regardless of original logo image aspect ratios.
+    - Added 1:1 aspect-ratio and `50%` radius support for circular badges/awards.
+  - **Full Section Width Control (`ComponentInspector.tsx`, `built-ins.ts`, `BuiltInComponentDefinitions.php`)**:
+    - Added `marketing.logomarquee` to `supportsWidthMode` in `ComponentInspector.tsx`.
+    - Enabled 1-click toggling between Full Viewport Width (`100%`) and 1140px content width.
+    - Updated default desktop styles to full width (`maxWidth: 100%`, `width: 100%`) so marquees stretch edge-to-edge across the section by default.
+  - **Effects Capabilities (`built-ins.ts`, `BuiltInComponentDefinitions.php`, `ComponentInspector.tsx`)**:
+    - Registered full effect style capabilities (`boxShadow`, `dropShadow*`, `innerShadow*`, `layerBlur`, `backgroundBlur`, `filter`, `backdropFilter`, `borderWidth`, `borderStyle`, `borderColor`, `borderRadius`).
+    - The inspector's Style tab now activates the `EffectsControl` suite (drop shadows, inner shadows, layer blur, background blur, and glassmorphism) for Logo Marquee.
+  - **Inspector Controls (`ComponentInspector.tsx`)**:
+    - Added controls for Logo Height, Container Height (equal height), Spacing Gap, Image Fit (contain/cover), Display Style (Cards vs Clean), and Badge Shape (Rounded Box, Pill, Circle, Square).
+  - **Verification**:
+    - `npm run test:builder-editor`: passed.
+    - `php artisan test`: 97 passed (908 assertions).
+    - `npm run build`: Vite build completed cleanly in 6.61s.
+
+- Link Destinations, Internal Page Selector & Target Window Controls (D-055):
+  - **Shared `LinkActionControl` Component (`LinkActionControl.tsx`)**:
+    - Created reusable control supporting destination types: `Website URL`, `Internal Page`, `Scroll to Element`, `Call / Phone` (`tel:`), `SMS` (`sms:`), and `Email` (`mailto:`).
+    - Added "Open in new tab" checkbox toggle (`target="_blank"`, `rel="noopener noreferrer"`) for external/internal links.
+    - Added element ID detection scanning document tree nodes (`layout.section`, `content.heading`, `layout.navbar`, etc.) for instant target picking.
+  - **Internal Page List Integration (`BuilderPageController.php`, `builder.tsx`, `BuilderEditor.tsx`, `ComponentInspector.tsx`)**:
+    - `BuilderPageController` now loads all pages for the current website (`id`, `title`, `slug`, `status`, `url`) and provides them to the builder view.
+    - Data flows to `ComponentInspector` and `PropControls` so internal pages appear immediately in dropdowns for 1-click selection.
+  - **Button & Link Component Controls (`ComponentInspector.tsx`)**:
+    - Replaced raw URL text field in `content.button` with `LinkActionControl`.
+  - **Navbar Links & CTA Button Controls (`ComponentInspector.tsx`)**:
+    - Added `LinkActionControl` for every navigation link item in `layout.navbar`.
+    - Added `ctaTarget` and `ctaHref` destination control for the header CTA button.
+  - **Renderer Parity & Smooth Scrolling (`built-ins.ts`, `LinkRenderer.php`, `public-site.tsx`)**:
+    - `buttonRenderer` and `linkRenderer` in TypeScript render `target="_blank"` and `rel="noopener noreferrer"` when `linkTarget === '_blank'`.
+    - `navbarRenderer` applies targets to desktop and mobile navigation links and the CTA button.
+    - PHP `LinkRenderer.php` applies `target="_blank"` and `rel="noopener noreferrer"`.
+    - `public-site.tsx` intercepts hash link clicks and smoothly scrolls to matching elements by ID or `data-builder-id`.
+  - **Verification**:
+    - `npm run test:builder-editor`: passed.
+    - `php artisan test`: 97 passed (904 assertions).
+    - `npm run build`: Vite build completed cleanly in 6.47s.
+
+- Draft Preview vs Live Published Separation (D-054):
+  - **Draft Rendering on Preview Route (`PublicSiteController.php`)**:
+    - Ensured `preview()` serves the page's current `draft_document` via `$pages->loadDocument($page)`.
+    - Passed `isPreview: true`, page ID, status, and publish state down to the Inertia view.
+  - **Visual Preview Mode Banner (`public-site.tsx`)**:
+    - Added an amber, non-intrusive preview banner with a pulsing indicator to distinguish preview mode from live viewing: `"PREVIEW MODE • Viewing latest draft of [Page Title]"`.
+    - Added an `"Edit in Builder"` button linking directly back to the editor route.
+  - **Automatic Draft Flush On Preview (`BuilderEditor.tsx`, `BuilderToolbar.tsx`, `BuilderFooterBar.tsx`)**:
+    - When clicking "Preview" in the toolbar or footer bar, if there are pending unsaved changes in the canvas, `save.saveNow()` is automatically executed first before opening the new tab.
+  - **Feature Test & Build Verification**:
+    - Added `test_10_preview_renders_draft_document_while_public_url_renders_published_document` in `PublishingAndHomepageRoutingTest.php`.
+    - Verified all 10 tests passed (153 assertions).
+    - Verified `npm run build` completed cleanly.
+
+- Corner Radius Precedence Resolution & Style Capabilities Parity (D-053):
+  - Fixed border radius override glitch where alphabetical property sorting caused shorthand `borderRadius` to overwrite bottom corners (`borderBottomLeftRadius`, `borderBottomRightRadius`).
+  - Added shorthand override filtering in `resolveStyles()` (TypeScript), `StyleResolver` (PHP), and `renderStyleToReactStyle()` (React rendering).
+  - Cleaned up shorthand conflicts in `CornerRadiusControl` and `StrokeControl` during linked and unlinked value adjustments.
+  - Added `'backgroundColor'` to `styleCapabilities` in PHP and TypeScript for `content.socialicons` and `marketing.progressbar`, eliminating 422 Unprocessable Content errors on template/document save.
+  - Verified persistence validation test suite and Vite build.
 
 - Light Mode Theme Hardening & Auth Layout Adaptation (D-052):
   - **Light Mode Semantic Tokens & Emerald Brand Identity (`resources/css/app.css`)**:

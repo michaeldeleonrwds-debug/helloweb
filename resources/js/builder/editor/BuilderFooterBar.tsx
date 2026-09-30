@@ -36,6 +36,8 @@ export interface BuilderFooterBarProps {
     saveError: string | null;
     onRetry: () => void;
     pageId?: number | null;
+    onPreview?: () => void;
+    previewUrl?: string;
     onOpenCodeSettings?: () => void;
     onOpenShortcuts?: () => void;
     onContextMenuCrumb?: (nodeId: string, x: number, y: number) => void;
@@ -60,7 +62,8 @@ export function BuilderFooterBar({
     saveStatus,
     saveError,
     onRetry,
-    pageId,
+    onPreview,
+    previewUrl,
     onOpenCodeSettings,
     onOpenShortcuts,
     onContextMenuCrumb,
@@ -273,17 +276,29 @@ export function BuilderFooterBar({
                 ) : null}
 
                 {/* Live Preview Button */}
-                {pageId ? (
-                    <a
-                        href={route('preview.pages.show', pageId)}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="hidden sm:inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"
-                        title="Live preview in new tab"
-                    >
-                        <ExternalLink className="size-3" />
-                        <span className="hidden lg:inline">Preview</span>
-                    </a>
+                {previewUrl ? (
+                    onPreview ? (
+                        <button
+                            type="button"
+                            onClick={onPreview}
+                            className="hidden sm:inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                            title="Live preview in new tab (saves latest draft)"
+                        >
+                            <ExternalLink className="size-3" />
+                            <span className="hidden lg:inline">Preview</span>
+                        </button>
+                    ) : (
+                        <a
+                            href={previewUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="hidden sm:inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                            title="Live preview in new tab"
+                        >
+                            <ExternalLink className="size-3" />
+                            <span className="hidden lg:inline">Preview</span>
+                        </a>
+                    )
                 ) : null}
 
                 <div className="h-3.5 w-px bg-border/60" />

@@ -30,6 +30,17 @@ export function useBuilderAutosave(
     const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const inFlightPromiseRef = useRef<Promise<boolean> | null>(null);
 
+    // saveUrl can change at runtime (e.g. when a platform template is forked and
+    // the editor re-points at the new id). Keep it in a ref so `flush` stays
+    // referentially stable and the debounced timer never captures a stale one.
+    const saveUrlRef = useRef(saveUrl);
+    const onSaveSuccessRef = useRef(onSaveSuccess);
+
+    useEffect(() => {
+        saveUrlRef.current = saveUrl;
+        onSaveSuccessRef.current = onSaveSuccess;
+    }, [saveUrl, onSaveSuccess]);
+
     const cancelPending = useCallback(() => {
         if (timerRef.current) {
             clearTimeout(timerRef.current);
@@ -43,7 +54,7 @@ export function useBuilderAutosave(
     }, [cancelPending]);
 
     const flush = useCallback(async (): Promise<boolean> => {
-        const targetUrl = saveUrl ?? (pageId ? route('builder.pages.document.update', pageId) : null);
+        const targetUrl = saveUrlRef.current ?? (pageId ? route('builder.pages.document.update', pageId) : null);
         if (!targetUrl) return false;
 
         // If a save request is already in progress, wait for it before proceeding
@@ -67,7 +78,6 @@ export function useBuilderAutosave(
 
             try {
                 const response = await fetch(targetUrl, {
-
                     method: 'PATCH',
                     headers: {
                         'Content-Type': 'application/json',
@@ -100,7 +110,7 @@ export function useBuilderAutosave(
                 setVersion(nextVersion);
                 lastSavedRef.current = JSON.stringify(snapshot);
                 setStatus(JSON.stringify(pendingRef.current) === lastSavedRef.current ? 'saved' : 'unsaved');
-                onSaveSuccess?.(payload as any);
+                onSaveSuccessRef.current?.(payload as any);
                 return true;
             } catch (caught) {
                 setStatus('error');
@@ -109,7 +119,7 @@ export function useBuilderAutosave(
             } finally {
                 inFlightPromiseRef.current = null;
                 if (JSON.stringify(pendingRef.current) !== lastSavedRef.current) {
-                    schedule(300);
+                    setStatus('unsaved');
                 }
             }
         };

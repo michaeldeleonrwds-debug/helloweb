@@ -1,6 +1,6 @@
 import { cn } from '@/lib/utils';
 import { Link } from '@inertiajs/react';
-import { Bell, Globe, KeyRound, Palette, Shield, User } from 'lucide-react';
+import { Bot, Globe, KeyRound, User } from 'lucide-react';
 
 interface NavItem {
     title: string;
@@ -37,6 +37,12 @@ const navSections: { label: string; items: NavItem[] }[] = [
                 url: '/settings/website',
                 icon: Globe,
             },
+            {
+                title: 'AI',
+                description: 'OpenAI and external AI connection settings',
+                url: '/settings/ai',
+                icon: Bot,
+            },
         ],
     },
 ];
@@ -45,26 +51,22 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
     const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
 
     return (
-        <div className="mx-auto max-w-[1400px] space-y-7 p-6 md:p-9 text-foreground">
+        <div className="text-foreground mx-auto max-w-[1400px] space-y-7 p-6 md:p-9">
             {/* Settings Header */}
             <div>
-                <h1 className="text-3xl font-extrabold tracking-tight text-foreground md:text-4xl">
-                    Settings
-                </h1>
-                <p className="mt-1 text-xs text-muted-foreground md:text-sm font-medium">
+                <h1 className="text-foreground text-3xl font-extrabold tracking-tight md:text-4xl">Settings</h1>
+                <p className="text-muted-foreground mt-1 text-xs font-medium md:text-sm">
                     Manage your account profile, credentials, and website preferences.
                 </p>
             </div>
 
-            <div className="flex flex-col gap-8 lg:flex-row lg:gap-10 items-start">
+            <div className="flex flex-col items-start gap-8 lg:flex-row lg:gap-10">
                 {/* Navigation Sidebar */}
-                <aside className="w-full lg:w-72 shrink-0">
-                    <nav className="space-y-6 rounded-[24px] border border-border bg-card p-3.5 shadow-xs">
+                <aside className="w-full shrink-0 lg:w-72">
+                    <nav className="border-border bg-card space-y-6 rounded-[24px] border p-3.5 shadow-xs">
                         {navSections.map((section) => (
                             <div key={section.label} className="space-y-1">
-                                <p className="px-3 text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
-                                    {section.label}
-                                </p>
+                                <p className="text-muted-foreground px-3 text-[10px] font-bold tracking-wider uppercase">{section.label}</p>
                                 <div className="space-y-1">
                                     {section.items.map((item) => {
                                         const isActive = currentPath === item.url;
@@ -82,7 +84,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
                                                         : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground font-medium',
                                                 )}
                                             >
-                                                <div className="flex items-center gap-3 min-w-0">
+                                                <div className="flex min-w-0 items-center gap-3">
                                                     <div
                                                         className={cn(
                                                             'flex size-8 shrink-0 items-center justify-center rounded-lg transition-colors',
@@ -94,17 +96,17 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
                                                         <Icon className="size-4" />
                                                     </div>
                                                     <div className="min-w-0 text-left">
-                                                        <div className="truncate text-xs font-semibold leading-tight text-foreground">
+                                                        <div className="text-foreground truncate text-xs leading-tight font-semibold">
                                                             {item.title}
                                                         </div>
-                                                        <div className="truncate text-[10px] text-muted-foreground font-normal leading-tight mt-0.5 hidden sm:block">
+                                                        <div className="text-muted-foreground mt-0.5 hidden truncate text-[10px] leading-tight font-normal sm:block">
                                                             {item.description}
                                                         </div>
                                                     </div>
                                                 </div>
 
                                                 {item.badge && (
-                                                    <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[9px] font-bold text-primary">
+                                                    <span className="bg-primary/10 text-primary rounded-full px-2 py-0.5 text-[9px] font-bold">
                                                         {item.badge}
                                                     </span>
                                                 )}
@@ -118,10 +120,8 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
                 </aside>
 
                 {/* Form Card Content */}
-                <div className="flex-1 w-full max-w-3xl">
-                    <div className="rounded-[24px] border border-border bg-card p-6 md:p-8 shadow-xs text-card-foreground">
-                        {children}
-                    </div>
+                <div className="w-full max-w-3xl flex-1">
+                    <div className="border-border bg-card text-card-foreground rounded-[24px] border p-6 shadow-xs md:p-8">{children}</div>
                 </div>
             </div>
         </div>

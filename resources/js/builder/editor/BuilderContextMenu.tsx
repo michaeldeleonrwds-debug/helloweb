@@ -91,18 +91,40 @@ export function BuilderContextMenu({
     const menuRef = useRef<HTMLDivElement>(null);
     const [position, setPosition] = useState({ x: target?.x ?? 0, y: target?.y ?? 0 });
 
-    // Clamp coordinates to stay completely within viewport bounds
+    // Measure actual rendered size and keep completely inside viewport
     useEffect(() => {
         if (!target) return;
-        const width = 230;
-        const height = target.type === 'node' ? 380 : 240;
-        const maxX = window.innerWidth - width - 12;
-        const maxY = window.innerHeight - height - 12;
 
-        setPosition({
-            x: Math.max(12, Math.min(target.x, maxX)),
-            y: Math.max(12, Math.min(target.y, maxY)),
-        });
+        const updatePosition = () => {
+            const menuEl = menuRef.current;
+            const menuWidth = menuEl ? menuEl.offsetWidth : 240;
+            const menuHeight = menuEl ? menuEl.offsetHeight : (target.type === 'node' ? 480 : 260);
+
+            const padding = 12;
+            const maxX = Math.max(padding, window.innerWidth - menuWidth - padding);
+            const maxY = Math.max(padding, window.innerHeight - menuHeight - padding);
+
+            // If target is near bottom, flip menu upwards so it doesn't get clipped
+            let nextY = target.y;
+            if (target.y + menuHeight > window.innerHeight - padding) {
+                nextY = Math.max(padding, target.y - menuHeight);
+            }
+
+            let nextX = target.x;
+            if (target.x + menuWidth > window.innerWidth - padding) {
+                nextX = Math.max(padding, target.x - menuWidth);
+            }
+
+            setPosition({
+                x: Math.min(Math.max(padding, nextX), maxX),
+                y: Math.min(Math.max(padding, nextY), maxY),
+            });
+        };
+
+        // Run once on target change, and again after render layout settles
+        updatePosition();
+        const frameId = requestAnimationFrame(updatePosition);
+        return () => cancelAnimationFrame(frameId);
     }, [target]);
 
     // Close on click outside, Escape key, or window scroll/resize
@@ -145,7 +167,7 @@ export function BuilderContextMenu({
     return (
         <div
             ref={menuRef}
-            className="builder-context-menu fixed z-50 min-w-[220px] max-w-[260px] rounded-xl border border-border/80 bg-card/95 p-1.5 text-card-foreground shadow-2xl backdrop-blur-md select-none transition-all duration-75"
+            className="builder-context-menu fixed z-50 min-w-[220px] max-w-[260px] max-h-[calc(100vh-24px)] overflow-y-auto rounded-xl border border-border/80 bg-card/95 p-1.5 text-card-foreground shadow-2xl backdrop-blur-md select-none transition-all duration-75"
             style={{ left: `${position.x}px`, top: `${position.y}px` }}
             role="menu"
             aria-orientation="vertical"

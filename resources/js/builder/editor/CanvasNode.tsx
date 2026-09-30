@@ -233,7 +233,7 @@ export function CanvasNode({
 
     const overlays: ReactNode[] = [];
 
-    if (!editingText && nodeId && hoveredNodeId === nodeId && selectedNodeId !== nodeId) {
+    if (!editingText && nodeId && hoveredNodeId === nodeId && selectedNodeId !== nodeId && componentType !== 'embed.video') {
         overlays.push(<HoverOverlay key="hover" nodeId={nodeId} />);
     }
 
@@ -245,7 +245,7 @@ export function CanvasNode({
         overlays.push(<DropTargetOverlay key="drop-target" nodeId={nodeId} label={componentName} mode={dropTargetMode ?? undefined} />);
     }
 
-    if (!editingText && nodeId && (selectedNodeId === nodeId || (selectedNodeId === null && hoveredNodeId === nodeId))) {
+    if (!editingText && nodeId && selectedNodeId === nodeId) {
         overlays.push(
             <NodeActionsOverlay
                 key="actions"
@@ -292,6 +292,7 @@ export function CanvasNode({
                           menu.classList.toggle('is-open');
                           const isOpen = menu.classList.contains('is-open');
                           menu.style.display = isOpen ? 'flex' : 'none';
+                          header?.classList.toggle('hw-nav-open', isOpen);
                       }
                   }
                   event.stopPropagation();
@@ -362,7 +363,11 @@ export function CanvasNode({
         result.tag === 'p' ? (
             <span key="builder-html-content" dangerouslySetInnerHTML={{ __html: result.html }} />
         ) : (
-            <div key="builder-html-content" className="w-full contents" dangerouslySetInnerHTML={{ __html: result.html }} />
+            <div
+                key="builder-html-content"
+                className={`w-full contents ${componentType === 'embed.video' ? '[&>iframe]:pointer-events-none' : ''}`}
+                dangerouslySetInnerHTML={{ __html: result.html }}
+            />
         )
     ) : null;
     const codePlaceholder = showCodePlaceholder ? (

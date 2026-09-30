@@ -20,6 +20,8 @@ export interface MediaAsset {
     altText?: string | null;
     status: 'active' | 'archived';
     url?: string;
+    folderId?: number | null;
+    uploadedAt?: string | null;
 }
 
 export interface MediaReference {

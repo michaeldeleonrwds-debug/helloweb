@@ -5,8 +5,10 @@ namespace App\Http\Controllers;
 use App\Builder\Document\BuilderDocument;
 use App\Builder\Persistence\BuilderPagePersistenceService;
 use App\Models\Page;
+use App\Models\Template;
 use App\Models\Website;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -64,18 +66,63 @@ final class PublicSiteController extends Controller
 
     public function preview(Page $page, BuilderPagePersistenceService $pages): Response
     {
-        return $this->renderPage($page->website, $page, $pages->loadDocument($page));
+        $website = $page->website->fresh(['headerTemplate', 'footerTemplate']);
+        return $this->renderPage($website, $page, $pages->loadDocument($page), isPreview: true);
     }
 
-    private function renderPage(Website $website, Page $page, BuilderDocument $document): Response
+    /**
+     * Preview a header / footer / page template in the context of the owning
+     * website's real homepage, with this template overlaid.
+     */
+    public function previewTemplate(Request $request, Template $template, BuilderPagePersistenceService $pages): Response
     {
-        $headerDocument = null;
-        if ($website->header_template_id && $website->headerTemplate) {
+        Gate::authorize('view', $template);
+
+        $website = $template->user->websites()->first() ?? Website::current();
+        abort_unless($website instanceof Website, 404);
+
+        $page = $website->homepage ?? $website->pages()->first();
+        abort_unless($page instanceof Page, 404);
+
+        $website->load(['headerTemplate', 'footerTemplate']);
+
+        $headerOverride = null;
+        $footerOverride = null;
+        $document = $pages->loadDocument($page);
+
+        if ($template->type === 'header') {
+            $headerOverride = $template->document;
+        } elseif ($template->type === 'footer') {
+            $footerOverride = $template->document;
+        } elseif ($template->type === 'page') {
+            $document = BuilderDocument::fromArray($template->document);
+        }
+
+        return $this->renderPage(
+            $website,
+            $page,
+            $document,
+            isPreview: true,
+            headerOverride: $headerOverride,
+            footerOverride: $footerOverride,
+        );
+    }
+
+    private function renderPage(
+        Website $website,
+        Page $page,
+        BuilderDocument $document,
+        bool $isPreview = false,
+        ?array $headerOverride = null,
+        ?array $footerOverride = null,
+    ): Response {
+        $headerDocument = $headerOverride;
+        if ($headerDocument === null && $website->header_template_id && $website->headerTemplate) {
             $headerDocument = $website->headerTemplate->document;
         }
 
-        $footerDocument = null;
-        if ($website->footer_template_id && $website->footerTemplate) {
+        $footerDocument = $footerOverride;
+        if ($footerDocument === null && $website->footer_template_id && $website->footerTemplate) {
             $footerDocument = $website->footerTemplate->document;
         }
 
@@ -86,10 +133,17 @@ final class PublicSiteController extends Controller
                 'tagline' => $website->tagline,
                 'faviconUrl' => $website->favicon_url,
             ],
-            'page' => ['title' => $page->title, 'slug' => $page->slug],
+            'page' => [
+                'id' => $page->id,
+                'title' => $page->title,
+                'slug' => $page->slug,
+                'status' => $page->status,
+                'isPublished' => $page->isPublished(),
+            ],
             'document' => $document->toArray(),
             'headerDocument' => $headerDocument,
             'footerDocument' => $footerDocument,
+            'isPreview' => $isPreview,
         ]);
     }
 }

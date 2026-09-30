@@ -14,7 +14,17 @@ export function getRenderResultType(result: RenderResult): string | null {
 export function renderStyleToReactStyle(styles: Record<string, JsonValue>): React.CSSProperties {
     const reactStyle: React.CSSProperties = {};
 
-    Object.entries(styles).forEach(([name, value]) => {
+    const entries = Object.entries(styles);
+    const individualCornerKeys = new Set(['borderTopLeftRadius', 'borderTopRightRadius', 'borderBottomRightRadius', 'borderBottomLeftRadius']);
+    const individualBorderKeys = new Set(['borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth']);
+
+    const hasCornerOverride = entries.some(([k]) => individualCornerKeys.has(k));
+    const hasBorderOverride = entries.some(([k]) => individualBorderKeys.has(k));
+
+    entries.forEach(([name, value]) => {
+        if (name === 'borderRadius' && hasCornerOverride) return;
+        if (name === 'borderWidth' && hasBorderOverride) return;
+
         if (typeof value === 'string' || typeof value === 'number') {
             Object.assign(reactStyle, { [name]: value });
         } else if (isStructuredLength(value)) {

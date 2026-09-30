@@ -30,6 +30,24 @@ final class StyleResolver
             }
         }
 
+        $hasIndividualCornerRadius = isset($styles['borderTopLeftRadius'])
+            || isset($styles['borderTopRightRadius'])
+            || isset($styles['borderBottomRightRadius'])
+            || isset($styles['borderBottomLeftRadius']);
+
+        if ($hasIndividualCornerRadius && isset($styles['borderRadius'])) {
+            unset($styles['borderRadius']);
+        }
+
+        $hasIndividualBorderWidth = isset($styles['borderTopWidth'])
+            || isset($styles['borderRightWidth'])
+            || isset($styles['borderBottomWidth'])
+            || isset($styles['borderLeftWidth']);
+
+        if ($hasIndividualBorderWidth && isset($styles['borderWidth'])) {
+            unset($styles['borderWidth']);
+        }
+
         $styles = (new EffectsComposer)->apply($styles);
 
         ksort($styles);

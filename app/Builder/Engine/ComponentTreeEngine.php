@@ -201,7 +201,15 @@ final readonly class ComponentTreeEngine
             throw TreeOperationException::invalidStyle($node['type'], 'patch', $error);
         }
         foreach ($patch as $key => $_value) {
-            if (! in_array($key, $definition->styleCapabilities(), true)) {
+            $supportsShorthand = str_starts_with($key, 'margin')
+                ? in_array('margin', $definition->styleCapabilities(), true)
+                : (str_starts_with($key, 'padding')
+                    ? in_array('padding', $definition->styleCapabilities(), true)
+                    : (str_starts_with($key, 'border') && str_ends_with($key, 'Width')
+                        ? in_array('borderWidth', $definition->styleCapabilities(), true)
+                        : str_starts_with($key, 'border') && str_ends_with($key, 'Radius') && in_array('borderRadius', $definition->styleCapabilities(), true)));
+
+            if (! in_array($key, $definition->styleCapabilities(), true) && ! $supportsShorthand) {
                 throw TreeOperationException::invalidStyle($node['type'], $key, 'property is not supported.');
             }
         }

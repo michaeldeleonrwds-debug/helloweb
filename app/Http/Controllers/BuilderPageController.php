@@ -11,6 +11,7 @@ use App\Http\Requests\Builder\SaveBuilderDocumentRequest;
 use App\Models\Page;
 use App\Models\PageRevision;
 use App\Models\Template;
+use App\Services\AiConnectionStatusService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -27,6 +28,7 @@ final class BuilderPageController extends Controller
         private readonly MediaAssetService $media,
         private readonly ReusableComponentService $reusableComponents,
         private readonly TemplatePersistenceService $templates,
+        private readonly AiConnectionStatusService $aiStatus,
     ) {}
 
     public function index(Request $request): Response|RedirectResponse
@@ -91,9 +93,10 @@ final class BuilderPageController extends Controller
                 'type' => $template->type,
                 'description' => $template->description,
             ], $allTemplates),
-            'mediaAssets' => $user->mediaAssets()->where('status', 'active')->latest()->get(['id', 'user_id', 'storage_key', 'original_filename', 'mime_type', 'file_size', 'width', 'height', 'alt_text', 'status'])->map(function ($asset) use ($user): array {
+            'mediaAssets' => $user->mediaAssets()->where('status', 'active')->latest()->get(['id', 'user_id', 'folder_id', 'storage_key', 'original_filename', 'mime_type', 'file_size', 'width', 'height', 'alt_text', 'status'])->map(function ($asset) use ($user): array {
                 return [
                     'id' => $asset->id,
+                    'folderId' => $asset->folder_id,
                     'originalFilename' => $asset->original_filename,
                     'mimeType' => $asset->mime_type,
                     'fileSize' => $asset->file_size,
@@ -104,6 +107,14 @@ final class BuilderPageController extends Controller
                     'url' => $this->media->reference($user, $asset)->url,
                 ];
             })->values()->all(),
+            'availablePages' => $website->pages()->orderBy('title')->get(['id', 'title', 'slug', 'status'])->map(fn ($p) => [
+                'id' => $p->id,
+                'title' => $p->title,
+                'slug' => $p->slug,
+                'status' => $p->status,
+                'url' => '/' . ltrim($p->slug, '/'),
+            ])->values()->all(),
+            'aiStatus' => $this->aiStatus->forUser($user),
         ]);
     }
 
@@ -168,9 +179,10 @@ final class BuilderPageController extends Controller
                 'name' => $t->name,
                 'description' => $t->description,
             ], $this->templates->available($user)),
-            'mediaAssets' => $user->mediaAssets()->where('status', 'active')->latest()->get(['id', 'user_id', 'storage_key', 'original_filename', 'mime_type', 'file_size', 'width', 'height', 'alt_text', 'status'])->map(function ($asset) use ($user): array {
+            'mediaAssets' => $user->mediaAssets()->where('status', 'active')->latest()->get(['id', 'user_id', 'folder_id', 'storage_key', 'original_filename', 'mime_type', 'file_size', 'width', 'height', 'alt_text', 'status'])->map(function ($asset) use ($user): array {
                 return [
                     'id' => $asset->id,
+                    'folderId' => $asset->folder_id,
                     'originalFilename' => $asset->original_filename,
                     'mimeType' => $asset->mime_type,
                     'fileSize' => $asset->file_size,
@@ -181,6 +193,14 @@ final class BuilderPageController extends Controller
                     'url' => $this->media->reference($user, $asset)->url,
                 ];
             })->values()->all(),
+            'availablePages' => $website ? $website->pages()->orderBy('title')->get(['id', 'title', 'slug', 'status'])->map(fn ($p) => [
+                'id' => $p->id,
+                'title' => $p->title,
+                'slug' => $p->slug,
+                'status' => $p->status,
+                'url' => '/' . ltrim($p->slug, '/'),
+            ])->values()->all() : [],
+            'aiStatus' => $this->aiStatus->forUser($user),
         ]);
     }
 

@@ -10,7 +10,7 @@ class Template extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['user_id', 'name', 'slug', 'description', 'type', 'is_platform', 'document', 'schema_version', 'status'];
+    protected $fillable = ['user_id', 'name', 'slug', 'description', 'type', 'is_platform', 'is_customized', 'document', 'schema_version', 'status'];
 
     protected function casts(): array
     {
@@ -18,6 +18,7 @@ class Template extends Model
             'document' => 'array',
             'schema_version' => 'integer',
             'is_platform' => 'boolean',
+            'is_customized' => 'boolean',
         ];
     }
 
